@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +20,7 @@ import { formatDate } from "@/lib/utils";
 interface MeasurementChartProps {
   measurements: any[];
   title?: string;
+  metricKey?: string;
 }
 
 type MetricOption = {
@@ -165,8 +166,8 @@ const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, strin
   return null;
 };
 
-export default function MeasurementChart({ measurements, title = "Ölçüm Grafiği" }: MeasurementChartProps) {
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(["weight", "bmi"]);
+export default function MeasurementChart({ measurements, title = "Ölçüm Grafiği", metricKey }: MeasurementChartProps) {
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(metricKey ? [metricKey] : ["weight", "bmi"]);
   const [activeTab, setActiveTab] = useState("line");
   
   // En yeni tarihten en eskiye doğru sırala
