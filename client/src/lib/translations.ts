@@ -216,7 +216,10 @@ export function translateFood(englishName: string | null | undefined): string {
 }
 
 // Türkçe'den İngilizce'ye yemek isimlerini çevirmek için fonksiyon
-export function translateFoodToEnglish(turkishName: string): string {
+export function translateFoodToEnglish(turkishName: string | null | undefined): string {
+  // Null ve undefined kontrolü
+  if (!turkishName) return '';
+  
   // Türkçe-İngilizce çeviri sözlüğü oluştur
   const turkishToEnglish: Record<string, string> = {};
   
@@ -231,7 +234,7 @@ export function translateFoodToEnglish(turkishName: string): string {
   }
   
   // Eğer tam eşleşme yoksa, en iyi kısmi eşleşmeyi bul
-  const words = turkishName.toLowerCase().split(/,|\s|,\s/).filter(word => word.length > 2);
+  const words = turkishName.toLowerCase().split(/,|\s|,\s/).filter(word => word && word.length > 2);
   
   // Her kelimeyi İngilizce'ye çevirmeye çalış
   const translatedWords = words.map(word => turkishToEnglish[word] || word);
@@ -298,6 +301,7 @@ export const uiTranslations: Record<string, string> = {
 };
 
 // UI metinlerini çevirmek için yardımcı fonksiyon
-export function translateUI(englishText: string): string {
+export function translateUI(englishText: string | null | undefined): string {
+  if (!englishText) return '';
   return uiTranslations[englishText] || englishText;
 }
