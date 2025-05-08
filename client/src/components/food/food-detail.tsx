@@ -132,15 +132,65 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
     );
   }
   
+  // Helper function to check if a nutrient exists
+  const hasNutrient = (name) => {
+    return nutrients?.some(n => n.name === name || n.name.includes(name));
+  };
+
+  // For debugging
+  console.log('Nutrients received:', nutrients?.length, nutrients?.map(n => n.name).join(', '));
+
   // Group nutrients by category for display
   const nutrientCategories = {
-    "Macronutrients": ["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars"],
-    "Vitamins": nutrients?.filter(n => n.name.includes("Vitamin")) || [],
+    "Macronutrients": ["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars", "Calories"],
+    "Vitamins": nutrients?.filter(n => 
+      n.name.includes("Vitamin") || 
+      n.name.includes("vitamin") || 
+      n.name.includes("Folate") ||
+      n.name.includes("Niacin") ||
+      n.name.includes("Riboflavin") ||
+      n.name.includes("Thiamin")
+    ) || [],
     "Minerals": nutrients?.filter(n => 
-      ["Calcium", "Iron", "Magnesium", "Phosphorus", "Potassium", "Sodium", "Zinc"].includes(n.name)
+      n.name.includes("Calcium") || 
+      n.name.includes("Iron") || 
+      n.name.includes("Magnesium") || 
+      n.name.includes("Phosphorus") || 
+      n.name.includes("Potassium") || 
+      n.name.includes("Sodium") || 
+      n.name.includes("Zinc") ||
+      n.name.includes("Copper") ||
+      n.name.includes("Manganese") ||
+      n.name.includes("Selenium") ||
+      n.name.includes("Fluoride")
     ) || [],
     "Fatty Acids": nutrients?.filter(n => 
-      n.name.includes("fatty acid") || n.name.includes("Fatty acids")
+      n.name.includes("fatty acid") || 
+      n.name.includes("Fatty acids") ||
+      n.name.includes("saturated") ||
+      n.name.includes("monounsaturated") ||
+      n.name.includes("polyunsaturated") ||
+      n.name.includes("trans") ||
+      n.name.includes("Cholesterol")
+    ) || [],
+    "Other Nutrients": nutrients?.filter(n => 
+      !n.name.includes("Vitamin") && 
+      !n.name.includes("vitamin") && 
+      !n.name.includes("Calcium") && 
+      !n.name.includes("Iron") && 
+      !n.name.includes("Magnesium") && 
+      !n.name.includes("Phosphorus") && 
+      !n.name.includes("Potassium") && 
+      !n.name.includes("Sodium") && 
+      !n.name.includes("Zinc") &&
+      !n.name.includes("fatty acid") &&
+      !n.name.includes("Fatty acids") &&
+      !n.name.includes("saturated") &&
+      !n.name.includes("monounsaturated") &&
+      !n.name.includes("polyunsaturated") &&
+      !n.name.includes("trans") &&
+      !n.name.includes("Cholesterol") &&
+      !["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars", "Calories"].includes(n.name)
     ) || [],
   };
   
@@ -225,8 +275,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="all">
-                <TabsList className="grid grid-cols-3 mb-4">
+                <TabsList className="grid grid-cols-4 mb-4">
                   <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="macros">Macros</TabsTrigger>
                   <TabsTrigger value="vitamins">Vitamins</TabsTrigger>
                   <TabsTrigger value="minerals">Minerals</TabsTrigger>
                 </TabsList>
@@ -265,6 +316,24 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                         <Separator className="my-2" />
                       </div>
                     ))}
+                  </ScrollArea>
+                </TabsContent>
+                
+                <TabsContent value="macros">
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-1">
+                      {nutrients
+                        ?.filter(n => nutrientCategories.Macronutrients.includes(n.name))
+                        .map((nutrient, i) => (
+                          <div key={i} className="flex justify-between text-sm">
+                            <span>{nutrient.name}</span>
+                            <span className="font-mono">
+                              {formatNutrientValue(nutrient.amount, nutrient.unit)}
+                              {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
                   </ScrollArea>
                 </TabsContent>
                 
