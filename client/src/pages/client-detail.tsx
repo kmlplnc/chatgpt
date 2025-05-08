@@ -920,25 +920,151 @@ export default function ClientDetail() {
                               </td>
                               
                               {/* Vücut Yağı */}
-                              <td className="py-3 px-4 text-sm">{measurement.bodyFatPercentage || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.bodyFatPercentage || "-"}</span>
+                                  {prevMeasurement && measurement.bodyFatPercentage && prevMeasurement.bodyFatPercentage && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.bodyFatPercentage, prevMeasurement.bodyFatPercentage);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Bel */}
-                              <td className="py-3 px-4 text-sm">{measurement.waistCircumference || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.waistCircumference || "-"}</span>
+                                  {prevMeasurement && measurement.waistCircumference && prevMeasurement.waistCircumference && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.waistCircumference, prevMeasurement.waistCircumference);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Kalça */}
-                              <td className="py-3 px-4 text-sm">{measurement.hipCircumference || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.hipCircumference || "-"}</span>
+                                  {prevMeasurement && measurement.hipCircumference && prevMeasurement.hipCircumference && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.hipCircumference, prevMeasurement.hipCircumference);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Göğüs */}
-                              <td className="py-3 px-4 text-sm">{measurement.chestCircumference || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.chestCircumference || "-"}</span>
+                                  {prevMeasurement && measurement.chestCircumference && prevMeasurement.chestCircumference && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.chestCircumference, prevMeasurement.chestCircumference);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Kol */}
-                              <td className="py-3 px-4 text-sm">{measurement.armCircumference || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.armCircumference || "-"}</span>
+                                  {prevMeasurement && measurement.armCircumference && prevMeasurement.armCircumference && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.armCircumference, prevMeasurement.armCircumference);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Uyluk */}
-                              <td className="py-3 px-4 text-sm">{measurement.thighCircumference || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.thighCircumference || "-"}</span>
+                                  {prevMeasurement && measurement.thighCircumference && prevMeasurement.thighCircumference && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.thighCircumference, prevMeasurement.thighCircumference);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Baldır */}
-                              <td className="py-3 px-4 text-sm">{measurement.calfCircumference || "-"}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.calfCircumference || "-"}</span>
+                                  {prevMeasurement && measurement.calfCircumference && prevMeasurement.calfCircumference && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.calfCircumference, prevMeasurement.calfCircumference);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               
                               {/* Boy */}
                               <td className="py-3 px-4 text-sm">{measurement.height || "-"}</td>

@@ -46,32 +46,38 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     
-    // Metrik değerleri
-    const metricDetails = payload.map((entry: any) => {
-      const metricOption = metricOptions.find(m => m.id === entry.dataKey);
-      return {
-        name: metricOption?.label || entry.name,
-        value: entry.value,
-        color: entry.color,
-        unit: metricOption?.unit || ""
-      };
-    });
+    // Metrik değerleri - sadece değeri olan metrikleri göster
+    const metricDetails = payload
+      .filter((entry: any) => entry.value !== undefined && entry.value !== null)
+      .map((entry: any) => {
+        const metricOption = metricOptions.find(m => m.id === entry.dataKey);
+        return {
+          name: metricOption?.label || entry.name,
+          value: entry.value,
+          color: entry.color,
+          unit: metricOption?.unit || ""
+        };
+      });
     
     return (
       <div className="bg-background border rounded-lg p-3 shadow-lg">
         <p className="text-sm font-semibold border-b pb-1 mb-2">{formatDate(data.date)}</p>
         <div className="space-y-1.5">
-          {metricDetails.map((metric, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <div className="flex items-center">
-                <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
-                <span className="text-sm">{metric.name}:</span>
+          {metricDetails.length > 0 ? (
+            metricDetails.map((metric, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
+                  <span className="text-sm">{metric.name}:</span>
+                </div>
+                <span className="text-sm font-medium ml-2">
+                  {Number(metric.value).toFixed(1)} {metric.unit}
+                </span>
               </div>
-              <span className="text-sm font-medium ml-2">
-                {Number(metric.value).toFixed(1)} {metric.unit}
-              </span>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">Bu tarihte seçili metrikler için veri yok</div>
+          )}
         </div>
       </div>
     );
@@ -85,17 +91,19 @@ const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, strin
     // Tarih formatı
     const formattedDate = formatDate(label);
     
-    // Metrik değerleri
-    const metricDetails = payload.map((entry: any) => {
-      const metricOption = metricOptions.find(m => m.id === entry.dataKey);
-      return {
-        name: metricOption?.label || entry.name,
-        value: entry.value,
-        color: entry.color,
-        unit: metricOption?.unit || "",
-        dataKey: entry.dataKey
-      };
-    });
+    // Metrik değerleri - sadece değeri olan metrikleri göster
+    const metricDetails = payload
+      .filter((entry: any) => entry.value !== undefined && entry.value !== null)
+      .map((entry: any) => {
+        const metricOption = metricOptions.find(m => m.id === entry.dataKey);
+        return {
+          name: metricOption?.label || entry.name,
+          value: entry.value,
+          color: entry.color,
+          unit: metricOption?.unit || "",
+          dataKey: entry.dataKey
+        };
+      });
     
     // Bir önceki ölçümden fark hesaplama
     const calculateChange = (dataKey: string, currentValue: number) => {
@@ -137,27 +145,31 @@ const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, strin
       <div className="bg-background border rounded-lg p-3 shadow-lg">
         <p className="text-sm font-semibold border-b pb-1 mb-2">{formattedDate}</p>
         <div className="space-y-2">
-          {metricDetails.map((metric, index) => {
-            const change = calculateChange(metric.dataKey, metric.value);
-            
-            return (
-              <div key={index} className="space-y-0.5">
-                <div className="flex items-center">
-                  <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
-                  <span className="text-sm font-medium">{metric.name}</span>
+          {metricDetails.length > 0 ? (
+            metricDetails.map((metric, index) => {
+              const change = calculateChange(metric.dataKey, metric.value);
+              
+              return (
+                <div key={index} className="space-y-0.5">
+                  <div className="flex items-center">
+                    <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
+                    <span className="text-sm font-medium">{metric.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between pl-5">
+                    <span className="text-sm">{Number(metric.value).toFixed(1)} {metric.unit}</span>
+                    
+                    {change && (
+                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${change.isDesirable ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                        {change.symbol}{change.change} {metric.unit}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between pl-5">
-                  <span className="text-sm">{Number(metric.value).toFixed(1)} {metric.unit}</span>
-                  
-                  {change && (
-                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${change.isDesirable ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                      {change.symbol}{change.change} {metric.unit}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="text-sm text-muted-foreground">Bu tarihte seçili metrikler için veri yok</div>
+          )}
         </div>
       </div>
     );
@@ -190,8 +202,13 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
       // Metrikleri sayısal değere dönüştür
       const numericData: any = { ...m };
       metricOptions.forEach(metric => {
+        // Eğer metrik değeri varsa sayısal değere dönüştür
         if (m[metric.id] !== null && m[metric.id] !== undefined) {
           numericData[metric.id] = Number(m[metric.id]);
+        } else {
+          // Eğer değer yoksa, grafik gösteriminde sorun yaşanmaması için
+          // bu metriği undefined olarak bırak (null değil)
+          numericData[metric.id] = undefined;
         }
       });
       
