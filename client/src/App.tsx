@@ -15,9 +15,6 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/diet-plans" component={DietPlans} />
-      <Route path="/create-diet-plan">
-        {() => <Redirect to="/diet-plans" />}
-      </Route>
       <Route path="/food-database" component={FoodDatabase} />
       <Route path="/food/:id" component={FoodDetail} />
       <Route component={NotFound} />

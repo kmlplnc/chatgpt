@@ -100,12 +100,6 @@ export default function DietPlans() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-3xl font-bold">Diet Plans</h1>
-        <Button asChild className="sm:w-auto w-full">
-          <Link href="/create-diet-plan">
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Create New Plan
-          </Link>
-        </Button>
       </div>
       
       <div className="flex flex-col sm:flex-row gap-4">
@@ -183,9 +177,6 @@ export default function DietPlans() {
               ) : (
                 <div className="space-y-4">
                   <p>You don't have any diet plans yet.</p>
-                  <Button asChild>
-                    <Link href="/create-diet-plan">Create Your First Diet Plan</Link>
-                  </Button>
                 </div>
               )}
             </div>
