@@ -198,7 +198,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
         n.name.includes("Cholesterol")
       )
     ) || [],
-    [translateUI("Other Nutrients")]: nutrients?.filter((n: any) => 
+    "Other Nutrients": nutrients?.filter((n: any) => 
       typeof n.name === 'string' && (
         !n.name.includes("Vitamin") && 
         !n.name.includes("vitamin") && 
@@ -234,14 +234,14 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                 </CardDescription>
               )}
             </div>
-            <Badge>{translateFood(food.dataType || "")}</Badge>
+            <Badge>{simplifiedFood(food.dataType)}</Badge>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2 mb-4">
             {food.foodCategory && (
               <Badge variant="outline" className="text-xs">
-                {translateFood(food.foodCategory)}
+                {simplifiedFood(food.foodCategory)}
               </Badge>
             )}
             {food.foodAttributes && Array.isArray(food.foodAttributes) && food.foodAttributes.map((attr: any, i: number) => (
@@ -261,24 +261,24 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
               {isSaved ? (
                 <>
                   <BookmarkCheck className="h-4 w-4 mr-2" />
-                  {translateUI("Saved")}
+                  {simplifiedUI("Saved")}
                 </>
               ) : (
                 <>
                   <BookmarkPlus className="h-4 w-4 mr-2" />
-                  {translateUI("Save")}
+                  {simplifiedUI("Save")}
                 </>
               )}
             </Button>
             
             <Button variant="outline" size="sm">
               <Share2 className="h-4 w-4 mr-2" />
-              {translateUI("Share")}
+              {simplifiedUI("Share")}
             </Button>
             
             <Button variant="outline" size="sm">
               <Printer className="h-4 w-4 mr-2" />
-              {translateUI("Print")}
+              {simplifiedUI("Print")}
             </Button>
           </div>
         </CardContent>
@@ -297,19 +297,19 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
         <div className="md:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">{translateUI("Nutrition Facts")}</CardTitle>
+              <CardTitle className="text-lg">{simplifiedUI("Nutrition Facts")}</CardTitle>
               <CardDescription>
-                {translateUI("Serving Size")}: {food.servingSize || "100"}{food.servingSizeUnit || "g"}
+                {simplifiedUI("Serving Size")}: {food.servingSize || "100"}{food.servingSizeUnit || "g"}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {nutrients && nutrients.length > 0 ? (
                 <Tabs defaultValue="all">
                   <TabsList className="grid grid-cols-4 mb-4">
-                    <TabsTrigger value="all" className="px-1">{translateUI("All")}</TabsTrigger>
-                    <TabsTrigger value="macros" className="px-1">{translateUI("Macros")}</TabsTrigger>
-                    <TabsTrigger value="vitamins" className="px-1">{translateUI("Vitamins")}</TabsTrigger>
-                    <TabsTrigger value="minerals" className="px-1">{translateUI("Minerals")}</TabsTrigger>
+                    <TabsTrigger value="all" className="px-1">{simplifiedUI("All")}</TabsTrigger>
+                    <TabsTrigger value="macros" className="px-1">{simplifiedUI("Macros")}</TabsTrigger>
+                    <TabsTrigger value="vitamins" className="px-1">{simplifiedUI("Vitamins")}</TabsTrigger>
+                    <TabsTrigger value="minerals" className="px-1">{simplifiedUI("Minerals")}</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="all">
