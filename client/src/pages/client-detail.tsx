@@ -285,70 +285,95 @@ export default function ClientDetail() {
     },
   });
   
-  // Yeni ölçüm ekleme
+  // Yeni ölçüm ekleme - geliştirilmiş veri validasyonu
   function onSubmit(data: MeasurementFormValues) {
-    // BMI'ı otomatik hesapla
-    const bmi = calculateBMI(data.weight, data.height);
-    const measurementData = {
-      ...data,
-      clientId: Number(id),
-      bmi: bmi.toString(), // Stringe dönüştür
+    // Sayısal değerler için güvenli dönüşüm fonksiyonu
+    const safeNumericValue = (value: any): number | null => {
+      if (value === "" || value === null || value === undefined) return null;
+      const numValue = Number(value);
+      return isNaN(numValue) ? null : numValue;
     };
     
+    // Temel gerekli verileri ayarla - sayısal değerlerin güvenli olduğundan emin ol
+    const weight = safeNumericValue(data.weight) || 0; // Ağırlık gerekli, bu yüzden 0 kullan
+    const height = safeNumericValue(data.height) || 0; // Boy gerekli, bu yüzden 0 kullan
+    
+    // BMI'ı otomatik hesapla
+    const bmi = calculateBMI(weight, height);
+    
+    // İsteğe bağlı alanları güvenli bir şekilde işle
+    const optionalMeasurements = {
+      bodyFatPercentage: safeNumericValue(data.bodyFatPercentage),
+      waistCircumference: safeNumericValue(data.waistCircumference),
+      hipCircumference: safeNumericValue(data.hipCircumference),
+      chestCircumference: safeNumericValue(data.chestCircumference),
+      armCircumference: safeNumericValue(data.armCircumference),
+      thighCircumference: safeNumericValue(data.thighCircumference),
+      calfCircumference: safeNumericValue(data.calfCircumference)
+    };
+    
+    // Diğer alanları ekle
+    const measurementData = {
+      date: data.date || new Date().toISOString().split("T")[0], // Tarih gereklidir
+      weight,
+      height,
+      bmi: bmi.toString(),
+      clientId: Number(id),
+      activityLevel: data.activityLevel || "moderate",
+      notes: data.notes || "",
+      ...optionalMeasurements
+    };
+    
+    console.log("Yeni ölçüm için hazırlanan veri:", JSON.stringify(measurementData, null, 2));
+    
+    // Yeni ölçüm ekle
     addMeasurementMutation.mutate(measurementData);
   }
   
-  // Ölçüm düzenleme
+  // Ölçüm düzenleme - geliştirilmiş veri doğrulama ve temizleme
   function onEditSubmit(data: MeasurementFormValues) {
     if (!selectedMeasurement) return;
     
-    // Sadece numerik alanları kontrol et
-    // TypeScript for index signature
-    interface CleanedData extends Record<string, any> {
-      date: string;
-      weight: number;
-      height: number;
-      bodyFatPercentage?: number | null;
-      waistCircumference?: number | null;
-      hipCircumference?: number | null;
-      chestCircumference?: number | null;
-      armCircumference?: number | null;
-      thighCircumference?: number | null;
-      calfCircumference?: number | null;
-      activityLevel?: string;
-      notes?: string;
-    }
-    
-    // Başlangıç verilerini kopyala
-    const cleanedData: CleanedData = { ...data };
-    
-    // Seçimli (optional) olan alanları işle - undefined veya boş string olabilirler
-    // Bu değerleri temizle ya da gerekirse uygun formata dönüştür
-    const optionalNumericFields = [
-      "bodyFatPercentage", "waistCircumference", "hipCircumference", 
-      "chestCircumference", "armCircumference", "thighCircumference", 
-      "calfCircumference"
-    ];
-    
-    // Optional alanları temizle
-    optionalNumericFields.forEach(field => {
-      const value = cleanedData[field];
-      if (value === "" || value === null || value === undefined || Number.isNaN(Number(value))) {
-        cleanedData[field] = null; // Null değerini kullan
-      }
-    });
-    
-    // BMI'ı otomatik hesapla
-    const bmi = calculateBMI(data.weight, data.height);
-    
-    const measurementData = {
-      ...cleanedData,
-      clientId: Number(id),
-      bmi: bmi.toString(), // Stringe dönüştür
+    // Sayısal değerler için güvenli dönüşüm fonksiyonu
+    const safeNumericValue = (value: any): number | null => {
+      if (value === "" || value === null || value === undefined) return null;
+      const numValue = Number(value);
+      return isNaN(numValue) ? null : numValue;
     };
     
-    console.log("Temizlenmiş düzenleme verisi:", JSON.stringify(measurementData));
+    // Temel gerekli verileri ayarla - sayısal değerlerin güvenli olduğundan emin ol
+    const weight = safeNumericValue(data.weight) || 0; // Ağırlık gerekli, bu yüzden 0 kullan
+    const height = safeNumericValue(data.height) || 0; // Boy gerekli, bu yüzden 0 kullan
     
+    // BMI'ı otomatik hesapla
+    const bmi = calculateBMI(weight, height);
+    
+    // İsteğe bağlı alanları güvenli bir şekilde işle
+    const optionalMeasurements = {
+      bodyFatPercentage: safeNumericValue(data.bodyFatPercentage),
+      waistCircumference: safeNumericValue(data.waistCircumference),
+      hipCircumference: safeNumericValue(data.hipCircumference),
+      chestCircumference: safeNumericValue(data.chestCircumference),
+      armCircumference: safeNumericValue(data.armCircumference),
+      thighCircumference: safeNumericValue(data.thighCircumference),
+      calfCircumference: safeNumericValue(data.calfCircumference)
+    };
+    
+    // Diğer alanları ekle
+    const measurementData = {
+      date: data.date || new Date().toISOString().split("T")[0], // Tarih gereklidir
+      weight,
+      height,
+      bmi: bmi.toString(),
+      clientId: Number(id),
+      activityLevel: data.activityLevel || "moderate",
+      notes: data.notes || "",
+      ...optionalMeasurements
+    };
+    
+    console.log("Güncelleme için hazırlanan veri:", JSON.stringify(measurementData, null, 2));
+    
+    // Ölçümü güncelle
     updateMeasurementMutation.mutate({ 
       measurementId: selectedMeasurement.id, 
       data: measurementData 
