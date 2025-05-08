@@ -5,92 +5,107 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Format number with commas for thousands
-export function formatNumber(num: number): string {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+/**
+ * Calculates BMI (Body Mass Index)
+ * @param weight Weight in kg
+ * @param height Height in cm
+ * @returns BMI value
+ */
+export function calculateBMI(weight: number, height: number): number {
+  // BMI = weight(kg) / (height(m) * height(m))
+  const heightInMeters = height / 100;
+  return weight / (heightInMeters * heightInMeters);
 }
 
-// Format date to display in a human-friendly format
-export function formatDate(date: Date | string): string {
-  if (typeof date === "string") {
-    date = new Date(date);
+/**
+ * Formats a date string to a localized format
+ * @param dateString Date string to format
+ * @returns Formatted date string
+ */
+export function formatDate(dateString: string | undefined | null): string {
+  if (!dateString) return "Belirtilmemiş";
+  
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("tr-TR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(date);
+  } catch (error) {
+    return dateString.toString();
   }
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(date);
 }
 
-// Calculate BMI based on weight in kg and height in cm
-export function calculateBMI(weightKg: number, heightCm: number): number {
-  if (heightCm <= 0 || weightKg <= 0) return 0;
-  const heightM = heightCm / 100;
-  return weightKg / (heightM * heightM);
-}
-
-// Get BMI category
-export function getBMICategory(bmi: number): string {
-  if (bmi < 18.5) return "Underweight";
-  if (bmi < 25) return "Normal weight";
-  if (bmi < 30) return "Overweight";
-  return "Obese";
-}
-
-// Calculate daily calorie needs using Harris-Benedict equation
-export function calculateDailyCalories(
+/**
+ * Calculates BMR (Basal Metabolic Rate) using the Mifflin-St Jeor Equation
+ * @param weight Weight in kg
+ * @param height Height in cm
+ * @param age Age in years
+ * @param gender 'male' or 'female'
+ * @returns BMR value in calories
+ */
+export function calculateBMR(
+  weight: number,
+  height: number,
   age: number,
-  gender: "male" | "female",
-  weightKg: number,
-  heightCm: number,
-  activityLevel: "sedentary" | "light" | "moderate" | "active" | "very_active"
+  gender: "male" | "female"
 ): number {
-  // Base BMR calculation using Harris-Benedict equation
-  let bmr;
+  // Mifflin-St Jeor Equation
+  // BMR (men) = (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) + 5
+  // BMR (women) = (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) - 161
   
-  if (gender === "male") {
-    bmr = 88.362 + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * age);
-  } else {
-    bmr = 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * age);
-  }
+  const commonCalculation = 10 * weight + 6.25 * height - 5 * age;
   
-  // Activity multiplier
-  const activityMultipliers = {
-    sedentary: 1.2,        // Little or no exercise
-    light: 1.375,          // Light exercise 1-3 days/week
-    moderate: 1.55,        // Moderate exercise 3-5 days/week
-    active: 1.725,         // Hard exercise 6-7 days/week
-    very_active: 1.9       // Very hard exercise & physical job or 2x training
+  return gender === "male"
+    ? commonCalculation + 5
+    : commonCalculation - 161;
+}
+
+/**
+ * Calculates TDEE (Total Daily Energy Expenditure) based on BMR and activity level
+ * @param bmr Basal Metabolic Rate
+ * @param activityLevel Activity level factor
+ * @returns TDEE value in calories
+ */
+export function calculateTDEE(bmr: number, activityLevel: string): number {
+  // Activity level multipliers
+  const activityMultipliers: {[key: string]: number} = {
+    sedentary: 1.2, // Little or no exercise
+    light: 1.375, // Light exercise 1-3 days/week
+    moderate: 1.55, // Moderate exercise 3-5 days/week
+    active: 1.725, // Heavy exercise 6-7 days/week
+    very_active: 1.9, // Very heavy exercise, physical job or training twice a day
   };
   
-  return Math.round(bmr * activityMultipliers[activityLevel]);
+  const multiplier = activityMultipliers[activityLevel] || 1.2;
+  return bmr * multiplier;
 }
 
-// Calculate macronutrient distribution
-export function calculateMacros(
-  calories: number,
-  proteinPercentage: number,
-  carbPercentage: number,
-  fatPercentage: number
-) {
-  const proteinCals = calories * (proteinPercentage / 100);
-  const carbCals = calories * (carbPercentage / 100);
-  const fatCals = calories * (fatPercentage / 100);
-  
-  return {
-    proteinGrams: Math.round(proteinCals / 4),
-    carbGrams: Math.round(carbCals / 4),
-    fatGrams: Math.round(fatCals / 9),
-  };
+/**
+ * Gets a color class based on BMI value
+ * @param bmi BMI value
+ * @returns CSS color class
+ */
+export function getBMIColorClass(bmi: number): string {
+  if (bmi < 18.5) return "text-blue-500"; // Underweight
+  if (bmi < 25) return "text-green-500"; // Normal
+  if (bmi < 30) return "text-yellow-500"; // Overweight
+  if (bmi < 35) return "text-orange-500"; // Obese Class I
+  if (bmi < 40) return "text-red-500"; // Obese Class II
+  return "text-red-700"; // Obese Class III
 }
 
-// Truncate text to specified length
-export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
-
-// Get a CSS color variable value
-export function getCSSVar(variable: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(variable);
+/**
+ * Gets BMI category text based on BMI value
+ * @param bmi BMI value
+ * @returns BMI category text
+ */
+export function getBMICategory(bmi: number): string {
+  if (bmi < 18.5) return "Zayıf";
+  if (bmi < 25) return "Normal";
+  if (bmi < 30) return "Kilolu";
+  if (bmi < 35) return "Obez - I";
+  if (bmi < 40) return "Obez - II";
+  return "Aşırı Obez - III";
 }

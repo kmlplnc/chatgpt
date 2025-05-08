@@ -38,8 +38,9 @@ import { Separator } from "@/components/ui/separator";
 import { 
   calculateBMI, 
   getBMICategory, 
-  calculateDailyCalories, 
-  calculateMacros 
+  getBMIColorClass,
+  calculateBMR,
+  calculateTDEE
 } from "@/lib/utils";
 import { 
   Alert, 
@@ -217,33 +218,38 @@ export default function HealthCalculator() {
   // Form gönderimi işleme
   const onSubmit = (data: HealthFormValues) => {
     // BMR hesapla (Bazal Metabolizma Hızı)
-    const bmr = calculateDailyCalories(
-      data.age,
-      data.gender,
+    const bmr = calculateBMR(
       data.weight,
       data.height,
-      data.activityLevel
+      data.age,
+      data.gender
     );
+    
+    // TDEE hesapla (Toplam Günlük Enerji Tüketimi)
+    const tdee = calculateTDEE(bmr, data.activityLevel);
     
     // BMI hesapla (Beden Kitle İndeksi)
     const bmi = calculateBMI(data.weight, data.height);
     const bmiCategory = getBMICategory(bmi);
     
     // Hedef kalorileri hesapla
-    const targetCalories = Math.round(bmr * goalFactors[data.goal]);
+    const targetCalories = Math.round(tdee * goalFactors[data.goal]);
     
     // Makro besinleri hesapla
-    const macros = calculateMacros(
-      targetCalories,
-      data.proteinPercentage,
-      data.carbsPercentage,
-      data.fatPercentage
-    );
+    const proteinGrams = Math.round((targetCalories * (data.proteinPercentage / 100)) / 4); // 1g protein = 4 kalori
+    const carbGrams = Math.round((targetCalories * (data.carbsPercentage / 100)) / 4); // 1g karbonhidrat = 4 kalori
+    const fatGrams = Math.round((targetCalories * (data.fatPercentage / 100)) / 9); // 1g yağ = 9 kalori
+    
+    const macros = {
+      proteinGrams,
+      carbGrams,
+      fatGrams
+    };
     
     // Sonuçları ayarla
     setCalculationResult({
-      bmr: Math.round(bmr / activityMultipliers[data.activityLevel]), // Gerçek BMR değeri (aktivite çarpanı olmadan)
-      tdee: bmr, // TDEE (Toplam Günlük Enerji Harcaması)
+      bmr: Math.round(bmr), // Gerçek BMR değeri
+      tdee: Math.round(tdee), // TDEE (Toplam Günlük Enerji Harcaması)
       bmi,
       bmiCategory,
       macros: {

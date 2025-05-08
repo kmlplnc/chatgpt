@@ -1,75 +1,125 @@
-import React from "react";
+import React, { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart,
   Line,
+  CartesianGrid,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  TooltipProps,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Measurement } from "@shared/schema";
 import { formatDate } from "@/lib/utils";
 
 interface MeasurementChartProps {
-  measurements: Measurement[];
+  measurements: any[];
   title?: string;
 }
 
+type MetricOption = {
+  id: string;
+  label: string;
+  color: string;
+  unit: string;
+};
+
+const metricOptions: MetricOption[] = [
+  { id: "weight", label: "Kilo", color: "#4f46e5", unit: "kg" },
+  { id: "bmi", label: "BMI", color: "#10b981", unit: "" },
+  { id: "bodyFatPercentage", label: "Vücut Yağ Oranı", color: "#f59e0b", unit: "%" },
+  { id: "waistCircumference", label: "Bel Çevresi", color: "#ef4444", unit: "cm" },
+  { id: "hipCircumference", label: "Kalça Çevresi", color: "#8b5cf6", unit: "cm" },
+  { id: "chestCircumference", label: "Göğüs Çevresi", color: "#0ea5e9", unit: "cm" },
+  { id: "armCircumference", label: "Kol Çevresi", color: "#14b8a6", unit: "cm" },
+  { id: "thighCircumference", label: "Uyluk Çevresi", color: "#f43f5e", unit: "cm" },
+  { id: "calfCircumference", label: "Baldır Çevresi", color: "#84cc16", unit: "cm" },
+];
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const metric = metricOptions.find(m => m.id === payload[0].dataKey);
+    
+    return (
+      <div className="bg-white p-4 border rounded shadow-md">
+        <p className="font-medium">{formatDate(data.date)}</p>
+        <p className="text-sm" style={{ color: metric?.color }}>
+          {metric?.label}: {payload[0].value} {metric?.unit}
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-4 border rounded shadow-md">
+        <p className="font-medium">{formatDate(label)}</p>
+        {payload.map((entry, index) => {
+          const metric = metricOptions.find(m => m.id === entry.dataKey);
+          return (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {metric?.label}: {entry.value} {metric?.unit}
+            </p>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return null;
+};
+
 export default function MeasurementChart({ measurements, title = "Ölçüm Grafiği" }: MeasurementChartProps) {
-  const [metricType, setMetricType] = React.useState("weight");
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(["weight", "bmi"]);
+  const [activeTab, setActiveTab] = useState("line");
   
-  // Sort measurements by date (oldest to newest)
-  const sortedMeasurements = [...measurements].sort((a, b) => 
-    new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()
-  );
+  // En yeni tarihten en eskiye doğru sırala
+  const sortedMeasurements = [...measurements].sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
   
-  // Prepare data for chart
-  const chartData = sortedMeasurements.map(m => ({
-    date: formatDate(m.date!),
-    weight: Number(m.weight) || 0,
-    bmi: Number(m.bmi) || 0,
-    bodyFatPercentage: Number(m.bodyFatPercentage) || 0,
-    waistCircumference: Number(m.waistCircumference) || 0,
-    hipCircumference: Number(m.hipCircumference) || 0,
-    chestCircumference: Number(m.chestCircumference) || 0,
-    armCircumference: Number(m.armCircumference) || 0,
-    thighCircumference: Number(m.thighCircumference) || 0,
-    calfCircumference: Number(m.calfCircumference) || 0,
-  }));
+  // Son 10 ölçümü al ve grafikte kullanmak için ters çevir (en eskiden en yeniye)
+  const chartData = [...sortedMeasurements]
+    .slice(0, 10)
+    .reverse()
+    .map((m) => ({
+      ...m,
+      date: m.date,
+      displayDate: formatDate(m.date),
+    }));
   
-  // Define metrics options
-  const metrics = [
-    { value: "weight", label: "Ağırlık (kg)", color: "#8884d8" },
-    { value: "bmi", label: "BKİ", color: "#82ca9d" },
-    { value: "bodyFatPercentage", label: "Vücut Yağ Oranı (%)", color: "#ffc658" },
-    { value: "waistCircumference", label: "Bel Çevresi (cm)", color: "#ff8042" },
-    { value: "hipCircumference", label: "Kalça Çevresi (cm)", color: "#a4de6c" },
-    { value: "chestCircumference", label: "Göğüs Çevresi (cm)", color: "#d0ed57" },
-    { value: "armCircumference", label: "Kol Çevresi (cm)", color: "#83a6ed" },
-    { value: "thighCircumference", label: "Uyluk Çevresi (cm)", color: "#8dd1e1" },
-    { value: "calfCircumference", label: "Baldır Çevresi (cm)", color: "#f780bf" },
-  ];
+  // Metric seçimini değiştir
+  const handleMetricChange = (metric: string) => {
+    if (selectedMetrics.includes(metric)) {
+      setSelectedMetrics(selectedMetrics.filter((m) => m !== metric));
+    } else {
+      setSelectedMetrics([...selectedMetrics, metric]);
+    }
+  };
   
-  // Get selected metric info
-  const selectedMetric = metrics.find(m => m.value === metricType) || metrics[0];
+  // Seçilen metrik listesini kontrol et
+  const isMetricSelected = (metric: string) => selectedMetrics.includes(metric);
   
-  // Check if we have data
-  if (chartData.length === 0) {
+  // Eğer ölçüm yoksa
+  if (measurements.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>{title}</CardTitle>
+          <CardDescription>Danışanın ölçüm değişimleri</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center h-[300px]">
-            <p className="text-muted-foreground">
-              Henüz ölçüm verisi bulunmamaktadır.
-            </p>
-          </div>
+        <CardContent className="flex justify-center items-center h-64">
+          <p className="text-muted-foreground">Henüz ölçüm kaydı bulunmamaktadır.</p>
         </CardContent>
       </Card>
     );
@@ -77,55 +127,108 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
   
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{title}</CardTitle>
-        <Select value={metricType} onValueChange={setMetricType}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Ölçüm türü seçin" />
-          </SelectTrigger>
-          <SelectContent>
-            {metrics.map(metric => (
-              <SelectItem key={metric.value} value={metric.value}>
-                {metric.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <CardHeader>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>Danışanın ölçüm değişimleri</CardDescription>
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2 justify-end">
+              {metricOptions.map((metric) => (
+                <button
+                  key={metric.id}
+                  onClick={() => handleMetricChange(metric.id)}
+                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                    isMetricSelected(metric.id)
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {metric.label}
+                </button>
+              ))}
+            </div>
+            
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="line">Çizgi Grafik</TabsTrigger>
+                <TabsTrigger value="bar">Çubuk Grafik</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
+      
+      <CardContent className="h-96">
+        <TabsContent value="line" className="h-full mt-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 25,
-              }}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                angle={-45} 
-                textAnchor="end"
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis
+                dataKey="displayDate"
                 tick={{ fontSize: 12 }}
-                height={60}
+                tickFormatter={(value) => value.split(' ')[0]}
               />
               <YAxis />
-              <Tooltip />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey={metricType}
-                name={selectedMetric.label}
-                stroke={selectedMetric.color}
-                activeDot={{ r: 8 }}
-                strokeWidth={2}
-              />
+              {selectedMetrics.map((metric) => {
+                const metricOption = metricOptions.find((m) => m.id === metric);
+                if (!metricOption) return null;
+                
+                return (
+                  <Line
+                    key={metric}
+                    type="monotone"
+                    dataKey={metric}
+                    name={metricOption.label}
+                    stroke={metricOption.color}
+                    activeDot={{ r: 6 }}
+                    strokeWidth={2}
+                  />
+                );
+              })}
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </TabsContent>
+        
+        <TabsContent value="bar" className="h-full mt-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 12 }}
+                tickFormatter={(value) => value.split('T')[0]}
+              />
+              <YAxis />
+              <Tooltip content={<CustomBarTooltip />} />
+              <Legend />
+              {selectedMetrics.map((metric) => {
+                const metricOption = metricOptions.find((m) => m.id === metric);
+                if (!metricOption) return null;
+                
+                return (
+                  <Bar
+                    key={metric}
+                    dataKey={metric}
+                    name={metricOption.label}
+                    fill={metricOption.color}
+                    radius={[4, 4, 0, 0]}
+                  />
+                );
+              })}
+            </BarChart>
+          </ResponsiveContainer>
+        </TabsContent>
       </CardContent>
     </Card>
   );

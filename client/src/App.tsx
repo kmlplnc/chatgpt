@@ -11,6 +11,7 @@ import FoodDatabase from "@/pages/food-database";
 import FoodDetail from "@/pages/food-detail";
 import HealthCalculator from "@/pages/health-calculator";
 import ClientsPage from "@/pages/clients";
+import ClientDetail from "@/pages/client-detail";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/food/:id" component={FoodDetail} />
       <Route path="/health-calculator" component={HealthCalculator} />
       <Route path="/clients" component={ClientsPage} />
+      <Route path="/clients/:id" component={ClientDetail} />
       <Route component={NotFound} />
     </Switch>
   );
