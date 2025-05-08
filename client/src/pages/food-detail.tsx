@@ -19,8 +19,9 @@ export default function FoodDetailPage() {
     error: foodError,
     isError: isFoodError
   } = useQuery({
-    queryKey: [`/api/foods/${id}`],
-    queryFn: () => getFoodDetails(id),
+    queryKey: [`/api/foods/${id || ''}`],
+    queryFn: () => id ? getFoodDetails(id) : Promise.reject('No food ID provided'),
+    enabled: !!id,
   });
   
   // Fetch food nutrients
@@ -30,9 +31,9 @@ export default function FoodDetailPage() {
     error: nutrientsError,
     isError: isNutrientsError
   } = useQuery({
-    queryKey: [`/api/foods/${id}/nutrients`],
-    queryFn: () => getFoodNutrients(id),
-    enabled: !!food,
+    queryKey: [`/api/foods/${id || ''}/nutrients`],
+    queryFn: () => id ? getFoodNutrients(id) : Promise.reject('No food ID provided'),
+    enabled: !!id && !!food,
   });
   
   // Handle back button click
@@ -77,8 +78,8 @@ export default function FoodDetailPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-2xl">{food.description}</CardTitle>
-                  {food.brandName && (
+                  <CardTitle className="text-2xl">{typeof food.description === 'string' ? food.description : 'Food Details'}</CardTitle>
+                  {food.brandName && typeof food.brandName === 'string' && (
                     <CardDescription className="text-md">
                       {food.brandName}
                     </CardDescription>
@@ -91,7 +92,7 @@ export default function FoodDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2 mb-4">
-                {food.foodCategory && (
+                {food.foodCategory && typeof food.foodCategory === 'string' && (
                   <div className="text-xs border px-2 py-1 rounded-md">
                     {food.foodCategory}
                   </div>
@@ -99,6 +100,26 @@ export default function FoodDetailPage() {
               </div>
             </CardContent>
           </Card>
+          
+          {nutrients && nutrients.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Nutrition Facts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-2">
+                  {nutrients.map((nutrient: any, i: number) => (
+                    <div key={i} className="flex justify-between text-sm border-b pb-1">
+                      <span>{typeof nutrient.name === 'string' ? nutrient.name : 'Nutrient'}</span>
+                      <span className="font-mono">
+                        {nutrient.amount} {nutrient.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : (
         <Alert>
