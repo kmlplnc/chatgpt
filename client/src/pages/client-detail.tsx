@@ -188,6 +188,25 @@ export default function ClientDetail() {
     },
   });
   
+  // Düzenleme form tanımı
+  const editForm = useForm<MeasurementFormValues>({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      weight: 0,
+      height: 0,
+      bodyFatPercentage: undefined,
+      waistCircumference: undefined,
+      hipCircumference: undefined,
+      chestCircumference: undefined,
+      armCircumference: undefined,
+      thighCircumference: undefined,
+      calfCircumference: undefined,
+      activityLevel: "moderate",
+      notes: "",
+    },
+  });
+  
   // Ölçüm ekleme mutation
   const addMeasurementMutation = useMutation({
     mutationFn: (data: MeasurementFormValues) => addMeasurement(id, data),
@@ -209,7 +228,50 @@ export default function ClientDetail() {
     },
   });
   
-  // Form gönderim işlemi
+  // Ölçüm düzenleme mutation
+  const updateMeasurementMutation = useMutation({
+    mutationFn: ({ measurementId, data }: { measurementId: number, data: MeasurementFormValues }) => 
+      updateMeasurement(id, measurementId, data),
+    onSuccess: () => {
+      toast({
+        title: "Başarılı",
+        description: "Ölçüm başarıyla güncellendi",
+      });
+      editForm.reset();
+      setOpenEditMeasurementDialog(false);
+      setSelectedMeasurement(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Hata",
+        description: `Ölçüm güncellenirken bir hata oluştu: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Ölçüm silme mutation
+  const deleteMeasurementMutation = useMutation({
+    mutationFn: ({ measurementId }: { measurementId: number }) => 
+      deleteMeasurement(id, measurementId),
+    onSuccess: () => {
+      toast({
+        title: "Başarılı",
+        description: "Ölçüm başarıyla silindi",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Hata",
+        description: `Ölçüm silinirken bir hata oluştu: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Yeni ölçüm ekleme
   function onSubmit(data: MeasurementFormValues) {
     // BMI'ı otomatik hesapla
     const bmi = calculateBMI(data.weight, data.height);
@@ -220,6 +282,24 @@ export default function ClientDetail() {
     };
     
     addMeasurementMutation.mutate(measurementData);
+  }
+  
+  // Ölçüm düzenleme
+  function onEditSubmit(data: MeasurementFormValues) {
+    if (!selectedMeasurement) return;
+    
+    // BMI'ı otomatik hesapla
+    const bmi = calculateBMI(data.weight, data.height);
+    const measurementData = {
+      ...data,
+      clientId: Number(id),
+      bmi: bmi.toString(), // Stringe dönüştür
+    };
+    
+    updateMeasurementMutation.mutate({ 
+      measurementId: selectedMeasurement.id, 
+      data: measurementData 
+    });
   }
   
   // Son ölçümü bul
@@ -264,6 +344,7 @@ export default function ClientDetail() {
           <p className="text-muted-foreground">{client.email} | {client.phone || "Telefon yok"}</p>
         </div>
         
+        {/* Yeni ölçüm ekleme diyaloğu */}
         <Dialog open={openNewMeasurementDialog} onOpenChange={setOpenNewMeasurementDialog}>
           <DialogTrigger asChild>
             <Button>Yeni Ölçüm Ekle</Button>
@@ -432,6 +513,182 @@ export default function ClientDetail() {
                   </Button>
                   <Button type="submit" disabled={addMeasurementMutation.isPending}>
                     {addMeasurementMutation.isPending ? "Kaydediliyor..." : "Ölçümü Kaydet"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Ölçüm düzenleme diyaloğu */}
+        <Dialog open={openEditMeasurementDialog} onOpenChange={setOpenEditMeasurementDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Ölçüm Düzenle</DialogTitle>
+              <DialogDescription>
+                {client.firstName} {client.lastName} için ölçüm bilgilerini düzenleyin.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+                <FormField
+                  control={editForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ölçüm Tarihi*</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="weight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ağırlık (kg)*</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="height"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Boy (cm)*</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="bodyFatPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="waistCircumference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bel Çevresi (cm)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="hipCircumference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kalça Çevresi (cm)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="chestCircumference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Göğüs Çevresi (cm)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="armCircumference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kol Çevresi (cm)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="thighCircumference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Uyluk Çevresi (cm)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="calfCircumference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Baldır Çevresi (cm)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setOpenEditMeasurementDialog(false);
+                    setSelectedMeasurement(null);
+                  }}>
+                    İptal
+                  </Button>
+                  <Button type="submit" disabled={updateMeasurementMutation.isPending}>
+                    {updateMeasurementMutation.isPending ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
                   </Button>
                 </DialogFooter>
               </form>
