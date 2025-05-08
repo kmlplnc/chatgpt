@@ -428,7 +428,7 @@ export default function ClientDetail() {
                 <Separator className="my-4" />
                 <div>
                   <Label>Güncel BMI</Label>
-                  <p className="text-2xl font-bold">{lastMeasurement?.bmi?.toFixed(1) || "Ölçüm yok"}</p>
+                  <p className="text-2xl font-bold">{lastMeasurement?.bmi ? lastMeasurement.bmi : "Ölçüm yok"}</p>
                 </div>
                 <div>
                   <Label>Güncel Kilo</Label>
@@ -489,12 +489,12 @@ export default function ClientDetail() {
                       <div className="space-y-4">
                         <div>
                           <Label>Son Ölçüm</Label>
-                          <p className="text-lg font-medium">{measurements[0].weight} kg | BMI: {measurements[0].bmi?.toFixed(1)}</p>
+                          <p className="text-lg font-medium">{measurements[0].weight} kg | BMI: {measurements[0].bmi}</p>
                           <p className="text-sm text-muted-foreground">{formatDate(measurements[0].date)}</p>
                         </div>
                         <div>
                           <Label>Önceki Ölçüm</Label>
-                          <p>{measurements[1].weight} kg | BMI: {measurements[1].bmi?.toFixed(1)}</p>
+                          <p>{measurements[1].weight} kg | BMI: {measurements[1].bmi}</p>
                           <p className="text-sm text-muted-foreground">{formatDate(measurements[1].date)}</p>
                         </div>
                         <div>
@@ -510,7 +510,7 @@ export default function ClientDetail() {
                                   {isWeightReduced ? "" : "+"}{weightChange.toFixed(1)} kg
                                 </p>
                                 <p className={`${bmiChange < 0 ? "text-green-600" : "text-red-600"}`}>
-                                  BMI: {bmiChange < 0 ? "" : "+"}{bmiChange.toFixed(1)}
+                                  BMI: {bmiChange < 0 ? "" : "+"}{bmiChange.toFixed ? bmiChange.toFixed(1) : bmiChange}
                                 </p>
                               </div>
                             );
@@ -553,7 +553,7 @@ export default function ClientDetail() {
                                 <div className="flex justify-between">
                                   <span>{current} cm</span>
                                   <span className={`${isReduced ? "text-green-600" : "text-red-600"} font-medium`}>
-                                    {isReduced ? "" : "+"}{change.toFixed(1)} cm
+                                    {isReduced ? "" : "+"}{change.toFixed ? change.toFixed(1) : change} cm
                                   </span>
                                 </div>
                               </div>
@@ -608,7 +608,7 @@ export default function ClientDetail() {
                         <tr key={measurement.id} className="border-b hover:bg-muted/50">
                           <td className="py-3 px-4">{formatDate(measurement.date)}</td>
                           <td className="py-3 px-4">{measurement.weight}</td>
-                          <td className="py-3 px-4">{measurement.bmi?.toFixed(1) || "-"}</td>
+                          <td className="py-3 px-4">{measurement.bmi || "-"}</td>
                           <td className="py-3 px-4">{measurement.waistCircumference || "-"}</td>
                           <td className="py-3 px-4">{measurement.hipCircumference || "-"}</td>
                           <td className="py-3 px-4">{measurement.bodyFatPercentage || "-"}</td>
