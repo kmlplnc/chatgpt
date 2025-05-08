@@ -24,27 +24,70 @@ export function MacronutrientChart({ protein, carbs, fat, size = 200 }: MacroCha
     { x: "Fat", y: fat }
   ];
   
-  const colorScale = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"];
+  // Daha canlı renkler kullanıyoruz
+  const colorScale = ["#4CAF50", "#2196F3", "#FF9800"];
   
   return (
     <div style={{ height: size, width: size }}>
       <VictoryPie
         data={data}
         colorScale={colorScale}
-        innerRadius={size * 0.2}
-        labelRadius={size * 0.4}
+        innerRadius={size * 0.25}
+        labelRadius={size * 0.37}
         style={{
-          labels: { fill: "var(--foreground)", fontSize: 12 },
+          labels: { 
+            fill: "white", 
+            fontSize: 14,
+            fontWeight: "bold",
+            textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
+          },
           data: {
             stroke: "white",
-            strokeWidth: 1
+            strokeWidth: 2
           }
         }}
-        labels={({ datum }) => `${datum.x}: ${datum.y}%`}
+        labels={({ datum }) => `${datum.x}\n${datum.y}%`}
         padding={10}
         containerComponent={<VictoryContainer responsive={false} />}
         height={size}
         width={size}
+        events={[{
+          target: "data",
+          eventHandlers: {
+            onMouseOver: () => {
+              return [
+                {
+                  target: "data",
+                  mutation: (props) => {
+                    return {
+                      style: { ...props.style, opacity: 0.8, stroke: "black", strokeWidth: 3 }
+                    };
+                  }
+                },
+                {
+                  target: "labels",
+                  mutation: (props) => {
+                    return {
+                      style: { ...props.style, fontSize: 16 }
+                    };
+                  }
+                }
+              ];
+            },
+            onMouseOut: () => {
+              return [
+                {
+                  target: "data",
+                  mutation: () => null
+                },
+                {
+                  target: "labels",
+                  mutation: () => null
+                }
+              ];
+            }
+          }
+        }]}
       />
     </div>
   );
@@ -66,6 +109,9 @@ interface NutrientBarChartProps {
 }
 
 export function NutrientBarChart({ data, title, height = 300, width = 500 }: NutrientBarChartProps) {
+  // Daha zengin ve farklı renkler oluşturuyoruz
+  const colorArray = ["#1976D2", "#2E7D32", "#C62828", "#7B1FA2", "#F57C00", "#0097A7", "#D32F2F", "#00796B"];
+  
   return (
     <div style={{ height, width }}>
       {title && <h3 className="text-center font-medium mb-2">{title}</h3>}
@@ -80,23 +126,29 @@ export function NutrientBarChart({ data, title, height = 300, width = 500 }: Nut
         <VictoryAxis
           tickLabelComponent={<VictoryLabel angle={-45} textAnchor="end" />}
           style={{
-            tickLabels: { fontSize: 10, padding: 5 },
+            tickLabels: { fontSize: 10, padding: 5, fontWeight: "bold" },
             grid: { stroke: "none" }
           }}
         />
         <VictoryAxis
           dependentAxis
           style={{
-            tickLabels: { fontSize: 10, padding: 5 },
-            grid: { stroke: "var(--border)", strokeDasharray: "5,5" }
+            tickLabels: { fontSize: 10, padding: 5, fontWeight: "bold" },
+            grid: { stroke: "#e0e0e0", strokeDasharray: "3,3" }
           }}
         />
         <VictoryBar
-          data={data.map(item => ({ x: item.name, y: item.percentage || item.value }))}
+          data={data.map((item, index) => ({ 
+            x: item.name, 
+            y: item.percentage || item.value,
+            fill: colorArray[index % colorArray.length]
+          }))}
           style={{
             data: {
-              fill: "var(--primary)",
-              width: 20
+              fill: ({ datum }) => datum.fill,
+              width: 25,
+              stroke: "black",
+              strokeWidth: 0.5
             }
           }}
           labels={({ datum }) => {
@@ -106,9 +158,50 @@ export function NutrientBarChart({ data, title, height = 300, width = 500 }: Nut
           labelComponent={
             <VictoryLabel 
               dy={-10} 
-              style={{ fontSize: 8, fill: "var(--foreground)" }} 
+              style={{ 
+                fontSize: 12, 
+                fill: "black",
+                fontWeight: "bold"
+              }} 
             />
           }
+          events={[{
+            target: "data",
+            eventHandlers: {
+              onMouseOver: () => {
+                return [
+                  {
+                    target: "data",
+                    mutation: (props) => {
+                      return {
+                        style: { ...props.style, opacity: 0.8, stroke: "black", strokeWidth: 2 }
+                      };
+                    }
+                  },
+                  {
+                    target: "labels",
+                    mutation: (props) => {
+                      return {
+                        style: { ...props.style, fontSize: 14 }
+                      };
+                    }
+                  }
+                ];
+              },
+              onMouseOut: () => {
+                return [
+                  {
+                    target: "data",
+                    mutation: () => null
+                  },
+                  {
+                    target: "labels",
+                    mutation: () => null
+                  }
+                ];
+              }
+            }
+          }]}
         />
       </VictoryChart>
     </div>
@@ -140,13 +233,14 @@ export function CalorieBreakdownChart({
     { name: "Remaining", calories: remaining }
   ];
   
+  // Daha canlı renkler kullanıyoruz
   const colorScale = [
-    "var(--chart-1)", 
-    "var(--chart-2)", 
-    "var(--chart-3)", 
-    "var(--chart-4)", 
-    "var(--chart-5)",
-    "#cccccc" // For remaining
+    "#4CAF50", // Yeşil
+    "#FF5722", // Turuncu
+    "#2196F3", // Mavi
+    "#9C27B0", // Mor
+    "#FFC107", // Amber
+    "#e0e0e0" // Gri (kalan miktar için)
   ];
   
   return (
@@ -156,21 +250,71 @@ export function CalorieBreakdownChart({
         x="name"
         y="calories"
         colorScale={colorScale}
-        innerRadius={70}
-        labelRadius={90}
+        innerRadius={75}
+        labelRadius={100}
         style={{
-          labels: { fill: "var(--foreground)", fontSize: 12 },
+          labels: { 
+            fill: "white", 
+            fontSize: 14,
+            fontWeight: "bold",
+            textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
+          },
           data: {
             stroke: "white",
-            strokeWidth: 1
+            strokeWidth: 2
           }
         }}
-        labels={({ datum }) => `${datum.name}: ${datum.calories} cal`}
+        labels={({ datum }) => `${datum.name}\n${datum.calories} kal`}
         padding={10}
         containerComponent={<VictoryContainer responsive={false} />}
         height={height}
         width={width}
+        events={[{
+          target: "data",
+          eventHandlers: {
+            onMouseOver: () => {
+              return [
+                {
+                  target: "data",
+                  mutation: (props) => {
+                    return {
+                      style: { ...props.style, opacity: 0.8, stroke: "black", strokeWidth: 3 }
+                    };
+                  }
+                },
+                {
+                  target: "labels",
+                  mutation: (props) => {
+                    return {
+                      style: { ...props.style, fontSize: 16 }
+                    };
+                  }
+                }
+              ];
+            },
+            onMouseOut: () => {
+              return [
+                {
+                  target: "data",
+                  mutation: () => null
+                },
+                {
+                  target: "labels",
+                  mutation: () => null
+                }
+              ];
+            }
+          }
+        }]}
       />
+      
+      {/* Toplam kalori bilgisi */}
+      <div className="text-center mt-4">
+        <p className="text-sm font-medium">Toplam: {total} kal / {dailyGoal} kal</p>
+        <p className="text-xs text-muted-foreground">
+          {Math.round(total / dailyGoal * 100)}% tüketildi
+        </p>
+      </div>
     </div>
   );
 }
