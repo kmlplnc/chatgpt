@@ -88,15 +88,50 @@ async function createClient(data: z.infer<typeof clientSchema>) {
   return response.json();
 }
 
+async function updateClient(id: number, data: z.infer<typeof clientSchema>) {
+  const response = await fetch(`/api/clients/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    throw new Error("Danışan güncellenemedi");
+  }
+  
+  return response.json();
+}
+
 export default function ClientsPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [openNewClientDialog, setOpenNewClientDialog] = useState(false);
+  const [openEditClientDialog, setOpenEditClientDialog] = useState(false);
+  const [currentClient, setCurrentClient] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   
-  // Form tanımlama
+  // Yeni danışan formu
   const form = useForm<z.infer<typeof clientSchema>>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      gender: "female",
+      occupation: "",
+      medicalConditions: "",
+      allergies: "",
+      notes: "",
+      status: "active",
+    },
+  });
+  
+  // Danışan düzenleme formu
+  const editForm = useForm<z.infer<typeof clientSchema>>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
       firstName: "",
@@ -139,14 +174,63 @@ export default function ClientsPage() {
     },
   });
   
-  // Form gönderim işlemi
+  // Danışan güncelleme
+  const updateClientMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: z.infer<typeof clientSchema> }) => updateClient(id, data),
+    onSuccess: () => {
+      toast({
+        title: "Başarılı",
+        description: "Danışan bilgileri başarıyla güncellendi",
+      });
+      setOpenEditClientDialog(false);
+      setCurrentClient(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Hata",
+        description: `Danışan güncellenirken bir hata oluştu: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Yeni danışan form gönderim işlemi
   function onSubmit(data: z.infer<typeof clientSchema>) {
     createClientMutation.mutate(data);
   }
   
-  // Danışan düzenleme sayfasına yönlendir
+  // Danışan düzenleme form gönderim işlemi
+  function onEditSubmit(data: z.infer<typeof clientSchema>) {
+    if (currentClient) {
+      updateClientMutation.mutate({ id: currentClient.id, data });
+    }
+  }
+  
+  // Danışan düzenleme modalını aç
   function handleEditClient(id: number) {
-    setLocation(`/clients/${id}`);
+    // Danışanı bul
+    const client = clients?.find((c: any) => c.id === id);
+    if (client) {
+      // Form varsayılan değerlerini ayarla
+      editForm.reset({
+        firstName: client.firstName,
+        lastName: client.lastName,
+        email: client.email,
+        phone: client.phone || "",
+        gender: client.gender,
+        birthDate: client.birthDate || "",
+        occupation: client.occupation || "",
+        medicalConditions: client.medicalConditions || "",
+        allergies: client.allergies || "",
+        notes: client.notes || "",
+        status: client.status,
+      });
+      
+      // Mevcut danışanı ayarla ve düzenleme modalını aç
+      setCurrentClient(client);
+      setOpenEditClientDialog(true);
+    }
   }
   
   // Danışanları filtreleme
@@ -173,6 +257,228 @@ export default function ClientsPage() {
     <div className="container mx-auto py-6 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Danışanlar</h1>
+        
+        {/* Danışan düzenleme modalı */}
+        <Dialog open={openEditClientDialog} onOpenChange={setOpenEditClientDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Danışan Düzenle</DialogTitle>
+              <DialogDescription>
+                Danışan bilgilerini güncelleyin. Tüm gerekli alanlar doldurulmalıdır.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>İsim</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Soyisim</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-posta</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefon</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="birthDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Doğum Tarihi</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cinsiyet</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Cinsiyet seçin" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="female">Kadın</SelectItem>
+                            <SelectItem value="male">Erkek</SelectItem>
+                            <SelectItem value="other">Diğer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={editForm.control}
+                  name="occupation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meslek</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="medicalConditions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sağlık Durumu</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Varsa sağlık sorunları, hastalıklar, vb."
+                            className="h-20" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="allergies"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Alerjiler</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Varsa alerjileri"
+                            className="h-20" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notlar</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Eklemek istediğiniz notlar"
+                            className="h-20" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={editForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Durum</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Durum seçin" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Aktif</SelectItem>
+                          <SelectItem value="inactive">Pasif</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpenEditClientDialog(false)}>
+                    İptal
+                  </Button>
+                  <Button type="submit" disabled={updateClientMutation.isPending}>
+                    {updateClientMutation.isPending ? "Güncelleniyor..." : "Danışanı Güncelle"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
         
         <Dialog open={openNewClientDialog} onOpenChange={setOpenNewClientDialog}>
           <DialogTrigger asChild>
