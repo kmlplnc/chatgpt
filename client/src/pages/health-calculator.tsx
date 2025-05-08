@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Form,
@@ -48,6 +50,8 @@ import {
   AlertDescription 
 } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 // Form schema
 const healthFormSchema = z.object({
@@ -165,8 +169,42 @@ const goalFactors = {
   gain: 1.2      // %20 kalori artışı
 };
 
+// Danışan verileri almak için API fonksiyonu
+async function getClients() {
+  const response = await fetch('/api/clients');
+  if (!response.ok) {
+    throw new Error('Danışanlar yüklenemedi');
+  }
+  return response.json();
+}
+
+// Ölçüm kaydetme API fonksiyonu
+async function addMeasurement(clientId: number, data: any) {
+  try {
+    const response = await fetch(`/api/clients/${clientId}/measurements`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ölçüm eklenemedi: ${errorText}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Ölçüm ekleme hatası:', error);
+    throw error;
+  }
+}
+
 export default function HealthCalculator() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("bmr-calculator");
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [calculationResult, setCalculationResult] = useState<{
     bmr: number;
     tdee: number;
@@ -179,6 +217,37 @@ export default function HealthCalculator() {
     };
     targetCalories: number;
   } | null>(null);
+  
+  // Danışanları getir
+  const { data: clients = [], isLoading: isClientsLoading } = useQuery({
+    queryKey: ['/api/clients'],
+    queryFn: getClients
+  });
+  
+  // Ölçüm kaydetme mutation'ı
+  const saveMeasurementMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (!selectedClientId) {
+        throw new Error('Lütfen bir danışan seçin');
+      }
+      return addMeasurement(selectedClientId, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Başarılı',
+        description: 'Ölçüm danışana kaydedildi',
+      });
+      // Danışan ölçümlerini güncellemek için queryClient'ı kullan
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${selectedClientId}/measurements`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Hata',
+        description: error.message || 'Ölçüm kaydedilirken bir hata oluştu',
+        variant: 'destructive',
+      });
+    },
+  });
   
   // Form oluşturma
   const form = useForm<HealthFormValues>({
@@ -216,6 +285,38 @@ export default function HealthCalculator() {
   }, [form.watch("proteinPercentage"), form.watch("carbsPercentage")]);
 
   // Form gönderimi işleme
+  // Ölçüm sonuçlarını kaydetme fonksiyonu
+  const saveMeasurementToClient = () => {
+    if (!calculationResult || !selectedClientId) {
+      toast({
+        title: "Hata",
+        description: "Lütfen bir danışan seçin ve hesaplama yapın",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const formValues = form.getValues();
+    
+    // Ölçüm verisini oluştur
+    const measurementData = {
+      date: new Date().toISOString().split('T')[0], // YYYY-MM-DD formatında bugünün tarihi
+      height: formValues.height.toString(),
+      weight: formValues.weight.toString(),
+      activityLevel: formValues.activityLevel,
+      bmi: calculationResult.bmi.toFixed(1),
+      bmr: calculationResult.bmr.toString(),
+      targetCalories: calculationResult.targetCalories.toString(),
+      proteinPercentage: formValues.proteinPercentage,
+      carbsPercentage: formValues.carbsPercentage,
+      fatPercentage: formValues.fatPercentage,
+      totalDailyEnergyExpenditure: calculationResult.tdee,
+    };
+    
+    // Mutation'ı çalıştır
+    saveMeasurementMutation.mutate(measurementData);
+  };
+
   const onSubmit = (data: HealthFormValues) => {
     // BMR hesapla (Bazal Metabolizma Hızı)
     const bmr = calculateBMR(
@@ -534,6 +635,58 @@ export default function HealthCalculator() {
         <TabsContent value="results" className="mt-4">
           {calculationResult && (
             <div className="space-y-8">
+              {/* Danışan seçme alanı */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Danışan Seçimi</CardTitle>
+                  <CardDescription>
+                    Bu sonuçları kaydetmek istediğiniz danışanı seçin
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <label htmlFor="client-select" className="text-sm font-medium">
+                        Danışan
+                      </label>
+                      <Select
+                        value={selectedClientId?.toString() || ""}
+                        onValueChange={(value) => setSelectedClientId(Number(value))}
+                      >
+                        <SelectTrigger id="client-select" className="w-full">
+                          <SelectValue placeholder="Danışan seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.length === 0 ? (
+                            <SelectItem value="empty" disabled>
+                              Kayıtlı danışan bulunamadı
+                            </SelectItem>
+                          ) : (
+                            clients.map((client: any) => (
+                              <SelectItem key={client.id} value={client.id.toString()}>
+                                {client.firstName} {client.lastName}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Button 
+                      onClick={saveMeasurementToClient}
+                      disabled={!selectedClientId || saveMeasurementMutation.isPending}
+                      className="w-full"
+                    >
+                      {saveMeasurementMutation.isPending ? (
+                        "Kaydediliyor..."
+                      ) : (
+                        "Sonuçları Danışana Kaydet"
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
               <Card>
                 <CardHeader>
                   <CardTitle>Metabolizma ve Kalori Sonuçları</CardTitle>
