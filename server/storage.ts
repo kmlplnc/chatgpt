@@ -227,11 +227,90 @@ export class MemStorage implements IStorage {
     const existingMeasurement = this.measurements.get(id);
     if (!existingMeasurement) return undefined;
     
+    console.log("Updating measurement:", id);
+    console.log("Original measurement:", existingMeasurement);
+    console.log("Updates received:", JSON.stringify(updates));
+    
+    // Güvenli bir şekilde güncellemeleri işle
+    const safeUpdates: Partial<Measurement> = {};
+    
+    // Tarih güncellemesi
+    if (updates.date !== undefined) {
+      safeUpdates.date = updates.date;
+    }
+    
+    // Temel ölçümler (weight, height)
+    if (updates.weight !== undefined) {
+      safeUpdates.weight = String(updates.weight);
+    }
+    
+    if (updates.height !== undefined) {
+      safeUpdates.height = String(updates.height);
+    }
+    
+    if (updates.bmi !== undefined) {
+      safeUpdates.bmi = String(updates.bmi);
+    }
+    
+    // İsteğe bağlı ölçümler - güvenli null/string dönüşümleri
+    const optionalFields = [
+      'bodyFatPercentage', 'waistCircumference', 'hipCircumference',
+      'chestCircumference', 'armCircumference', 'thighCircumference',
+      'calfCircumference', 'bmr', 'basalMetabolicRate', 'targetCalories',
+      'totalDailyEnergyExpenditure'
+    ];
+    
+    for (const field of optionalFields) {
+      if (field in updates) {
+        const value = updates[field as keyof Measurement];
+        if (value === null || value === undefined || value === '') {
+          // null olarak ayarla
+          safeUpdates[field as keyof Measurement] = null as any;
+        } else {
+          // string'e çevir ve ayarla
+          safeUpdates[field as keyof Measurement] = String(value) as any;
+        }
+      }
+    }
+    
+    // Aktivite seviyesi, notlar gibi string alanları
+    if (updates.activityLevel !== undefined) {
+      safeUpdates.activityLevel = updates.activityLevel;
+    }
+    
+    if (updates.notes !== undefined) {
+      safeUpdates.notes = updates.notes;
+    }
+    
+    // Diğer numerik değerler
+    if (updates.proteinPercentage !== undefined) {
+      safeUpdates.proteinPercentage = updates.proteinPercentage;
+    }
+    
+    if (updates.carbsPercentage !== undefined) {
+      safeUpdates.carbsPercentage = updates.carbsPercentage;
+    }
+    
+    if (updates.fatPercentage !== undefined) {
+      safeUpdates.fatPercentage = updates.fatPercentage;
+    }
+    
+    // clientId değişmez
+    if (updates.clientId !== undefined) {
+      safeUpdates.clientId = updates.clientId;
+    }
+    
+    // updatedAt'i güncelle
+    safeUpdates.updatedAt = new Date();
+    
+    console.log("Safe updates:", JSON.stringify(safeUpdates));
+    
     const updatedMeasurement = {
       ...existingMeasurement,
-      ...updates,
-      updatedAt: new Date()
+      ...safeUpdates
     };
+    
+    console.log("Updated measurement:", JSON.stringify(updatedMeasurement));
     
     this.measurements.set(id, updatedMeasurement);
     return updatedMeasurement;
