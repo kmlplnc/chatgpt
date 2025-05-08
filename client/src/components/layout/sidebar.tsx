@@ -17,9 +17,10 @@ export default function Sidebar() {
   
   const navItems = [
     { name: "Dashboard", href: "/", icon: Home },
+    { name: "Danışanlar", href: "/clients", icon: BarChart },
     { name: "Diet Plans", href: "/diet-plans", icon: Utensils },
     { name: "Food Database", href: "/food-database", icon: Apple },
-    { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: BarChart },
+    { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
   
