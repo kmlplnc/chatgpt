@@ -507,7 +507,7 @@ export default function ClientDetail() {
                             return (
                               <div>
                                 <p className={`${isWeightReduced ? "text-green-600" : "text-red-600"} font-medium`}>
-                                  {isWeightReduced ? "" : "+"}{weightChange.toFixed(1)} kg
+                                  {isWeightReduced ? "" : "+"}{weightChange.toFixed ? weightChange.toFixed(1) : weightChange} kg
                                 </p>
                                 <p className={`${bmiChange < 0 ? "text-green-600" : "text-red-600"}`}>
                                   BMI: {bmiChange < 0 ? "" : "+"}{bmiChange.toFixed ? bmiChange.toFixed(1) : bmiChange}
