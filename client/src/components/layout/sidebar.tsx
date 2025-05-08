@@ -27,7 +27,7 @@ export default function Sidebar() {
     <aside className="w-64 bg-white border-r border-neutral-200 h-screen fixed">
       <div className="p-4 border-b border-neutral-200">
         <div className="flex items-center">
-          <img src="/logo.png" alt="DietKEM Logo" className="w-10 h-10 mr-2" />
+          <img src="/dietkem-logo.png" alt="DietKEM Logo" className="w-12 h-12 mr-2" />
           <h1 className="font-heading font-semibold text-xl text-primary">DietKEM</h1>
         </div>
         <p className="text-xs text-muted-foreground mt-1">Beslenme ve Diyet Planlama</p>
