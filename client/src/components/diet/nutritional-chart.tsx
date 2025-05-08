@@ -121,17 +121,26 @@ export default function NutritionalChart({
                 <div className="text-center mt-4">
                   <p className="text-sm text-muted-foreground">Per serving</p>
                   <p className="text-2xl font-bold">{Math.round(calories)} kcal</p>
-                  <div className="flex justify-center gap-4 mt-2 text-sm">
-                    <div>
-                      <p className="font-medium">Protein</p>
+                  <div className="flex justify-center gap-6 mt-4 text-sm">
+                    <div className="text-center">
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white bg-[#4CAF50] mx-auto shadow-md">
+                        {macroPercentages.protein}%
+                      </div>
+                      <p className="font-medium mt-2">Protein</p>
                       <p>{Math.round(protein)}g</p>
                     </div>
-                    <div>
-                      <p className="font-medium">Carbs</p>
+                    <div className="text-center">
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white bg-[#2196F3] mx-auto shadow-md">
+                        {macroPercentages.carbs}%
+                      </div>
+                      <p className="font-medium mt-2">Carbs</p>
                       <p>{Math.round(carbs)}g</p>
                     </div>
-                    <div>
-                      <p className="font-medium">Fat</p>
+                    <div className="text-center">
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white bg-[#FF9800] mx-auto shadow-md">
+                        {macroPercentages.fat}%
+                      </div>
+                      <p className="font-medium mt-2">Fat</p>
                       <p>{Math.round(fat)}g</p>
                     </div>
                   </div>

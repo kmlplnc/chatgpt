@@ -33,11 +33,11 @@ export function MacronutrientChart({ protein, carbs, fat, size = 200 }: MacroCha
         data={data}
         colorScale={colorScale}
         innerRadius={size * 0.25}
-        labelRadius={size * 0.37}
+        labelRadius={size * 0.5}
         style={{
           labels: { 
             fill: "white", 
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: "bold",
             textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
           },
@@ -46,7 +46,7 @@ export function MacronutrientChart({ protein, carbs, fat, size = 200 }: MacroCha
             strokeWidth: 2
           }
         }}
-        labels={({ datum }) => `${datum.x}\n${datum.y}%`}
+        labels={() => null} // Etiketleri kaldırıyoruz
         padding={10}
         containerComponent={<VictoryContainer responsive={false} />}
         height={size}
