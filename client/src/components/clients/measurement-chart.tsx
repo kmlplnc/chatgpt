@@ -43,94 +43,110 @@ const metricOptions: MetricOption[] = [
 ];
 
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    
-    // Metrik değerleri - sadece değeri olan metrikleri göster
-    const metricDetails = payload
-      .filter((entry: any) => entry.value !== undefined && entry.value !== null)
-      .map((entry: any) => {
-        const metricOption = metricOptions.find(m => m.id === entry.dataKey);
-        return {
-          name: metricOption?.label || entry.name,
-          value: entry.value,
-          color: entry.color,
-          unit: metricOption?.unit || ""
-        };
-      });
-    
-    return (
-      <div className="bg-background border rounded-lg p-3 shadow-lg">
-        <p className="text-sm font-semibold border-b pb-1 mb-2">{formatDate(data.date)}</p>
-        <div className="space-y-1.5">
-          {metricDetails.length > 0 ? (
-            metricDetails.map((metric, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
-                  <span className="text-sm">{metric.name}:</span>
-                </div>
-                <span className="text-sm font-medium ml-2">
-                  {Number(metric.value).toFixed(1)} {metric.unit}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="text-sm text-muted-foreground">Bu tarihte seçili metrikler için veri yok</div>
-          )}
-        </div>
-      </div>
-    );
+  // Eğer grafik tooltip'i aktif değilse veya veri yoksa gösterme
+  if (!active || !payload || !payload.length || !payload[0] || !payload[0].payload) {
+    return null;
   }
-
-  return null;
+  
+  // Veri noktasından tarih bilgisini al
+  const data = payload[0].payload;
+  const dateStr = data.date || data.displayDate || label;
+  
+  // Metrik değerleri - sadece değeri olan metrikleri göster
+  const metricDetails = payload
+    .filter((entry: any) => entry.value !== undefined && entry.value !== null && !isNaN(Number(entry.value)))
+    .map((entry: any) => {
+      const metricOption = metricOptions.find(m => m.id === entry.dataKey);
+      return {
+        name: metricOption?.label || entry.name,
+        value: Number(entry.value),
+        color: entry.stroke || entry.fill || metricOption?.color || '#666',
+        unit: metricOption?.unit || ""
+      };
+    });
+  
+  return (
+    <div className="bg-background border rounded-lg p-3 shadow-lg">
+      <p className="text-sm font-semibold border-b pb-1 mb-2">
+        {formatDate(dateStr)}
+      </p>
+      <div className="space-y-1.5">
+        {metricDetails.length > 0 ? (
+          metricDetails.map((metric, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
+                <span className="text-sm">{metric.name}:</span>
+              </div>
+              <span className="text-sm font-medium ml-2">
+                {metric.value.toFixed(1)} {metric.unit}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="text-sm text-muted-foreground">Bu tarihte seçili metrikler için veri yok</div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-  if (active && payload && payload.length) {
-    // Tarih formatı
-    const formattedDate = formatDate(label);
-    
-    // Metrik değerleri - sadece değeri olan metrikleri göster
-    const metricDetails = payload
-      .filter((entry: any) => entry.value !== undefined && entry.value !== null)
-      .map((entry: any) => {
-        const metricOption = metricOptions.find(m => m.id === entry.dataKey);
-        return {
-          name: metricOption?.label || entry.name,
-          value: entry.value,
-          color: entry.color,
-          unit: metricOption?.unit || "",
-          dataKey: entry.dataKey
-        };
-      });
-    
-    // Bir önceki ölçümden fark hesaplama
-    const calculateChange = (dataKey: string, currentValue: number) => {
-      if (!Array.isArray(payload) || payload.length === 0) return null;
+  // Eğer grafik tooltip'i aktif değilse veya veri yoksa gösterme
+  if (!active || !payload || !payload.length || !payload[0] || !payload[0].payload) {
+    return null;
+  }
+  
+  // Veri noktasından tarih bilgisini al
+  const data = payload[0].payload;
+  const dateStr = data.date || data.displayDate || label;
+  const formattedDate = formatDate(dateStr);
+  
+  // Metrik değerleri - sadece değeri olan metrikleri göster
+  const metricDetails = payload
+    .filter((entry: any) => entry.value !== undefined && entry.value !== null && !isNaN(Number(entry.value)))
+    .map((entry: any) => {
+      const metricOption = metricOptions.find(m => m.id === entry.dataKey);
+      return {
+        name: metricOption?.label || entry.name,
+        value: Number(entry.value),
+        color: entry.fill || entry.stroke || metricOption?.color || '#666',
+        unit: metricOption?.unit || "",
+        dataKey: entry.dataKey
+      };
+    });
+  
+  // Bir önceki ölçümden fark hesaplama işlevi basitleştirildi
+  const calculateChange = (dataKey: string, currentValue: number) => {
+    try {
+      // Tüm grafik verilerini al
+      const chartData = data.parent?.props?.data;
+      if (!Array.isArray(chartData) || chartData.length < 2) return null;
       
-      // Geçerli ölçüm verisi
-      const currentData = payload[0]?.payload;
-      if (!currentData) return null;
+      // Şu anki veri noktasının index'ini bul
+      const currentIndex = chartData.findIndex((d: any) => 
+        d.date === dateStr || d.displayDate === formattedDate
+      );
       
-      // Eğer payload'da label (tarih) yoksa işlem yapma
-      if (!label) return null;
+      if (currentIndex < 0 || currentIndex >= chartData.length - 1) return null;
       
-      // Geçerli tarih dizinden index bul (external chartData referansı yerine payload kullan)
-      const allData = payload[0]?.payload?.parent?.props?.data || [];
-      if (!Array.isArray(allData) || allData.length < 2) return null;
+      // Önceki ölçüm verisi
+      const previousData = chartData[currentIndex + 1];
+      if (!previousData) return null;
       
-      const currentIndex = allData.findIndex((d: any) => d.date === label);
-      if (currentIndex <= 0 || currentIndex >= allData.length) return null;
+      const previousValue = previousData[dataKey];
+      if (previousValue === undefined || previousValue === null || isNaN(Number(previousValue))) {
+        return null;
+      }
       
-      const previousValue = allData[currentIndex - 1][dataKey];
-      if (previousValue === undefined || previousValue === null) return null;
-      
-      const change = currentValue - Number(previousValue);
+      // Değişimi hesapla
+      const prevNumericValue = Number(previousValue);
+      const change = currentValue - prevNumericValue;
       const isPositive = change > 0;
       
-      // Geleneksel olarak kilo, bel çevresi gibi ölçümlerde azalma olumlu,
-      // ancak kas kütlesi gibi ölçümlerde artış olumludur. Şu an hepsinde azalma olumlu kabul ediliyor.
+      // Metriğe göre olumlu/olumsuz değişimleri belirle
+      // Not: Kilo, BMI ve çevre ölçümlerinde azalma genelde olumludur
+      // Kas kütlesi gibi ölçümler eklenirse burada özelleştirme gerekebilir
       const isDesirable = !isPositive;
       
       return {
@@ -139,43 +155,44 @@ const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, strin
         isDesirable,
         symbol: isPositive ? "+" : "-"
       };
-    };
+    } catch (error) {
+      console.error("Değişim hesaplama hatası:", error);
+      return null;
+    }
+  };
 
-    return (
-      <div className="bg-background border rounded-lg p-3 shadow-lg">
-        <p className="text-sm font-semibold border-b pb-1 mb-2">{formattedDate}</p>
-        <div className="space-y-2">
-          {metricDetails.length > 0 ? (
-            metricDetails.map((metric, index) => {
-              const change = calculateChange(metric.dataKey, metric.value);
-              
-              return (
-                <div key={index} className="space-y-0.5">
-                  <div className="flex items-center">
-                    <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
-                    <span className="text-sm font-medium">{metric.name}</span>
-                  </div>
-                  <div className="flex items-center justify-between pl-5">
-                    <span className="text-sm">{Number(metric.value).toFixed(1)} {metric.unit}</span>
-                    
-                    {change && (
-                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${change.isDesirable ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                        {change.symbol}{change.change} {metric.unit}
-                      </span>
-                    )}
-                  </div>
+  return (
+    <div className="bg-background border rounded-lg p-3 shadow-lg">
+      <p className="text-sm font-semibold border-b pb-1 mb-2">{formattedDate}</p>
+      <div className="space-y-2">
+        {metricDetails.length > 0 ? (
+          metricDetails.map((metric, index) => {
+            const change = calculateChange(metric.dataKey, metric.value);
+            
+            return (
+              <div key={index} className="space-y-0.5">
+                <div className="flex items-center">
+                  <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
+                  <span className="text-sm font-medium">{metric.name}</span>
                 </div>
-              );
-            })
-          ) : (
-            <div className="text-sm text-muted-foreground">Bu tarihte seçili metrikler için veri yok</div>
-          )}
-        </div>
+                <div className="flex items-center justify-between pl-5">
+                  <span className="text-sm">{metric.value.toFixed(1)} {metric.unit}</span>
+                  
+                  {change && (
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${change.isDesirable ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                      {change.symbol}{change.change} {metric.unit}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-sm text-muted-foreground">Bu tarihte seçili metrikler için veri yok</div>
+        )}
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 };
 
 export default function MeasurementChart({ measurements, title = "Ölçüm Grafiği", metricKey }: MeasurementChartProps) {
@@ -200,23 +217,40 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
     .reverse()
     .map((m) => {
       // Metrikleri sayısal değere dönüştür
-      const numericData: any = { ...m };
+      const numericData: any = {};
+      
+      // Temel alanları kopyala
+      numericData.date = m.date;
+      numericData.displayDate = formatDate(m.date);
+      numericData.id = m.id;
+      
+      // Tüm ölçüm metriklerini dönüştür 
       metricOptions.forEach(metric => {
-        // Eğer metrik değeri varsa sayısal değere dönüştür
-        if (m[metric.id] !== null && m[metric.id] !== undefined) {
-          numericData[metric.id] = Number(m[metric.id]);
+        const value = m[metric.id];
+        
+        // String, sayı veya null/undefined olabilir, güvenli şekilde dönüştür
+        if (value !== null && value !== undefined && value !== '') {
+          // String içindeki sayıyı al
+          const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+          
+          // Geçerli bir sayı ise ekle
+          if (!isNaN(numValue)) {
+            numericData[metric.id] = numValue;
+          } else {
+            numericData[metric.id] = undefined;
+          }
         } else {
-          // Eğer değer yoksa, grafik gösteriminde sorun yaşanmaması için
+          // Değer yoksa, grafik gösteriminde sorun yaşanmaması için
           // bu metriği undefined olarak bırak (null değil)
           numericData[metric.id] = undefined;
         }
       });
       
-      return {
-        ...numericData,
-        date: m.date,
-        displayDate: formatDate(m.date),
-      };
+      // Her kayıt için değer olup olmadığını konsolda görüntüle
+      console.log(`Ölçüm (${formatDate(m.date)}) değerleri: `, 
+        metricOptions.map(m => `${m.id}: ${numericData[m.id]}`).join(', '));
+      
+      return numericData;
     });
   
   // Metric seçimini değiştir
@@ -283,85 +317,94 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
       </CardHeader>
       
       <CardContent className="h-96">
-        <TabsContent value="line" className="h-full mt-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis
-                dataKey="displayDate"
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => value.split(' ')[0]}
-                height={50}
-                label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
-              />
-              <YAxis 
-                width={50}
-                label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
-                domain={['auto', 'auto']}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={40} />
-              {selectedMetrics.map((metric) => {
-                const metricOption = metricOptions.find((m) => m.id === metric);
-                if (!metricOption) return null;
-                
-                return (
-                  <Line
-                    key={metric}
-                    type="monotone"
-                    dataKey={metric}
-                    name={metricOption.label}
-                    stroke={metricOption.color}
-                    activeDot={{ r: 6 }}
-                    strokeWidth={2}
+        {chartData.length > 0 ? (
+          <>
+            <TabsContent value="line" className="h-full mt-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis
+                    dataKey="displayDate"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => value.split(' ')[0]}
+                    height={50}
+                    label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
                   />
-                );
-              })}
-            </LineChart>
-          </ResponsiveContainer>
-        </TabsContent>
-        
-        <TabsContent value="bar" className="h-full mt-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => value.split('T')[0]}
-                height={50}
-                label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
-              />
-              <YAxis 
-                width={50}
-                label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
-                domain={['auto', 'auto']}
-              />
-              <Tooltip content={<CustomBarTooltip />} />
-              <Legend verticalAlign="top" height={40} />
-              {selectedMetrics.map((metric) => {
-                const metricOption = metricOptions.find((m) => m.id === metric);
-                if (!metricOption) return null;
-                
-                return (
-                  <Bar
-                    key={metric}
-                    dataKey={metric}
-                    name={metricOption.label}
-                    fill={metricOption.color}
-                    radius={[4, 4, 0, 0]}
+                  <YAxis 
+                    width={50}
+                    label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
+                    domain={['auto', 'auto']}
                   />
-                );
-              })}
-            </BarChart>
-          </ResponsiveContainer>
-        </TabsContent>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend verticalAlign="top" height={40} />
+                  {selectedMetrics.map((metric) => {
+                    const metricOption = metricOptions.find((m) => m.id === metric);
+                    if (!metricOption) return null;
+                    
+                    return (
+                      <Line
+                        key={metric}
+                        type="monotone"
+                        dataKey={metric}
+                        name={metricOption.label}
+                        stroke={metricOption.color}
+                        activeDot={{ r: 6 }}
+                        strokeWidth={2}
+                        connectNulls={true}
+                      />
+                    );
+                  })}
+                </LineChart>
+              </ResponsiveContainer>
+            </TabsContent>
+            
+            <TabsContent value="bar" className="h-full mt-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis
+                    dataKey="displayDate"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => value.split(' ')[0]}
+                    height={50}
+                    label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
+                  />
+                  <YAxis 
+                    width={50}
+                    label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
+                    domain={['auto', 'auto']}
+                  />
+                  <Tooltip content={<CustomBarTooltip />} />
+                  <Legend verticalAlign="top" height={40} />
+                  {selectedMetrics.map((metric) => {
+                    const metricOption = metricOptions.find((m) => m.id === metric);
+                    if (!metricOption) return null;
+                    
+                    return (
+                      <Bar
+                        key={metric}
+                        dataKey={metric}
+                        name={metricOption.label}
+                        fill={metricOption.color}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    );
+                  })}
+                </BarChart>
+              </ResponsiveContainer>
+            </TabsContent>
+          </>
+        ) : (
+          <div className="flex justify-center items-center h-full">
+            <p className="text-muted-foreground">Grafik verisi oluşturulamadı. Ölçüm verilerini kontrol edin.</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
