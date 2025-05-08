@@ -10,8 +10,12 @@ import {
 } from "@shared/schema";
 import { openaiService } from "./services/openai-service";
 import { usdaService } from "./services/usda-service";
+import { clientsRouter } from './routes/clients';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add clients routes
+  app.use('/api/clients', clientsRouter);
+  
   // Error handler middleware
   const handleError = (err: any, res: Response) => {
     console.error(err);
