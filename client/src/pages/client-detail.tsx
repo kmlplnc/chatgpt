@@ -34,6 +34,7 @@ import { calculateBMI, formatDate } from "@/lib/utils";
 
 // Measurement schema for the form
 const measurementSchema = z.object({
+  date: z.string().default(() => new Date().toISOString().split('T')[0]),
   weight: z.coerce.number().min(20, "En az 20 kg olmalıdır").max(300, "En fazla 300 kg olabilir"),
   height: z.coerce.number().min(50, "En az 50 cm olmalıdır").max(250, "En fazla 250 cm olabilir"),
   bodyFatPercentage: z.coerce.number().min(1, "En az %1 olmalıdır").max(70, "En fazla %70 olabilir").optional(),
@@ -122,6 +123,7 @@ export default function ClientDetail() {
   const form = useForm<MeasurementFormValues>({
     resolver: zodResolver(measurementSchema),
     defaultValues: {
+      date: new Date().toISOString().split('T')[0],
       weight: 0,
       height: 0,
       bodyFatPercentage: undefined,
@@ -165,7 +167,6 @@ export default function ClientDetail() {
       ...data,
       clientId: Number(id),
       bmi: bmi.toString(), // Stringe dönüştür
-      date: new Date().toISOString().split('T')[0] // Bugünün tarihi
     };
     
     addMeasurementMutation.mutate(measurementData);
@@ -227,6 +228,20 @@ export default function ClientDetail() {
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ölçüm Tarihi*</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
