@@ -98,21 +98,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Diet Plan Generation
-  app.post("/api/diet-plans/generate", async (req, res) => {
+  // Manual Diet Plan Creation 
+  app.post("/api/diet-plans", async (req, res) => {
     try {
-      const validatedData = dietRequirementSchema.parse(req.body);
+      const validatedData = insertDietPlanSchema.parse(req.body);
       
-      // Generate diet plan using OpenAI
-      const generatedPlan = await openaiService.generateDietPlan(validatedData);
-      
-      // Save the generated plan
-      const dietPlan = await storage.createDietPlan({
-        ...validatedData,
-        ...generatedPlan,
-        status: "active",
-        durationDays: 7,
-      });
+      // Save the diet plan
+      const dietPlan = await storage.createDietPlan(validatedData);
       
       res.status(201).json(dietPlan);
     } catch (err) {

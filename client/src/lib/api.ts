@@ -2,11 +2,6 @@ import { apiRequest } from "./queryClient";
 import type { Food, DietPlan, InsertDietPlan, FoodNutrient, DietRequirement } from "@shared/schema";
 
 // Diet Plans API
-export async function generateDietPlan(requirements: DietRequirement) {
-  const response = await apiRequest("POST", "/api/diet-plans/generate", requirements);
-  return response.json();
-}
-
 export async function saveDietPlan(dietPlan: InsertDietPlan) {
   const response = await apiRequest("POST", "/api/diet-plans", dietPlan);
   return response.json();

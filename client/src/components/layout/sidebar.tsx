@@ -18,7 +18,6 @@ export default function Sidebar() {
   const navItems = [
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Diet Plans", href: "/diet-plans", icon: Utensils },
-    { name: "Create Diet Plan", href: "/create-diet-plan", icon: Calendar },
     { name: "Food Database", href: "/food-database", icon: Apple },
     { name: "Nutritional Analysis", href: "/nutrition", icon: BarChart },
     { name: "Settings", href: "/settings", icon: Settings },
@@ -33,7 +32,7 @@ export default function Sidebar() {
           </div>
           <h1 className="font-heading font-semibold text-xl text-primary">NutriSage</h1>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">AI-Powered Diet Planning</p>
+        <p className="text-xs text-muted-foreground mt-1">Nutrition & Diet Planning</p>
       </div>
       
       <nav className="py-4">
