@@ -19,7 +19,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Diet Plans", href: "/diet-plans", icon: Utensils },
     { name: "Food Database", href: "/food-database", icon: Apple },
-    { name: "Nutritional Analysis", href: "/nutrition", icon: BarChart },
+    { name: "Nutrition Information", href: "/food-database", icon: BarChart },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
   

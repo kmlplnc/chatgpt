@@ -51,31 +51,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Quick Actions Section */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-gradient-to-br from-primary/50 to-primary/30 text-primary-foreground hover:shadow-lg transition-shadow border-none">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Brain className="h-5 w-5 mr-2" />
-              AI Diet Generator
-            </CardTitle>
-            <CardDescription className="text-primary-foreground/80">
-              Create personalized diet plans using AI
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm opacity-90">
-              Answer a few questions about your goals and preferences to get a customized diet plan.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button asChild className="w-full bg-white text-primary hover:bg-white/90">
-              <Link href="/create-diet-plan">
-                Create Diet Plan
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-        
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gradient-to-br from-secondary/50 to-secondary/30 text-secondary-foreground hover:shadow-lg transition-shadow border-none">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -104,21 +80,21 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Search className="h-5 w-5 mr-2" />
-              Analyze a Meal
+              Nutrition Analysis
             </CardTitle>
             <CardDescription className="text-accent-foreground/80">
-              Get nutritional breakdown of any meal
+              View nutrient details for different foods
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm opacity-90">
-              Describe your meal and get an instant analysis of its nutritional content.
+              Search and compare nutritional information for different foods and ingredients.
             </p>
           </CardContent>
           <CardFooter>
             <Button asChild className="w-full bg-white text-primary hover:bg-white/90">
-              <Link href="/nutrition">
-                Analyze Now
+              <Link href="/food-database">
+                Explore Now
               </Link>
             </Button>
           </CardFooter>
@@ -193,10 +169,10 @@ export default function Dashboard() {
               <Utensils className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No Diet Plans Yet</h3>
               <p className="text-muted-foreground mb-4">
-                Create your first AI-powered diet plan to get started on your nutrition journey.
+                You haven't added any diet plans to your collection yet.
               </p>
               <Button asChild>
-                <Link href="/create-diet-plan">Create Your First Diet Plan</Link>
+                <Link href="/diet-plans">View Diet Plans</Link>
               </Button>
             </CardContent>
           </Card>
