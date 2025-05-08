@@ -279,11 +279,13 @@ export const uiTranslations: Record<string, string> = {
     "Son zamanlarda hiç yemek görüntülemediniz. Detaylı beslenme bilgilerini görmek için yemekleri arayın.",
   "Nutritional Information": "Beslenme Bilgileri",
   "Macronutrients": "Makro Besinler",
-  "Macros": "Makrolar",
-  "Vitamins": "Vitaminler",
-  "Minerals": "Mineraller",
+  "Macros": "Makro",
+  "Vitamins": "Vitamin",
+  "Minerals": "Mineral",
   "Per serving": "Porsiyon başına",
   "Your personal diet assistant": "Kişisel diyet asistanınız",
+  "Filter": "Filtrele",
+  "All": "Tümü",
 };
 
 // UI metinlerini çevirmek için yardımcı fonksiyon
