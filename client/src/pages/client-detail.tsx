@@ -93,11 +93,59 @@ async function addMeasurement(clientId: string, data: MeasurementFormValues) {
   }
 }
 
+// Ölçüm düzenleme
+async function updateMeasurement(clientId: string, measurementId: number, data: MeasurementFormValues) {
+  try {
+    console.log("Düzenlenen veri:", JSON.stringify(data));
+    
+    const response = await fetch(`/api/clients/${clientId}/measurements/${measurementId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Sunucu yanıtı:", errorText);
+      throw new Error(`Ölçüm düzenlenemedi: ${errorText}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error("Ölçüm düzenleme hatası:", error);
+    throw error;
+  }
+}
+
+// Ölçüm silme
+async function deleteMeasurement(clientId: string, measurementId: number) {
+  try {
+    const response = await fetch(`/api/clients/${clientId}/measurements/${measurementId}`, {
+      method: "DELETE",
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Sunucu yanıtı:", errorText);
+      throw new Error(`Ölçüm silinemedi: ${errorText}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error("Ölçüm silme hatası:", error);
+    throw error;
+  }
+}
+
 export default function ClientDetail() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { id } = useParams();
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
+  const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
+  const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedMetric, setSelectedMetric] = useState("weight");
   
@@ -1075,12 +1123,38 @@ export default function ClientDetail() {
                                   <button 
                                     className="text-xs text-blue-600 hover:text-blue-800"
                                     title="Ölçümü düzenle"
+                                    onClick={() => {
+                                      // Düzenleme için ölçümü seç
+                                      setSelectedMeasurement(measurement);
+                                      // Edit formunu ayarla
+                                      editForm.reset({
+                                        date: measurement.date,
+                                        weight: Number(measurement.weight) || 0,
+                                        height: Number(measurement.height) || 0,
+                                        bodyFatPercentage: measurement.bodyFatPercentage ? Number(measurement.bodyFatPercentage) : undefined,
+                                        waistCircumference: measurement.waistCircumference ? Number(measurement.waistCircumference) : undefined, 
+                                        hipCircumference: measurement.hipCircumference ? Number(measurement.hipCircumference) : undefined,
+                                        chestCircumference: measurement.chestCircumference ? Number(measurement.chestCircumference) : undefined,
+                                        armCircumference: measurement.armCircumference ? Number(measurement.armCircumference) : undefined,
+                                        thighCircumference: measurement.thighCircumference ? Number(measurement.thighCircumference) : undefined,
+                                        calfCircumference: measurement.calfCircumference ? Number(measurement.calfCircumference) : undefined,
+                                        activityLevel: measurement.activityLevel || "moderate",
+                                        notes: measurement.notes || "",
+                                      });
+                                      // Dialogu aç
+                                      setOpenEditMeasurementDialog(true);
+                                    }}
                                   >
                                     Düzenle
                                   </button>
                                   <button 
                                     className="text-xs text-red-600 hover:text-red-800"
                                     title="Ölçümü sil"
+                                    onClick={() => {
+                                      if (confirm("Bu ölçümü silmek istediğinizden emin misiniz?")) {
+                                        deleteMeasurementMutation.mutate({ measurementId: measurement.id });
+                                      }
+                                    }}
                                   >
                                     Sil
                                   </button>
