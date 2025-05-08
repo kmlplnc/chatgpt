@@ -155,10 +155,11 @@ export default function ClientDetail() {
     const measurementData = {
       ...data,
       clientId: Number(id),
-      bmi,
+      bmi: bmi.toString(), // Stringe dönüştür
+      date: new Date().toISOString().split('T')[0] // Bugünün tarihi
     };
     
-    addMeasurementMutation.mutate(data);
+    addMeasurementMutation.mutate(measurementData);
   }
   
   // Son ölçümü bul

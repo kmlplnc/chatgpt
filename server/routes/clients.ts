@@ -141,8 +141,18 @@ clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
     }
 
     // Add client ID to the measurement data
-    const measurementData = { ...req.body, clientId };
+    const measurementData = { 
+      ...req.body, 
+      clientId,
+      updatedAt: new Date() // Şema gereksinimine uygun olarak updatedAt ekliyoruz
+    };
     
+    // Zorunlu alanları kontrol et
+    if (!measurementData.date) {
+      measurementData.date = new Date().toISOString().split('T')[0];
+    }
+    
+    // Ölçüm oluştur ve yanıt döndür
     const measurement = await storage.createMeasurement(measurementData);
     return res.status(201).json(measurement);
   } catch (error) {
