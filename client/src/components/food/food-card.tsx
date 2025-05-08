@@ -9,7 +9,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { saveFood, removeSavedFood } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { translateFood, translateUI } from "@/lib/translations";
+
+// Simple translation functions
+const simplifiedUI = (text: string) => text;
+const simplifiedFood = (text: string | null | undefined) => text || "";
+// Backward compatibility with old code
+const translateUI = simplifiedUI;
+const translateFood = simplifiedFood;
 
 interface FoodCardProps {
   food: Food;

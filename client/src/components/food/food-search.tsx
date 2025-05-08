@@ -3,7 +3,13 @@ import { Search, Filter, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { searchFoods } from "@/lib/usda";
 import { useDebounce } from "@/hooks/use-debounce";
-import { translateFoodToEnglish, translateUI } from "@/lib/translations";
+import { translateFoodToEnglish } from "@/lib/translations";
+
+// Simple translation functions
+const simplifiedUI = (text: string) => text;
+const simplifiedFood = (text: string | null | undefined) => text || "";
+// Backward compatibility with old code
+const translateUI = simplifiedUI;
 import FoodCard from "./food-card";
 
 import { Input } from "@/components/ui/input";
