@@ -5,7 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import NutritionalChart from "@/components/diet/nutritional-chart";
 import { formatNutrientValue } from "@/lib/usda";
-import { translateFood, translateUI } from "@/lib/translations";
+// Çeviri fonksiyonlarının yerine basit fonksiyon tanımlayalım
+const simplifiedUI = (text: string) => text;
+const simplifiedFood = (text: string | null | undefined) => text || "";
 
 import {
   Card,
@@ -159,8 +161,8 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
   console.log('Macronutrients:', macronutrients?.map((n: any) => n.name).join(', '));
   
   const nutrientCategories: Record<string, any[]> = {
-    [translateUI("Macronutrients")]: macronutrients,
-    [translateUI("Vitamins")]: nutrients?.filter((n: any) => 
+    "Macronutrients": macronutrients,
+    "Vitamins": nutrients?.filter((n: any) => 
       typeof n.name === 'string' && (
         n.name.includes("Vitamin") || 
         n.name.includes("vitamin") || 
@@ -170,7 +172,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
         n.name.includes("Thiamin")
       )
     ) || [],
-    [translateUI("Minerals")]: nutrients?.filter((n: any) => 
+    "Minerals": nutrients?.filter((n: any) => 
       typeof n.name === 'string' && (
         n.name.includes("Calcium") || 
         n.name.includes("Iron") || 
@@ -185,7 +187,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
         n.name.includes("Fluoride")
       )
     ) || [],
-    [translateUI("Fatty Acids")]: nutrients?.filter((n: any) => 
+    "Fatty Acids": nutrients?.filter((n: any) => 
       typeof n.name === 'string' && (
         n.name.includes("fatty acid") || 
         n.name.includes("Fatty acids") ||
@@ -225,7 +227,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-2xl">{translateFood(food.description)}</CardTitle>
+              <CardTitle className="text-2xl">{food.description}</CardTitle>
               {food.brandName && (
                 <CardDescription className="text-md">
                   {food.brandName}
