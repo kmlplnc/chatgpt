@@ -9,6 +9,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { saveFood, removeSavedFood } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { translateFood, translateUI } from "@/lib/translations";
 
 interface FoodCardProps {
   food: Food;
@@ -57,7 +58,7 @@ export default function FoodCard({ food }: FoodCardProps) {
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-start mb-2">
             <Badge variant="outline" className="text-xs">
-              {food.dataType}
+              {translateFood(food.dataType)}
             </Badge>
             {food.publishedDate && (
               <span className="text-xs text-muted-foreground">
@@ -66,7 +67,7 @@ export default function FoodCard({ food }: FoodCardProps) {
             )}
           </div>
           
-          <h3 className="font-medium line-clamp-2 mb-1">{food.description}</h3>
+          <h3 className="font-medium line-clamp-2 mb-1">{translateFood(food.description)}</h3>
           
           {food.brandName && (
             <p className="text-sm text-muted-foreground mb-2">{food.brandName}</p>
@@ -75,7 +76,7 @@ export default function FoodCard({ food }: FoodCardProps) {
           <div className="mt-auto">
             {food.foodCategory && (
               <p className="text-xs text-muted-foreground mt-2">
-                Category: {food.foodCategory}
+                {translateUI("Category:")}{" "}{translateFood(food.foodCategory)}
               </p>
             )}
             
@@ -85,7 +86,7 @@ export default function FoodCard({ food }: FoodCardProps) {
                   .filter(n => ["Protein", "Total fat", "Carbohydrate, by difference"].includes(n.nutrientName))
                   .map((nutrient, index) => (
                     <span key={index} className="nutrient-badge">
-                      {nutrient.nutrientName === "Carbohydrate, by difference" ? "Carbs" : nutrient.nutrientName}: 
+                      {translateFood(nutrient.nutrientName === "Carbohydrate, by difference" ? "Carbs" : nutrient.nutrientName)}: 
                       {" "}{Math.round(nutrient.value * 10) / 10}{nutrient.unitName.toLowerCase()}
                     </span>
                   ))}
@@ -99,7 +100,7 @@ export default function FoodCard({ food }: FoodCardProps) {
         <div className="flex justify-between w-full">
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/food/${food.fdcId}`}>
-              <Eye className="h-4 w-4 mr-1" /> View
+              <Eye className="h-4 w-4 mr-1" /> {translateUI("View")}
             </Link>
           </Button>
           
@@ -110,7 +111,7 @@ export default function FoodCard({ food }: FoodCardProps) {
             disabled={saveMutation.isPending || isSaved}
           >
             <BookmarkPlus className="h-4 w-4 mr-1" />
-            {isSaved ? "Saved" : "Save"}
+            {isSaved ? translateUI("Saved") : translateUI("Save")}
           </Button>
         </div>
       </CardFooter>
