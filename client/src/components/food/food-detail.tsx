@@ -8,6 +8,9 @@ import { formatNutrientValue } from "@/lib/usda";
 // Çeviri fonksiyonlarının yerine basit fonksiyon tanımlayalım
 const simplifiedUI = (text: string) => text;
 const simplifiedFood = (text: string | null | undefined) => text || "";
+// Backward compatibility with old code
+const translateUI = simplifiedUI;
+const translateFood = simplifiedFood;
 
 import {
   Card,
@@ -405,7 +408,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                 </Tabs>
               ) : (
                 <div className="py-8 text-center">
-                  <p>{translateUI("No nutritional information available")}</p>
+                  <p>{simplifiedUI("No nutritional information available")}</p>
                 </div>
               )}
             </CardContent>
