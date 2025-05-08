@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 146 43% 98%;
+  --foreground: 220 10% 10%;
+  --muted: 146 20% 96%;
+  --muted-foreground: 220 10% 40%;
+  --popover: 146 43% 98%;
+  --popover-foreground: 220 10% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 10% 10%;
+  --border: 220 10% 90%;
+  --input: 220 10% 90%;
+  --primary: 160 84% 39%;
+  --primary-foreground: 146 80% 98%;
+  --secondary: 199 80% 48%;
+  --secondary-foreground: 199 95% 98%;
+  --accent: 146 70% 94%;
+  --accent-foreground: 160 84% 20%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 160 84% 39%;
+  --chart-1: 160 84% 39%;
+  --chart-2: 199 80% 48%;
+  --chart-3: 276 75% 56%;
+  --chart-4: 37 90% 50%;
+  --chart-5: 12 80% 52%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 220 10% 10%;
+  --sidebar-primary: 160 84% 39%;
+  --sidebar-primary-foreground: 146 80% 98%;
+  --sidebar-accent: 146 70% 94%;
+  --sidebar-accent-foreground: 160 84% 20%;
+  --sidebar-border: 220 10% 90%;
+  --sidebar-ring: 160 84% 39%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 220 20% 10%;
+  --foreground: 0 0% 95%;
+  --muted: 220 20% 15%;
+  --muted-foreground: 220 10% 60%;
+  --popover: 220 20% 10%;
+  --popover-foreground: 0 0% 95%;
+  --card: 220 20% 13%;
+  --card-foreground: 0 0% 95%;
+  --border: 220 20% 20%;
+  --input: 220 20% 20%;
+  --primary: 160 84% 39%;
+  --primary-foreground: 0 0% 95%;
+  --secondary: 199 80% 48%;
+  --secondary-foreground: 0 0% 95%;
+  --accent: 146 70% 15%;
+  --accent-foreground: 160 84% 80%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 95%;
+  --ring: 160 84% 39%;
+  --chart-1: 160 84% 39%;
+  --chart-2: 199 80% 48%;
+  --chart-3: 276 75% 56%;
+  --chart-4: 37 90% 50%;
+  --chart-5: 12 80% 52%;
+  --sidebar-background: 220 20% 13%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 160 84% 39%;
+  --sidebar-primary-foreground: 0 0% 95%;
+  --sidebar-accent: 146 70% 15%;
+  --sidebar-accent-foreground: 160 84% 80%;
+  --sidebar-border: 220 20% 20%;
+  --sidebar-ring: 160 84% 39%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom styles */
+.food-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.nutrient-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary bg-opacity-10 text-primary;
+}
