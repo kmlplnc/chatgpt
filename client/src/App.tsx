@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import DietPlans from "@/pages/diet-plans";
 import FoodDatabase from "@/pages/food-database";
 import FoodDetail from "@/pages/food-detail";
+import HealthCalculator from "@/pages/health-calculator";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/diet-plans" component={DietPlans} />
       <Route path="/food-database" component={FoodDatabase} />
       <Route path="/food/:id" component={FoodDetail} />
+      <Route path="/health-calculator" component={HealthCalculator} />
       <Route component={NotFound} />
     </Switch>
   );
