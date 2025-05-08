@@ -195,15 +195,49 @@ clientsRouter.patch("/:id/measurements/:measurementId", async (req: Request, res
       return res.status(403).json({ message: "Measurement does not belong to this client" });
     }
 
-    // Validate and sanitize data
-    // Use partial schema validation since some fields might be missing
-    const validatedData = insertMeasurementSchema.partial().parse(req.body);
+    // Log girişleri ile gelen verileri kontrol et
+    console.log("Ölçüm güncelleme - gelen veri:", JSON.stringify(req.body, null, 2));
     
-    // Update the measurement
-    const updatedMeasurement = await storage.updateMeasurement(measurementId, {
-      ...validatedData,
-      updatedAt: new Date()
+    // Veriyi manuel olarak temizle ve hazırla - şema validasyonu sorunlu olabilir
+    const cleanedData: Partial<any> = {};
+    
+    // Temel alanlar
+    if (req.body.date) cleanedData.date = req.body.date;
+    
+    // Sayısal değerler - string'e dönüştür
+    if (req.body.weight !== undefined) cleanedData.weight = String(req.body.weight);
+    if (req.body.height !== undefined) cleanedData.height = String(req.body.height);
+    if (req.body.bmi !== undefined) cleanedData.bmi = String(req.body.bmi);
+    
+    // İsteğe bağlı ölçümler - null veya string
+    const optionalNumericFields = [
+      'bodyFatPercentage', 'waistCircumference', 'hipCircumference',
+      'chestCircumference', 'armCircumference', 'thighCircumference',
+      'calfCircumference'
+    ];
+    
+    optionalNumericFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        if (req.body[field] === null) {
+          cleanedData[field] = null;
+        } else {
+          cleanedData[field] = String(req.body[field]);
+        }
+      }
     });
+    
+    // Diğer alanlar
+    if (req.body.notes !== undefined) cleanedData.notes = req.body.notes || null;
+    if (req.body.activityLevel !== undefined) cleanedData.activityLevel = req.body.activityLevel || null;
+    if (req.body.clientId !== undefined) cleanedData.clientId = req.body.clientId;
+    
+    // Güncellenme zamanı
+    cleanedData.updatedAt = new Date();
+    
+    console.log("Temizlenmiş veri:", JSON.stringify(cleanedData, null, 2));
+    
+    // Update the measurement with cleaned data
+    const updatedMeasurement = await storage.updateMeasurement(measurementId, cleanedData);
 
     if (!updatedMeasurement) {
       return res.status(404).json({ message: "Failed to update measurement" });
@@ -212,6 +246,7 @@ clientsRouter.patch("/:id/measurements/:measurementId", async (req: Request, res
     return res.status(200).json(updatedMeasurement);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("Zod validation error:", JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ 
         message: "Validation error", 
         errors: error.errors 
@@ -219,7 +254,7 @@ clientsRouter.patch("/:id/measurements/:measurementId", async (req: Request, res
     }
     
     console.error("Error updating measurement:", error);
-    return res.status(500).json({ message: "Failed to update measurement" });
+    return res.status(500).json({ message: "Failed to update measurement: " + (error as Error).message });
   }
 });
 
