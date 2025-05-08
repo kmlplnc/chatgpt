@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -641,31 +642,151 @@ export default function ClientDetail() {
                 <CardDescription>Tüm kaydedilen ölçüm bilgileri</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-3 px-4 text-left font-medium">Tarih</th>
-                        <th className="py-3 px-4 text-left font-medium">Kilo (kg)</th>
-                        <th className="py-3 px-4 text-left font-medium">BMI</th>
-                        <th className="py-3 px-4 text-left font-medium">Bel (cm)</th>
-                        <th className="py-3 px-4 text-left font-medium">Kalça (cm)</th>
-                        <th className="py-3 px-4 text-left font-medium">Vücut Yağı (%)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {measurements.map((measurement) => (
-                        <tr key={measurement.id} className="border-b hover:bg-muted/50">
-                          <td className="py-3 px-4">{formatDate(measurement.date)}</td>
-                          <td className="py-3 px-4">{measurement.weight}</td>
-                          <td className="py-3 px-4">{measurement.bmi || "-"}</td>
-                          <td className="py-3 px-4">{measurement.waistCircumference || "-"}</td>
-                          <td className="py-3 px-4">{measurement.hipCircumference || "-"}</td>
-                          <td className="py-3 px-4">{measurement.bodyFatPercentage || "-"}</td>
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Görüntüleme seçenekleri" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tüm metrikler</SelectItem>
+                        <SelectItem value="basic">Temel metrikler</SelectItem>
+                        <SelectItem value="body">Vücut ölçümleri</SelectItem>
+                        <SelectItem value="circumference">Çevre ölçümleri</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="overflow-x-auto border rounded-lg">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm sticky left-0 bg-muted/50 z-10">Tarih</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Kilo (kg)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">BMI</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Vücut Yağı (%)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Bel (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Kalça (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Göğüs (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Kol (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Uyluk (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Baldır (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Boy (cm)</th>
+                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">İşlemler</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {measurements.map((measurement, index) => {
+                          // Bir önceki değer ile karşılaştırma için
+                          const prevMeasurement = index < measurements.length - 1 ? measurements[index + 1] : null;
+                          
+                          // Değişim yönünü belirleyen fonksiyon
+                          const getChangeDirection = (current: any, previous: any, isLowerBetter = true) => {
+                            if (!current || !previous) return null;
+                            const change = Number(current) - Number(previous);
+                            const isReduced = change < 0;
+                            
+                            return {
+                              improved: isLowerBetter ? isReduced : !isReduced,
+                              change: Math.abs(change).toFixed(1)
+                            };
+                          };
+                          
+                          return (
+                            <tr key={measurement.id} className="border-t hover:bg-muted/30 transition-colors">
+                              <td className="py-3 px-4 text-sm font-medium sticky left-0 bg-white z-10">
+                                {formatDate(measurement.date)}
+                              </td>
+                              
+                              {/* Kilo */}
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.weight}</span>
+                                  {prevMeasurement && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.weight, prevMeasurement.weight);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                              
+                              {/* BMI */}
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex items-center">
+                                  <span>{measurement.bmi || "-"}</span>
+                                  {prevMeasurement && measurement.bmi && prevMeasurement.bmi && (
+                                    <>
+                                      {(() => {
+                                        const change = getChangeDirection(measurement.bmi, prevMeasurement.bmi);
+                                        if (!change) return null;
+                                        
+                                        return (
+                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                                            {change.improved ? "-" : "+"}{change.change}
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                              
+                              {/* Vücut Yağı */}
+                              <td className="py-3 px-4 text-sm">{measurement.bodyFatPercentage || "-"}</td>
+                              
+                              {/* Bel */}
+                              <td className="py-3 px-4 text-sm">{measurement.waistCircumference || "-"}</td>
+                              
+                              {/* Kalça */}
+                              <td className="py-3 px-4 text-sm">{measurement.hipCircumference || "-"}</td>
+                              
+                              {/* Göğüs */}
+                              <td className="py-3 px-4 text-sm">{measurement.chestCircumference || "-"}</td>
+                              
+                              {/* Kol */}
+                              <td className="py-3 px-4 text-sm">{measurement.armCircumference || "-"}</td>
+                              
+                              {/* Uyluk */}
+                              <td className="py-3 px-4 text-sm">{measurement.thighCircumference || "-"}</td>
+                              
+                              {/* Baldır */}
+                              <td className="py-3 px-4 text-sm">{measurement.calfCircumference || "-"}</td>
+                              
+                              {/* Boy */}
+                              <td className="py-3 px-4 text-sm">{measurement.height || "-"}</td>
+                              
+                              {/* İşlemler */}
+                              <td className="py-3 px-4 text-sm">
+                                <div className="flex gap-2">
+                                  <button 
+                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                    title="Ölçümü düzenle"
+                                  >
+                                    Düzenle
+                                  </button>
+                                  <button 
+                                    className="text-xs text-red-600 hover:text-red-800"
+                                    title="Ölçümü sil"
+                                  >
+                                    Sil
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </CardContent>
             </Card>

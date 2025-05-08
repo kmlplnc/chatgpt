@@ -44,14 +44,34 @@ const metricOptions: MetricOption[] = [
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const metric = metricOptions.find(m => m.id === payload[0].dataKey);
+    
+    // Metrik değerleri
+    const metricDetails = payload.map((entry: any) => {
+      const metricOption = metricOptions.find(m => m.id === entry.dataKey);
+      return {
+        name: metricOption?.label || entry.name,
+        value: entry.value,
+        color: entry.color,
+        unit: metricOption?.unit || ""
+      };
+    });
     
     return (
-      <div className="bg-white p-4 border rounded shadow-md">
-        <p className="font-medium">{formatDate(data.date)}</p>
-        <p className="text-sm" style={{ color: metric?.color }}>
-          {metric?.label}: {payload[0].value} {metric?.unit}
-        </p>
+      <div className="bg-background border rounded-lg p-3 shadow-lg">
+        <p className="text-sm font-semibold border-b pb-1 mb-2">{formatDate(data.date)}</p>
+        <div className="space-y-1.5">
+          {metricDetails.map((metric, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
+                <span className="text-sm">{metric.name}:</span>
+              </div>
+              <span className="text-sm font-medium ml-2">
+                {Number(metric.value).toFixed(1)} {metric.unit}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -61,17 +81,83 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
 
 const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
+    // Tarih formatı
+    const formattedDate = formatDate(label);
+    
+    // Metrik değerleri
+    const metricDetails = payload.map((entry: any) => {
+      const metricOption = metricOptions.find(m => m.id === entry.dataKey);
+      return {
+        name: metricOption?.label || entry.name,
+        value: entry.value,
+        color: entry.color,
+        unit: metricOption?.unit || "",
+        dataKey: entry.dataKey
+      };
+    });
+    
+    // Bir önceki ölçümden fark hesaplama
+    const calculateChange = (dataKey: string, currentValue: number) => {
+      if (!Array.isArray(payload) || payload.length === 0) return null;
+      
+      // Geçerli ölçüm verisi
+      const currentData = payload[0]?.payload;
+      if (!currentData) return null;
+      
+      // Eğer payload'da label (tarih) yoksa işlem yapma
+      if (!label) return null;
+      
+      // Geçerli tarih dizinden index bul (external chartData referansı yerine payload kullan)
+      const allData = payload[0]?.payload?.parent?.props?.data || [];
+      if (!Array.isArray(allData) || allData.length < 2) return null;
+      
+      const currentIndex = allData.findIndex((d: any) => d.date === label);
+      if (currentIndex <= 0 || currentIndex >= allData.length) return null;
+      
+      const previousValue = allData[currentIndex - 1][dataKey];
+      if (previousValue === undefined || previousValue === null) return null;
+      
+      const change = currentValue - Number(previousValue);
+      const isPositive = change > 0;
+      
+      // Geleneksel olarak kilo, bel çevresi gibi ölçümlerde azalma olumlu,
+      // ancak kas kütlesi gibi ölçümlerde artış olumludur. Şu an hepsinde azalma olumlu kabul ediliyor.
+      const isDesirable = !isPositive;
+      
+      return {
+        change: Math.abs(change).toFixed(1),
+        isPositive,
+        isDesirable,
+        symbol: isPositive ? "+" : "-"
+      };
+    };
+
     return (
-      <div className="bg-white p-4 border rounded shadow-md">
-        <p className="font-medium">{formatDate(label)}</p>
-        {payload.map((entry, index) => {
-          const metric = metricOptions.find(m => m.id === entry.dataKey);
-          return (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {metric?.label}: {entry.value} {metric?.unit}
-            </p>
-          );
-        })}
+      <div className="bg-background border rounded-lg p-3 shadow-lg">
+        <p className="text-sm font-semibold border-b pb-1 mb-2">{formattedDate}</p>
+        <div className="space-y-2">
+          {metricDetails.map((metric, index) => {
+            const change = calculateChange(metric.dataKey, metric.value);
+            
+            return (
+              <div key={index} className="space-y-0.5">
+                <div className="flex items-center">
+                  <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: metric.color }}></span>
+                  <span className="text-sm font-medium">{metric.name}</span>
+                </div>
+                <div className="flex items-center justify-between pl-5">
+                  <span className="text-sm">{Number(metric.value).toFixed(1)} {metric.unit}</span>
+                  
+                  {change && (
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${change.isDesirable ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                      {change.symbol}{change.change} {metric.unit}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
