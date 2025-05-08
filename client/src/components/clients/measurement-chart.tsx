@@ -219,35 +219,46 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
       // Metrikleri sayısal değere dönüştür
       const numericData: any = {};
       
-      // Temel alanları kopyala
+      // Temel alanları kopyala - grafik için gerekli
       numericData.date = m.date;
       numericData.displayDate = formatDate(m.date);
       numericData.id = m.id;
       
-      // Tüm ölçüm metriklerini dönüştür 
+      // Önce grafik verilerini konsolda göster (hata ayıklama için)
+      console.log("Orijinal ölçüm verisi:", JSON.stringify(m, null, 2));
+      
+      // Tüm ölçüm metriklerini dönüştür
       metricOptions.forEach(metric => {
         const value = m[metric.id];
         
         // String, sayı veya null/undefined olabilir, güvenli şekilde dönüştür
         if (value !== null && value !== undefined && value !== '') {
           // String içindeki sayıyı al
-          const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+          let numValue = 0;
           
-          // Geçerli bir sayı ise ekle
-          if (!isNaN(numValue)) {
-            numericData[metric.id] = numValue;
-          } else {
-            numericData[metric.id] = undefined;
+          try {
+            numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+            
+            // Geçerli bir sayı ise ekle
+            if (!isNaN(numValue)) {
+              numericData[metric.id] = numValue;
+            } else {
+              console.warn(`Metrik ${metric.id} için NaN değeri (${value})`);
+              numericData[metric.id] = 0; // NaN yerine 0 kullan
+            }
+          } catch (error) {
+            console.error(`Metrik dönüşüm hatası (${metric.id})`, error);
+            numericData[metric.id] = 0; // Hata durumunda 0 kullan
           }
         } else {
-          // Değer yoksa, grafik gösteriminde sorun yaşanmaması için
-          // bu metriği undefined olarak bırak (null değil)
-          numericData[metric.id] = undefined;
+          // Değer yoksa, 0 olarak ekle (undefined değil)
+          // Recharts ile çizim sorunlarını önlemek için
+          numericData[metric.id] = 0;
         }
       });
       
       // Her kayıt için değer olup olmadığını konsolda görüntüle
-      console.log(`Ölçüm (${formatDate(m.date)}) değerleri: `, 
+      console.log(`Dönüştürülen ölçüm (${formatDate(m.date)}) değerleri: `, 
         metricOptions.map(m => `${m.id}: ${numericData[m.id]}`).join(', '));
       
       return numericData;
@@ -280,6 +291,9 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
     );
   }
   
+  // Tablo verisini konsolda göster
+  console.log("Grafik verisi:", chartData);
+
   return (
     <Card>
       <CardHeader>
@@ -329,14 +343,12 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                   <XAxis
                     dataKey="displayDate"
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => value.split(' ')[0]}
+                    tickFormatter={(value) => value?.split(' ')?.[0] || ''}
                     height={50}
-                    label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
                   />
                   <YAxis 
                     width={50}
-                    label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
-                    domain={['auto', 'auto']}
+                    domain={[0, 'auto']}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={40} />
@@ -354,6 +366,7 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                         activeDot={{ r: 6 }}
                         strokeWidth={2}
                         connectNulls={true}
+                        isAnimationActive={false}
                       />
                     );
                   })}
@@ -371,14 +384,12 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                   <XAxis
                     dataKey="displayDate"
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => value.split(' ')[0]}
+                    tickFormatter={(value) => value?.split(' ')?.[0] || ''}
                     height={50}
-                    label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
                   />
                   <YAxis 
                     width={50}
-                    label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
-                    domain={['auto', 'auto']}
+                    domain={[0, 'auto']}
                   />
                   <Tooltip content={<CustomBarTooltip />} />
                   <Legend verticalAlign="top" height={40} />
@@ -393,6 +404,7 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                         name={metricOption.label}
                         fill={metricOption.color}
                         radius={[4, 4, 0, 0]}
+                        isAnimationActive={false}
                       />
                     );
                   })}
