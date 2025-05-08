@@ -170,6 +170,13 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(metricKey ? [metricKey] : ["weight", "bmi"]);
   const [activeTab, setActiveTab] = useState("line");
   
+  // metricKey değiştiğinde seçili metrikleri güncelle
+  useEffect(() => {
+    if (metricKey) {
+      setSelectedMetrics([metricKey]);
+    }
+  }, [metricKey]);
+  
   // En yeni tarihten en eskiye doğru sırala
   const sortedMeasurements = [...measurements].sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
