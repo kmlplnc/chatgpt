@@ -1436,18 +1436,25 @@ export default function ClientDetail() {
                                     onClick={() => {
                                       // Düzenleme için ölçümü seç
                                       setSelectedMeasurement(measurement);
-                                      // Edit formunu ayarla
+                                      // Form değerlerini güvenli bir şekilde ayarla
+                                      const safeNumericConversion = (value: any) => {
+                                        if (value === null || value === undefined || value === "") return undefined;
+                                        const parsed = Number(value);
+                                        return isNaN(parsed) ? undefined : parsed;
+                                      };
+                                      
+                                      // Edit formunu ayarla - güvenli dönüşümlerle
                                       editForm.reset({
-                                        date: measurement.date,
-                                        weight: Number(measurement.weight) || 0,
-                                        height: Number(measurement.height) || 0,
-                                        bodyFatPercentage: measurement.bodyFatPercentage ? Number(measurement.bodyFatPercentage) : undefined,
-                                        waistCircumference: measurement.waistCircumference ? Number(measurement.waistCircumference) : undefined, 
-                                        hipCircumference: measurement.hipCircumference ? Number(measurement.hipCircumference) : undefined,
-                                        chestCircumference: measurement.chestCircumference ? Number(measurement.chestCircumference) : undefined,
-                                        armCircumference: measurement.armCircumference ? Number(measurement.armCircumference) : undefined,
-                                        thighCircumference: measurement.thighCircumference ? Number(measurement.thighCircumference) : undefined,
-                                        calfCircumference: measurement.calfCircumference ? Number(measurement.calfCircumference) : undefined,
+                                        date: measurement.date || new Date().toISOString().split("T")[0],
+                                        weight: safeNumericConversion(measurement.weight) || 0,
+                                        height: safeNumericConversion(measurement.height) || 0,
+                                        bodyFatPercentage: safeNumericConversion(measurement.bodyFatPercentage),
+                                        waistCircumference: safeNumericConversion(measurement.waistCircumference),
+                                        hipCircumference: safeNumericConversion(measurement.hipCircumference),
+                                        chestCircumference: safeNumericConversion(measurement.chestCircumference),
+                                        armCircumference: safeNumericConversion(measurement.armCircumference),
+                                        thighCircumference: safeNumericConversion(measurement.thighCircumference),
+                                        calfCircumference: safeNumericConversion(measurement.calfCircumference),
                                         activityLevel: measurement.activityLevel || "moderate",
                                         notes: measurement.notes || "",
                                       });

@@ -228,8 +228,21 @@ export class MemStorage implements IStorage {
     if (!existingMeasurement) return undefined;
     
     console.log("Updating measurement:", id);
-    console.log("Original measurement:", existingMeasurement);
-    console.log("Updates received:", JSON.stringify(updates));
+    console.log("Original measurement:", JSON.stringify(existingMeasurement, null, 2));
+    console.log("Updates received:", JSON.stringify(updates, null, 2));
+    
+    // Sayısal değerler için güvenli dönüşüm fonksiyonu
+    const safeNumberToString = (value: any): string | null => {
+      if (value === null || value === undefined || value === '') return null;
+      try {
+        // Önce number'a çevir, sonra string'e çevir - bu NaN değerleri yakalar
+        const num = Number(value);
+        return isNaN(num) ? null : String(num);
+      } catch (e) {
+        console.error(`Sayısal dönüşüm hatası: ${value}`, e);
+        return null;
+      }
+    };
     
     // Güvenli bir şekilde güncellemeleri işle
     const safeUpdates: Partial<Measurement> = {};
@@ -241,35 +254,38 @@ export class MemStorage implements IStorage {
     
     // Temel ölçümler (weight, height)
     if (updates.weight !== undefined) {
-      safeUpdates.weight = String(updates.weight);
+      safeUpdates.weight = safeNumberToString(updates.weight) || "0";
     }
     
     if (updates.height !== undefined) {
-      safeUpdates.height = String(updates.height);
+      safeUpdates.height = safeNumberToString(updates.height) || "0";
     }
     
+    // BMI'yi yeniden hesapla veya varsa güncelle
     if (updates.bmi !== undefined) {
-      safeUpdates.bmi = String(updates.bmi);
+      safeUpdates.bmi = safeNumberToString(updates.bmi) || "0";
+    } else if (updates.weight !== undefined || updates.height !== undefined) {
+      // Ağırlık veya boy değişmişse BMI'yi yeniden hesapla
+      const weight = parseFloat(safeUpdates.weight || existingMeasurement.weight || "0");
+      const height = parseFloat(safeUpdates.height || existingMeasurement.height || "0") / 100; // cm'den m'ye çevir
+      if (height > 0) {
+        const bmi = weight / (height * height);
+        safeUpdates.bmi = String(Math.round(bmi * 10) / 10); // 1 ondalık basamakla yuvarla
+      } else {
+        safeUpdates.bmi = "0";
+      }
     }
     
     // İsteğe bağlı ölçümler - güvenli null/string dönüşümleri
     const optionalFields = [
       'bodyFatPercentage', 'waistCircumference', 'hipCircumference',
       'chestCircumference', 'armCircumference', 'thighCircumference',
-      'calfCircumference', 'bmr', 'basalMetabolicRate', 'targetCalories',
-      'totalDailyEnergyExpenditure'
+      'calfCircumference', 'basalMetabolicRate', 'totalDailyEnergyExpenditure'
     ];
     
     for (const field of optionalFields) {
       if (field in updates) {
-        const value = updates[field as keyof Measurement];
-        if (value === null || value === undefined || value === '') {
-          // null olarak ayarla
-          safeUpdates[field as keyof Measurement] = null as any;
-        } else {
-          // string'e çevir ve ayarla
-          safeUpdates[field as keyof Measurement] = String(value) as any;
-        }
+        safeUpdates[field as keyof Measurement] = safeNumberToString(updates[field as keyof Measurement]) as any;
       }
     }
     
@@ -282,35 +298,20 @@ export class MemStorage implements IStorage {
       safeUpdates.notes = updates.notes;
     }
     
-    // Diğer numerik değerler
-    if (updates.proteinPercentage !== undefined) {
-      safeUpdates.proteinPercentage = updates.proteinPercentage;
-    }
-    
-    if (updates.carbsPercentage !== undefined) {
-      safeUpdates.carbsPercentage = updates.carbsPercentage;
-    }
-    
-    if (updates.fatPercentage !== undefined) {
-      safeUpdates.fatPercentage = updates.fatPercentage;
-    }
-    
     // clientId değişmez
-    if (updates.clientId !== undefined) {
-      safeUpdates.clientId = updates.clientId;
-    }
+    // clientId'nin mevcut değeri korunmalı
     
     // updatedAt'i güncelle
     safeUpdates.updatedAt = new Date();
     
-    console.log("Safe updates:", JSON.stringify(safeUpdates));
+    console.log("Safe updates:", JSON.stringify(safeUpdates, null, 2));
     
     const updatedMeasurement = {
       ...existingMeasurement,
       ...safeUpdates
     };
     
-    console.log("Updated measurement:", JSON.stringify(updatedMeasurement));
+    console.log("Updated measurement:", JSON.stringify(updatedMeasurement, null, 2));
     
     this.measurements.set(id, updatedMeasurement);
     return updatedMeasurement;
