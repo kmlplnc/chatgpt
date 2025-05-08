@@ -502,31 +502,59 @@ export default function ClientDetail() {
                   <CardContent>
                     {measurements.length >= 2 ? (
                       <div className="space-y-4">
-                        <div>
+                        <div className="py-2 border-b">
                           <Label>Son Ölçüm</Label>
-                          <p className="text-lg font-medium">{measurements[0].weight} kg | BMI: {measurements[0].bmi}</p>
-                          <p className="text-sm text-muted-foreground">{formatDate(measurements[0].date)}</p>
+                          <div className="flex items-center mt-1 space-x-2">
+                            <span className="text-lg font-semibold">{measurements[0].weight} kg</span>
+                            <span className="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded">BMI: {parseFloat(measurements[0].bmi).toFixed(1)}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{formatDate(measurements[0].date)}</p>
                         </div>
-                        <div>
+                        
+                        <div className="py-2 border-b">
                           <Label>Önceki Ölçüm</Label>
-                          <p>{measurements[1].weight} kg | BMI: {measurements[1].bmi}</p>
-                          <p className="text-sm text-muted-foreground">{formatDate(measurements[1].date)}</p>
+                          <div className="flex items-center mt-1 space-x-2">
+                            <span className="text-base font-medium">{measurements[1].weight} kg</span> 
+                            <span className="px-2 py-0.5 text-sm bg-blue-50 text-blue-600 rounded">BMI: {parseFloat(measurements[1].bmi).toFixed(1)}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{formatDate(measurements[1].date)}</p>
                         </div>
-                        <div>
+                        
+                        <div className="py-2">
                           <Label>Değişim</Label>
                           {(() => {
                             const weightChange = Number(measurements[0].weight) - Number(measurements[1].weight);
                             const bmiChange = Number(measurements[0].bmi) - Number(measurements[1].bmi);
+                            
                             const isWeightReduced = weightChange < 0;
+                            const isBmiReduced = bmiChange < 0;
+                            const weightChangeAbs = Math.abs(weightChange);
+                            const bmiChangeAbs = Math.abs(bmiChange);
+                            
+                            const daysDiff = Math.round((new Date(measurements[0].date).getTime() - new Date(measurements[1].date).getTime()) / (1000 * 60 * 60 * 24));
                             
                             return (
-                              <div>
-                                <p className={`${isWeightReduced ? "text-green-600" : "text-red-600"} font-medium`}>
-                                  {isWeightReduced ? "" : "+"}{weightChange.toFixed ? weightChange.toFixed(1) : weightChange} kg
-                                </p>
-                                <p className={`${bmiChange < 0 ? "text-green-600" : "text-red-600"}`}>
-                                  BMI: {bmiChange < 0 ? "" : "+"}{bmiChange.toFixed ? bmiChange.toFixed(1) : bmiChange}
-                                </p>
+                              <div className="mt-1 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">Kilo:</span>
+                                  <span className={`${isWeightReduced ? "text-green-600" : "text-red-600"} font-medium px-2 py-1 rounded-md ${isWeightReduced ? "bg-green-100" : "bg-red-100"}`}>
+                                    {isWeightReduced ? "-" : "+"}{weightChangeAbs.toFixed(1)} kg
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">BMI:</span>
+                                  <span className={`${isBmiReduced ? "text-green-600" : "text-red-600"} font-medium px-2 py-1 rounded-md ${isBmiReduced ? "bg-green-100" : "bg-red-100"}`}>
+                                    {isBmiReduced ? "-" : "+"}{bmiChangeAbs.toFixed(1)} birim
+                                  </span>
+                                </div>
+                                
+                                {daysDiff > 0 && (
+                                  <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                                    <span className="text-sm font-medium">Süre:</span>
+                                    <span className="text-sm text-muted-foreground">{daysDiff} gün</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
@@ -551,6 +579,9 @@ export default function ClientDetail() {
                             { name: "Bel Çevresi", key: "waistCircumference" },
                             { name: "Kalça Çevresi", key: "hipCircumference" },
                             { name: "Göğüs Çevresi", key: "chestCircumference" },
+                            { name: "Kol Çevresi", key: "armCircumference" },
+                            { name: "Uyluk Çevresi", key: "thighCircumference" },
+                            { name: "Baldır Çevresi", key: "calfCircumference" },
                           ];
                           
                           return circMetrics.map((metric) => {
@@ -563,11 +594,15 @@ export default function ClientDetail() {
                             const isReduced = change < 0;
                             
                             return (
-                              <div key={metric.key}>
+                              <div key={metric.key} className="py-2 border-b last:border-0">
                                 <Label>{metric.name}</Label>
-                                <div className="flex justify-between">
-                                  <span>{current} cm</span>
-                                  <span className={`${isReduced ? "text-green-600" : "text-red-600"} font-medium`}>
+                                <div className="flex justify-between items-center mt-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">{previous} cm</span>
+                                    <span className="text-muted-foreground">→</span>
+                                    <span className="text-base font-semibold">{current} cm</span>
+                                  </div>
+                                  <span className={`${isReduced ? "text-green-600" : "text-red-600"} font-medium px-2 py-1 rounded-md bg-opacity-10 ${isReduced ? "bg-green-100" : "bg-red-100"}`}>
                                     {isReduced ? "" : "+"}{change.toFixed ? change.toFixed(1) : change} cm
                                   </span>
                                 </div>

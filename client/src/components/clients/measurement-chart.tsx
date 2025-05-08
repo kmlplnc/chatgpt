@@ -88,15 +88,25 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
   
-  // Son 10 ölçümü al ve grafikte kullanmak için ters çevir (en eskiden en yeniye)
+  // Son 12 ölçümü al ve grafikte kullanmak için ters çevir (en eskiden en yeniye)
   const chartData = [...sortedMeasurements]
-    .slice(0, 10)
+    .slice(0, 12)
     .reverse()
-    .map((m) => ({
-      ...m,
-      date: m.date,
-      displayDate: formatDate(m.date),
-    }));
+    .map((m) => {
+      // Metrikleri sayısal değere dönüştür
+      const numericData: any = { ...m };
+      metricOptions.forEach(metric => {
+        if (m[metric.id] !== null && m[metric.id] !== undefined) {
+          numericData[metric.id] = Number(m[metric.id]);
+        }
+      });
+      
+      return {
+        ...numericData,
+        date: m.date,
+        displayDate: formatDate(m.date),
+      };
+    });
   
   // Metric seçimini değiştir
   const handleMetricChange = (metric: string) => {
@@ -173,10 +183,16 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                 dataKey="displayDate"
                 tick={{ fontSize: 12 }}
                 tickFormatter={(value) => value.split(' ')[0]}
+                height={50}
+                label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
               />
-              <YAxis />
+              <YAxis 
+                width={50}
+                label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
+                domain={['auto', 'auto']}
+              />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend verticalAlign="top" height={40} />
               {selectedMetrics.map((metric) => {
                 const metricOption = metricOptions.find((m) => m.id === metric);
                 if (!metricOption) return null;
@@ -208,10 +224,16 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                 dataKey="date"
                 tick={{ fontSize: 12 }}
                 tickFormatter={(value) => value.split('T')[0]}
+                height={50}
+                label={{ value: "Tarih", position: "insideBottom", offset: -10 }}
               />
-              <YAxis />
+              <YAxis 
+                width={50}
+                label={{ value: "Değer", angle: -90, position: "insideLeft" }} 
+                domain={['auto', 'auto']}
+              />
               <Tooltip content={<CustomBarTooltip />} />
-              <Legend />
+              <Legend verticalAlign="top" height={40} />
               {selectedMetrics.map((metric) => {
                 const metricOption = metricOptions.find((m) => m.id === metric);
                 if (!metricOption) return null;
