@@ -110,6 +110,17 @@ class USDAService {
       
       const data = await response.json();
       
+      // Add debug logging to see the structure of the response
+      console.log('USDA API Food Response for nutrients:', JSON.stringify({
+        fdcId,
+        dataType: data.dataType,
+        hasNutrients: Array.isArray(data.foodNutrients) && data.foodNutrients.length > 0,
+        nutrientCount: Array.isArray(data.foodNutrients) ? data.foodNutrients.length : 0,
+        sampleNutrients: Array.isArray(data.foodNutrients) && data.foodNutrients.length > 0 
+          ? data.foodNutrients.slice(0, 2) 
+          : [],
+      }, null, 2));
+      
       // Map food nutrients from response
       const nutrients: InsertFoodNutrient[] = this.mapNutrientsFromUSDA(fdcId, data.foodNutrients || []);
       
@@ -174,12 +185,34 @@ class USDAService {
       "Cholesterol"
     ];
     
+    // Log the raw nutrients for debugging
+    console.log('First nutrient in array:', usdaNutrients.length > 0 ? JSON.stringify(usdaNutrients[0]) : 'No nutrients');
+    
     // Filter for common nutrients and map to our schema
     return usdaNutrients
-      .filter(nutrient => nutrient.nutrientName && nutrient.value > 0)
+      .filter(nutrient => {
+        // Handle different USDA API response formats
+        const hasNutrientName = nutrient.nutrientName || 
+                               (nutrient.nutrient && nutrient.nutrient.name);
+        const hasValue = nutrient.value > 0 || 
+                        (nutrient.amount && nutrient.amount > 0);
+        
+        return hasNutrientName && hasValue;
+      })
       .map(nutrient => {
+        // Handle different USDA API response formats
+        const rawName = nutrient.nutrientName || 
+                       (nutrient.nutrient && nutrient.nutrient.name) || 
+                       '';
+        const value = nutrient.value || 
+                     nutrient.amount || 
+                     0;
+        const unitName = nutrient.unitName || 
+                        (nutrient.nutrient && nutrient.nutrient.unitName) || 
+                        'g';
+        
         // Normalize nutrient names
-        let name = nutrient.nutrientName;
+        let name = rawName;
         
         if (name === "Total lipid (fat)") name = "Total Fat";
         if (name === "Carbohydrate, by difference") name = "Carbohydrates";
@@ -190,10 +223,10 @@ class USDAService {
         // Map to our schema
         return {
           fdcId,
-          nutrientId: nutrient.nutrientId || 0,
+          nutrientId: nutrient.nutrientId || (nutrient.nutrient && nutrient.nutrient.id) || 0,
           name,
-          amount: nutrient.value || 0,
-          unit: nutrient.unitName || "g",
+          amount: value,
+          unit: unitName,
           percentDailyValue: nutrient.percentDailyValue || null
         };
       })
