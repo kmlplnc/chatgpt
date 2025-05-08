@@ -177,9 +177,32 @@ export const insertFoodNutrientSchema = createInsertSchema(foodNutrients).omit({
   id: true,
 });
 
+// Create Client schema
+export const insertClientSchema = createInsertSchema(clients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  startDate: true,
+  endDate: true,
+  userId: true,
+});
+
+// Create Measurement schema
+export const insertMeasurementSchema = createInsertSchema(measurements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = z.infer<typeof insertClientSchema>;
+
+export type Measurement = typeof measurements.$inferSelect;
+export type InsertMeasurement = z.infer<typeof insertMeasurementSchema>;
 
 export type DietPlan = typeof dietPlans.$inferSelect;
 export type InsertDietPlan = z.infer<typeof insertDietPlanSchema>;

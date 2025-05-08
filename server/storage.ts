@@ -2,6 +2,12 @@ import {
   users, 
   type User, 
   type InsertUser,
+  clients,
+  type Client,
+  type InsertClient,
+  measurements,
+  type Measurement,
+  type InsertMeasurement,
   dietPlans,
   type DietPlan,
   type InsertDietPlan,
@@ -22,6 +28,20 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Client methods
+  getClients(userId?: number, limit?: number): Promise<Client[]>;
+  getClient(id: number): Promise<Client | undefined>;
+  createClient(client: InsertClient): Promise<Client>;
+  updateClient(id: number, updates: Partial<Client>): Promise<Client | undefined>;
+  deleteClient(id: number): Promise<boolean>;
+  
+  // Measurement methods
+  getMeasurements(clientId: number): Promise<Measurement[]>;
+  getMeasurement(id: number): Promise<Measurement | undefined>;
+  createMeasurement(measurement: InsertMeasurement): Promise<Measurement>;
+  updateMeasurement(id: number, updates: Partial<Measurement>): Promise<Measurement | undefined>;
+  deleteMeasurement(id: number): Promise<boolean>;
   
   // Diet Plan methods
   getDietPlans(userId?: number, limit?: number): Promise<DietPlan[]>;
@@ -52,12 +72,16 @@ export interface IStorage {
 // In-memory storage implementation
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
+  private clients: Map<number, Client>;
+  private measurements: Map<number, Measurement>;
   private dietPlans: Map<number, DietPlan>;
   private foods: Map<string, Food>;
   private savedFoods: Map<number, SavedFood>;
   private foodNutrients: Map<number, FoodNutrient>;
   
   private userIdCounter: number;
+  private clientIdCounter: number;
+  private measurementIdCounter: number;
   private dietPlanIdCounter: number;
   private savedFoodIdCounter: number;
   private foodNutrientIdCounter: number;
@@ -65,12 +89,16 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.users = new Map();
+    this.clients = new Map();
+    this.measurements = new Map();
     this.dietPlans = new Map();
     this.foods = new Map();
     this.savedFoods = new Map();
     this.foodNutrients = new Map();
     
     this.userIdCounter = 1;
+    this.clientIdCounter = 1;
+    this.measurementIdCounter = 1;
     this.dietPlanIdCounter = 1;
     this.savedFoodIdCounter = 1;
     this.foodNutrientIdCounter = 1;
