@@ -322,7 +322,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                               // For vitamins, minerals, fatty acids
                               categoryNutrients.map((nutrient: any, i: number) => (
                                 <div key={i} className="flex justify-between text-sm">
-                                  <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
+                                  <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
                                   <span className="font-mono">
                                     {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                     {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -335,7 +335,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                                 .filter((n: any) => categoryNutrients.includes(n.name))
                                 .map((nutrient: any, i: number) => (
                                   <div key={i} className="flex justify-between text-sm">
-                                    <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
+                                    <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
                                     <span className="font-mono">
                                       {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                       {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -356,7 +356,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                         {macronutrients && Array.isArray(macronutrients) && macronutrients.length > 0 && 
                           macronutrients.map((nutrient: any, i: number) => (
                             <div key={i} className="flex justify-between text-sm">
-                              <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
+                              <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
                               <span className="font-mono">
                                 {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                 {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -370,9 +370,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                   <TabsContent value="vitamins">
                     <ScrollArea className="h-[400px] pr-4">
                       <div className="space-y-1">
-                        {nutrientCategories[translateUI("Vitamins")] && 
-                         Array.isArray(nutrientCategories[translateUI("Vitamins")]) && 
-                         nutrientCategories[translateUI("Vitamins")].map((nutrient: any, i: number) => (
+                        {nutrientCategories["Vitamins"] && 
+                         Array.isArray(nutrientCategories["Vitamins"]) && 
+                         nutrientCategories["Vitamins"].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
                             <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                             <span className="font-mono">
@@ -388,9 +388,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                   <TabsContent value="minerals">
                     <ScrollArea className="h-[400px] pr-4">
                       <div className="space-y-1">
-                        {nutrientCategories[translateUI("Minerals")] && 
-                         Array.isArray(nutrientCategories[translateUI("Minerals")]) && 
-                         nutrientCategories[translateUI("Minerals")].map((nutrient: any, i: number) => (
+                        {nutrientCategories["Minerals"] && 
+                         Array.isArray(nutrientCategories["Minerals"]) && 
+                         nutrientCategories["Minerals"].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
                             <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                             <span className="font-mono">
