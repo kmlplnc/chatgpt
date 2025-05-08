@@ -5,7 +5,7 @@ import { getFoodDetails, getFoodNutrients } from "@/lib/api";
 import { ArrowLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import FoodDetail from "@/components/food/food-detail";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function FoodDetailPage() {
@@ -72,7 +72,34 @@ export default function FoodDetailPage() {
           </div>
         </div>
       ) : food ? (
-        <FoodDetail fdcId={id} />
+        <div className="w-full space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-2xl">{food.description}</CardTitle>
+                  {food.brandName && (
+                    <CardDescription className="text-md">
+                      {food.brandName}
+                    </CardDescription>
+                  )}
+                </div>
+                <div className="text-sm border px-2 py-1 rounded-md">
+                  {typeof food.dataType === 'string' ? food.dataType : 'Foundation'}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {food.foodCategory && (
+                  <div className="text-xs border px-2 py-1 rounded-md">
+                    {food.foodCategory}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <Alert>
           <Info className="h-4 w-4" />

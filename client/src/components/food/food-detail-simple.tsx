@@ -1,16 +1,13 @@
+import React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
-import { getFoodDetails, getFoodNutrients, saveFood, removeSavedFood } from "@/lib/api";
+import { getFoodNutrients, saveFood, removeSavedFood } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import NutritionalChart from "@/components/diet/nutritional-chart";
 import { formatNutrientValue } from "@/lib/usda";
-// Çeviri fonksiyonlarının yerine basit fonksiyon tanımlayalım
+
+// Simple translation functions
 const simplifiedUI = (text: string) => text;
 const simplifiedFood = (text: string | null | undefined) => text || "";
-// Backward compatibility with old code
-const translateUI = simplifiedUI;
-const translateFood = simplifiedFood;
 
 import {
   Card,
@@ -20,28 +17,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Star, Share2, Printer, BookmarkPlus, BookmarkCheck } from "lucide-react";
+import { BookmarkPlus, BookmarkCheck, Share2, Printer } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface FoodDetailProps {
   fdcId: string;
+  food: any;
 }
 
-export default function FoodDetail({ fdcId }: FoodDetailProps) {
+export default function FoodDetailSimple({ fdcId, food }: FoodDetailProps) {
   const { toast } = useToast();
-  
-  // Fetch food details
-  const { 
-    data: food, 
-    isLoading: isLoadingFood,
-    error: foodError
-  } = useQuery({
-    queryKey: [`/api/foods/${fdcId}`],
-    queryFn: () => getFoodDetails(fdcId),
-  });
   
   // Fetch food nutrients
   const { 
@@ -110,44 +97,8 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
       saveMutation.mutate(fdcId);
     }
   };
-  
-  // Loading state
-  if (isLoadingFood) {
-    return (
-      <div className="flex justify-center items-center h-32">
-        <div className="animate-pulse text-primary">Loading food details...</div>
-      </div>
-    );
-  }
-  
-  // Error state
-  if (foodError) {
-    return (
-      <div className="text-center text-destructive p-4">
-        <p>Error loading food details.</p>
-        <p className="text-sm">{foodError instanceof Error ? foodError.message : "Unknown error"}</p>
-      </div>
-    );
-  }
-  
-  if (!food) {
-    return (
-      <div className="text-center text-muted-foreground p-4">
-        Food not found
-      </div>
-    );
-  }
-  
-  // Helper function to check if a nutrient exists
-  const hasNutrient = (name: string) => {
-    return nutrients?.some((n: any) => n.name === name || (typeof n.name === 'string' && n.name.includes(name)));
-  };
-
-  // For debugging
-  console.log('Nutrients received:', nutrients?.length, nutrients?.map((n: any) => n.name).join(', '));
 
   // Group nutrients by category for display
-  // Makro besinler için özel bir filtreleme yapalım
   const macronutrients = nutrients?.filter((n: any) => 
     typeof n.name === 'string' && 
     (n.name.includes("Protein") || 
@@ -159,9 +110,6 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
      n.name.includes("Energy") ||
      n.name.includes("Calories"))
   ) || [];
-  
-  // For debugging
-  console.log('Macronutrients:', macronutrients?.map((n: any) => n.name).join(', '));
   
   const nutrientCategories: Record<string, any[]> = {
     "Macronutrients": macronutrients,
@@ -237,7 +185,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                 </CardDescription>
               )}
             </div>
-            <div>
+            <div className="text-sm border px-2 py-1 rounded-md">
               {typeof food.dataType === 'string' ? simplifiedFood(food.dataType) : 'Foundation'}
             </div>
           </div>
@@ -245,11 +193,10 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
         <CardContent>
           <div className="flex flex-wrap gap-2 mb-4">
             {food.foodCategory && (
-              <div className="text-xs border rounded p-1">
+              <div className="text-xs border px-2 py-1 rounded-md">
                 {simplifiedFood(food.foodCategory)}
               </div>
             )}
-            {/* Food attributes removed to fix rendering issue */}
           </div>
           
           <div className="flex flex-wrap gap-4 mt-4">
@@ -287,11 +234,37 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
-          {nutrients && nutrients.length > 0 && (
-            <NutritionalChart 
-              food={food} 
-              nutrients={nutrients} 
-            />
+          {isLoadingNutrients ? (
+            <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">Loading nutritional data...</p>
+            </div>
+          ) : nutrients && nutrients.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Nutrition Chart</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <h3 className="font-medium">Macronutrients</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    {macronutrients.slice(0, 3).map((nutrient, index) => (
+                      <div key={index} className="bg-gray-50 p-4 rounded-lg text-center">
+                        <div className="text-2xl font-bold">
+                          {formatNutrientValue(nutrient.amount, nutrient.unit)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {simplifiedFood(nutrient.name)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">No nutritional data available</p>
+            </div>
           )}
         </div>
         
@@ -320,7 +293,6 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                           <h3 className="font-medium text-sm mb-2">{category}</h3>
                           <div className="space-y-1">
                             {Array.isArray(categoryNutrients) && categoryNutrients.length > 0 ? 
-                              // For vitamins, minerals, fatty acids
                               categoryNutrients.map((nutrient: any, i: number) => (
                                 <div key={i} className="flex justify-between text-sm">
                                   <span>{nutrient.name && typeof nutrient.name === 'string' ? simplifiedFood(nutrient.name) : ''}</span>
@@ -329,20 +301,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                                     {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
                                   </span>
                                 </div>
-                              )) :
-                              // For macronutrients (strings array)
-                              nutrients && Array.isArray(nutrients) && Array.isArray(categoryNutrients) && 
-                              nutrients
-                                .filter((n: any) => categoryNutrients.includes(n.name))
-                                .map((nutrient: any, i: number) => (
-                                  <div key={i} className="flex justify-between text-sm">
-                                    <span>{nutrient.name && typeof nutrient.name === 'string' ? simplifiedFood(nutrient.name) : ''}</span>
-                                    <span className="font-mono">
-                                      {formatNutrientValue(nutrient.amount, nutrient.unit)}
-                                      {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
-                                    </span>
-                                  </div>
-                                ))
+                              )) : null
                             }
                           </div>
                           <Separator className="my-2" />
@@ -357,7 +316,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                         {macronutrients && Array.isArray(macronutrients) && macronutrients.length > 0 && 
                           macronutrients.map((nutrient: any, i: number) => (
                             <div key={i} className="flex justify-between text-sm">
-                              <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
+                              <span>{nutrient.name && typeof nutrient.name === 'string' ? simplifiedFood(nutrient.name) : ''}</span>
                               <span className="font-mono">
                                 {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                 {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -375,7 +334,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                          Array.isArray(nutrientCategories["Vitamins"]) && 
                          nutrientCategories["Vitamins"].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
+                            <span>{nutrient.name && typeof nutrient.name === 'string' ? simplifiedFood(nutrient.name) : ''}</span>
                             <span className="font-mono">
                               {formatNutrientValue(nutrient.amount, nutrient.unit)}
                               {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -393,7 +352,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                          Array.isArray(nutrientCategories["Minerals"]) && 
                          nutrientCategories["Minerals"].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
+                            <span>{nutrient.name && typeof nutrient.name === 'string' ? simplifiedFood(nutrient.name) : ''}</span>
                             <span className="font-mono">
                               {formatNutrientValue(nutrient.amount, nutrient.unit)}
                               {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
