@@ -237,21 +237,19 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                 </CardDescription>
               )}
             </div>
-            <Badge>{typeof food.dataType === 'string' ? simplifiedFood(food.dataType) : 'Foundation'}</Badge>
+            <div>
+              {typeof food.dataType === 'string' ? simplifiedFood(food.dataType) : 'Foundation'}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2 mb-4">
             {food.foodCategory && (
-              <Badge variant="outline" className="text-xs">
+              <div className="text-xs border rounded p-1">
                 {simplifiedFood(food.foodCategory)}
-              </Badge>
+              </div>
             )}
-            {food.foodAttributes && Array.isArray(food.foodAttributes) && food.foodAttributes.map((attr: any, i: number) => (
-              <Badge key={i} variant="secondary" className="text-xs">
-                {attr && typeof attr.value === 'string' ? attr.value : ''}
-              </Badge>
-            ))}
+            {/* Food attributes removed to fix rendering issue */}
           </div>
           
           <div className="flex flex-wrap gap-4 mt-4">

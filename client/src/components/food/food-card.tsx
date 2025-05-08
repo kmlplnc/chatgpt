@@ -63,9 +63,9 @@ export default function FoodCard({ food }: FoodCardProps) {
       <CardContent className="p-4 flex-grow">
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-start mb-2">
-            <Badge variant="outline" className="text-xs">
+            <div className="text-xs border rounded-sm p-1 inline-block">
               {translateFood(food.dataType || "")}
-            </Badge>
+            </div>
             {food.publishedDate && (
               <span className="text-xs text-muted-foreground">
                 {new Date(food.publishedDate).getFullYear()}
