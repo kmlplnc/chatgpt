@@ -102,23 +102,254 @@ export default function FoodDetailPage() {
           </Card>
           
           {nutrients && nutrients.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Nutrition Facts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-2">
-                  {nutrients.map((nutrient: any, i: number) => (
-                    <div key={i} className="flex justify-between text-sm border-b pb-1">
-                      <span>{typeof nutrient.name === 'string' ? nutrient.name : 'Nutrient'}</span>
-                      <span className="font-mono">
-                        {nutrient.amount} {nutrient.unit}
-                      </span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-lg">Makro Besinler</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      {/* Macro nutrients - top boxes */}
+                      {nutrients.filter((n: any) => 
+                        typeof n.name === 'string' && (
+                          n.name.includes("Protein") || 
+                          n.name.includes("Carbohydrate") || 
+                          n.name.includes("Total Fat") ||
+                          n.name.includes("Total lipid") ||
+                          n.name.includes("Energy")
+                        )
+                      ).slice(0, 3).map((nutrient: any, i: number) => (
+                        <div key={i} className="bg-slate-50 p-4 rounded-lg text-center">
+                          <div className="text-2xl font-bold">
+                            {typeof nutrient.amount === 'number' ? nutrient.amount.toFixed(1) : nutrient.amount} {nutrient.unit}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {typeof nutrient.name === 'string' ? nutrient.name : 'Besin'}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+
+                    {/* Progress bars for macros with percentages */}
+                    <div className="space-y-4">
+                      {nutrients.filter((n: any) => 
+                        typeof n.name === 'string' && (
+                          n.name.includes("Protein") || 
+                          n.name.includes("Carbohydrate") || 
+                          n.name.includes("Total Fat") ||
+                          n.name.includes("Total lipid")
+                        )
+                      ).map((nutrient: any, i: number) => {
+                        // Calculate percentages - can be refined based on actual daily values
+                        const maxValues: Record<string, number> = {
+                          "Protein": 50,
+                          "Carbohydrate": 300,
+                          "Total Fat": 65,
+                          "Total lipid": 65
+                        };
+                        
+                        const percentKey = Object.keys(maxValues).find(key => 
+                          nutrient.name && typeof nutrient.name === 'string' && nutrient.name.includes(key)
+                        );
+                        
+                        const maxValue = percentKey ? maxValues[percentKey] : 100;
+                        const percentage = Math.min(Math.round((nutrient.amount / maxValue) * 100), 100);
+
+                        // Choose color based on type
+                        const colors: Record<string, string> = {
+                          "Protein": "bg-blue-500",
+                          "Carbohydrate": "bg-orange-500", 
+                          "Total Fat": "bg-rose-500",
+                          "Total lipid": "bg-rose-500"
+                        };
+                        
+                        const color = percentKey ? colors[percentKey] : "bg-slate-500";
+                        
+                        return (
+                          <div key={i} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">
+                                {typeof nutrient.name === 'string' ? nutrient.name : 'Besin'}
+                              </span>
+                              <span className="font-mono">
+                                {typeof nutrient.amount === 'number' ? nutrient.amount.toFixed(1) : nutrient.amount} {nutrient.unit} ({percentage}%)
+                              </span>
+                            </div>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full ${color}`} style={{ width: `${percentage}%` }}></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="md:col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-lg">Besin Değerleri</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <Tabs defaultValue="all">
+                      <TabsList className="grid grid-cols-4 mb-4">
+                        <TabsTrigger value="all" className="px-1">Tümü</TabsTrigger>
+                        <TabsTrigger value="vitamins" className="px-1">Vitaminler</TabsTrigger>
+                        <TabsTrigger value="minerals" className="px-1">Mineraller</TabsTrigger>
+                        <TabsTrigger value="others" className="px-1">Diğer</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="all">
+                        <div className="h-[300px] overflow-y-auto pr-2">
+                          {nutrients.map((nutrient: any, i: number) => (
+                            <div key={i} className="flex justify-between text-sm border-b pb-1 mb-1">
+                              <span className="mr-2">{typeof nutrient.name === 'string' ? nutrient.name : 'Besin'}</span>
+                              <span className="font-mono">
+                                {typeof nutrient.amount === 'number' ? nutrient.amount.toFixed(1) : nutrient.amount} {nutrient.unit}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="vitamins">
+                        <div className="h-[300px] overflow-y-auto pr-2">
+                          {nutrients.filter((n: any) => 
+                            typeof n.name === 'string' && (
+                              n.name.includes("Vitamin") || 
+                              n.name.includes("vitamin") || 
+                              n.name.includes("Folate") ||
+                              n.name.includes("Niacin") ||
+                              n.name.includes("Riboflavin") ||
+                              n.name.includes("Thiamin")
+                            )
+                          ).map((nutrient: any, i: number) => {
+                            // Calculate DV percentage where possible
+                            const dvValues: Record<string, number> = {
+                              "Vitamin A": 900, // mcg
+                              "Vitamin C": 90, // mg
+                              "Vitamin D": 20, // mcg
+                              "Vitamin E": 15, // mg
+                              "Vitamin K": 120, // mcg
+                              "Thiamin": 1.2, // mg
+                              "Riboflavin": 1.3, // mg
+                              "Niacin": 16, // mg
+                              "Vitamin B-6": 1.7, // mg
+                              "Folate": 400, // mcg
+                              "Vitamin B-12": 2.4, // mcg
+                            };
+                            
+                            const dvKey = Object.keys(dvValues).find(key => 
+                              nutrient.name && typeof nutrient.name === 'string' && 
+                              nutrient.name.includes(key)
+                            );
+                            
+                            const dvValue = dvKey ? dvValues[dvKey] : null;
+                            const dvPercentage = dvValue && nutrient.amount ? 
+                              Math.round((nutrient.amount / dvValue) * 100) : null;
+                            
+                            return (
+                              <div key={i} className="flex justify-between text-sm border-b pb-1 mb-1">
+                                <span className="mr-2">{typeof nutrient.name === 'string' ? nutrient.name : 'Vitamin'}</span>
+                                <span className="font-mono">
+                                  {typeof nutrient.amount === 'number' ? nutrient.amount.toFixed(1) : nutrient.amount} {nutrient.unit}
+                                  {dvPercentage !== null ? ` (${dvPercentage}% DV)` : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="minerals">
+                        <div className="h-[300px] overflow-y-auto pr-2">
+                          {nutrients.filter((n: any) => 
+                            typeof n.name === 'string' && (
+                              n.name.includes("Calcium") || 
+                              n.name.includes("Iron") || 
+                              n.name.includes("Magnesium") || 
+                              n.name.includes("Phosphorus") || 
+                              n.name.includes("Potassium") || 
+                              n.name.includes("Sodium") || 
+                              n.name.includes("Zinc") ||
+                              n.name.includes("Copper") ||
+                              n.name.includes("Manganese") ||
+                              n.name.includes("Selenium") ||
+                              n.name.includes("Fluoride")
+                            )
+                          ).map((nutrient: any, i: number) => {
+                            // Calculate DV percentage where possible
+                            const dvValues: Record<string, number> = {
+                              "Calcium": 1300, // mg
+                              "Iron": 18, // mg
+                              "Magnesium": 420, // mg
+                              "Phosphorus": 1250, // mg
+                              "Potassium": 4700, // mg
+                              "Sodium": 2300, // mg
+                              "Zinc": 11, // mg
+                              "Copper": 0.9, // mg
+                              "Manganese": 2.3, // mg
+                              "Selenium": 55, // mcg
+                            };
+                            
+                            const dvKey = Object.keys(dvValues).find(key => 
+                              nutrient.name && typeof nutrient.name === 'string' && 
+                              nutrient.name.includes(key)
+                            );
+                            
+                            const dvValue = dvKey ? dvValues[dvKey] : null;
+                            const dvPercentage = dvValue && nutrient.amount ? 
+                              Math.round((nutrient.amount / dvValue) * 100) : null;
+                            
+                            return (
+                              <div key={i} className="flex justify-between text-sm border-b pb-1 mb-1">
+                                <span className="mr-2">{typeof nutrient.name === 'string' ? nutrient.name : 'Mineral'}</span>
+                                <span className="font-mono">
+                                  {typeof nutrient.amount === 'number' ? nutrient.amount.toFixed(1) : nutrient.amount} {nutrient.unit}
+                                  {dvPercentage !== null ? ` (${dvPercentage}% DV)` : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="others">
+                        <div className="h-[300px] overflow-y-auto pr-2">
+                          {nutrients.filter((n: any) => 
+                            typeof n.name === 'string' && !(
+                              n.name.includes("Vitamin") || 
+                              n.name.includes("vitamin") || 
+                              n.name.includes("Calcium") || 
+                              n.name.includes("Iron") || 
+                              n.name.includes("Magnesium") || 
+                              n.name.includes("Phosphorus") || 
+                              n.name.includes("Potassium") || 
+                              n.name.includes("Sodium") || 
+                              n.name.includes("Zinc") ||
+                              n.name.includes("Protein") || 
+                              n.name.includes("Carbohydrate") || 
+                              n.name.includes("Total Fat") ||
+                              n.name.includes("Total lipid") ||
+                              n.name.includes("Energy")
+                            )
+                          ).map((nutrient: any, i: number) => (
+                            <div key={i} className="flex justify-between text-sm border-b pb-1 mb-1">
+                              <span className="mr-2">{typeof nutrient.name === 'string' ? nutrient.name : 'Besin'}</span>
+                              <span className="font-mono">
+                                {typeof nutrient.amount === 'number' ? nutrient.amount.toFixed(1) : nutrient.amount} {nutrient.unit}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       ) : (
