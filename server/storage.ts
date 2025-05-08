@@ -195,8 +195,31 @@ export class MemStorage implements IStorage {
   async createMeasurement(insertMeasurement: InsertMeasurement): Promise<Measurement> {
     const id = this.measurementIdCounter++;
     const createdAt = new Date();
-    const measurement: Measurement = { ...insertMeasurement, id, createdAt };
+    const updatedAt = new Date();
+    
+    // Şema gereksinimlerine uygun olarak zorunlu alanları dolduralım
+    const measurement: Measurement = { 
+      ...insertMeasurement, 
+      id, 
+      createdAt,
+      updatedAt,
+      // Null ya da undefined değerler için varsayılan değerler belirleme
+      notes: insertMeasurement.notes || null,
+      bodyFatPercentage: insertMeasurement.bodyFatPercentage || null,
+      waistCircumference: insertMeasurement.waistCircumference || null,
+      hipCircumference: insertMeasurement.hipCircumference || null,
+      chestCircumference: insertMeasurement.chestCircumference || null,
+      armCircumference: insertMeasurement.armCircumference || null,
+      thighCircumference: insertMeasurement.thighCircumference || null,
+      calfCircumference: insertMeasurement.calfCircumference || null,
+      basalMetabolicRate: insertMeasurement.basalMetabolicRate || null,
+      totalDailyEnergyExpenditure: insertMeasurement.totalDailyEnergyExpenditure || null,
+      activityLevel: insertMeasurement.activityLevel || null
+    };
+    
     this.measurements.set(id, measurement);
+    console.log("Measurement created:", measurement);
+    
     return measurement;
   }
 

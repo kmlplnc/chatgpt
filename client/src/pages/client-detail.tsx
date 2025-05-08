@@ -67,19 +67,28 @@ async function getClientMeasurements(id: string) {
 }
 
 async function addMeasurement(clientId: string, data: MeasurementFormValues) {
-  const response = await fetch(`/api/clients/${clientId}/measurements`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error("Ölçüm eklenemedi");
+  try {
+    console.log("Gönderilen veri:", JSON.stringify(data));
+    
+    const response = await fetch(`/api/clients/${clientId}/measurements`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Sunucu yanıtı:", errorText);
+      throw new Error(`Ölçüm eklenemedi: ${errorText}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error("Ölçüm ekleme hatası:", error);
+    throw error;
   }
-  
-  return response.json();
 }
 
 export default function ClientDetail() {
