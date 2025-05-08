@@ -34,7 +34,7 @@ export default function Header() {
         if (location.startsWith("/food/")) {
           return "Food Details";
         }
-        return "NutriSage";
+        return "DietKEM";
     }
   };
   

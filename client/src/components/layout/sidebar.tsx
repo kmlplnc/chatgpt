@@ -27,12 +27,10 @@ export default function Sidebar() {
     <aside className="w-64 bg-white border-r border-neutral-200 h-screen fixed">
       <div className="p-4 border-b border-neutral-200">
         <div className="flex items-center">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center text-white mr-2">
-            <Utensils className="h-4 w-4" />
-          </div>
-          <h1 className="font-heading font-semibold text-xl text-primary">NutriSage</h1>
+          <img src="/logo.png" alt="DietKEM Logo" className="w-10 h-10 mr-2" />
+          <h1 className="font-heading font-semibold text-xl text-primary">DietKEM</h1>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">Nutrition & Diet Planning</p>
+        <p className="text-xs text-muted-foreground mt-1">Beslenme ve Diyet Planlama</p>
       </div>
       
       <nav className="py-4">
