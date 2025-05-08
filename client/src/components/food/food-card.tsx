@@ -58,7 +58,7 @@ export default function FoodCard({ food }: FoodCardProps) {
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-start mb-2">
             <Badge variant="outline" className="text-xs">
-              {translateFood(food.dataType)}
+              {translateFood(food.dataType || "")}
             </Badge>
             {food.publishedDate && (
               <span className="text-xs text-muted-foreground">
@@ -80,11 +80,11 @@ export default function FoodCard({ food }: FoodCardProps) {
               </p>
             )}
             
-            {food.foodNutrients && food.foodNutrients.length > 0 && (
+            {food.foodNutrients && Array.isArray(food.foodNutrients) && food.foodNutrients.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {food.foodNutrients
-                  .filter(n => ["Protein", "Total fat", "Carbohydrate, by difference"].includes(n.nutrientName))
-                  .map((nutrient, index) => (
+                  .filter((n: any) => ["Protein", "Total fat", "Carbohydrate, by difference"].includes(n.nutrientName))
+                  .map((nutrient: any, index: number) => (
                     <span key={index} className="nutrient-badge">
                       {translateFood(nutrient.nutrientName === "Carbohydrate, by difference" ? "Carbs" : nutrient.nutrientName)}: 
                       {" "}{Math.round(nutrient.value * 10) / 10}{nutrient.unitName.toLowerCase()}
