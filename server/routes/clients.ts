@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertClientSchema } from "@shared/schema";
+import { insertClientSchema, insertMeasurementSchema } from "@shared/schema";
 
 const clientsRouter = Router();
 
@@ -154,6 +154,7 @@ clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
     
     // Ölçüm oluştur ve yanıt döndür
     const measurement = await storage.createMeasurement(measurementData);
+    console.log("Measurement created:", measurement);
     return res.status(201).json(measurement);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -165,6 +166,99 @@ clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
     
     console.error("Error creating measurement:", error);
     return res.status(500).json({ message: "Failed to create measurement" });
+  }
+});
+
+// Update measurement
+clientsRouter.patch("/:id/measurements/:measurementId", async (req: Request, res: Response) => {
+  try {
+    const clientId = parseInt(req.params.id);
+    const measurementId = parseInt(req.params.measurementId);
+    
+    if (isNaN(clientId) || isNaN(measurementId)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+
+    // Check if client exists
+    const client = await storage.getClient(clientId);
+    if (!client) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    // Check if measurement exists and belongs to the client
+    const measurement = await storage.getMeasurement(measurementId);
+    if (!measurement) {
+      return res.status(404).json({ message: "Measurement not found" });
+    }
+    
+    if (measurement.clientId !== clientId) {
+      return res.status(403).json({ message: "Measurement does not belong to this client" });
+    }
+
+    // Validate and sanitize data
+    // Use partial schema validation since some fields might be missing
+    const validatedData = insertMeasurementSchema.partial().parse(req.body);
+    
+    // Update the measurement
+    const updatedMeasurement = await storage.updateMeasurement(measurementId, {
+      ...validatedData,
+      updatedAt: new Date()
+    });
+
+    if (!updatedMeasurement) {
+      return res.status(404).json({ message: "Failed to update measurement" });
+    }
+
+    return res.status(200).json(updatedMeasurement);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        message: "Validation error", 
+        errors: error.errors 
+      });
+    }
+    
+    console.error("Error updating measurement:", error);
+    return res.status(500).json({ message: "Failed to update measurement" });
+  }
+});
+
+// Delete measurement
+clientsRouter.delete("/:id/measurements/:measurementId", async (req: Request, res: Response) => {
+  try {
+    const clientId = parseInt(req.params.id);
+    const measurementId = parseInt(req.params.measurementId);
+    
+    if (isNaN(clientId) || isNaN(measurementId)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+
+    // Check if client exists
+    const client = await storage.getClient(clientId);
+    if (!client) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    // Check if measurement exists and belongs to the client
+    const measurement = await storage.getMeasurement(measurementId);
+    if (!measurement) {
+      return res.status(404).json({ message: "Measurement not found" });
+    }
+    
+    if (measurement.clientId !== clientId) {
+      return res.status(403).json({ message: "Measurement does not belong to this client" });
+    }
+
+    // Delete the measurement
+    const success = await storage.deleteMeasurement(measurementId);
+    if (!success) {
+      return res.status(500).json({ message: "Failed to delete measurement" });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Error deleting measurement:", error);
+    return res.status(500).json({ message: "Failed to delete measurement" });
   }
 });
 

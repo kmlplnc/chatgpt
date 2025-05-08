@@ -98,18 +98,32 @@ async function updateMeasurement(clientId: string, measurementId: number, data: 
   try {
     console.log("Düzenlenen veri:", JSON.stringify(data));
     
+    // PATCH isteği için sadece değişen alanları gönder
+    // NaN, undefined, null değerleri temizle
+    const cleanedData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined && v !== null && !isNaN(Number(v)))
+    );
+    
+    console.log("Temizlenmiş veri:", JSON.stringify(cleanedData));
+    
     const response = await fetch(`/api/clients/${clientId}/measurements/${measurementId}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(cleanedData),
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Sunucu yanıtı:", errorText);
-      throw new Error(`Ölçüm düzenlenemedi: ${errorText}`);
+      let errorMessage = "Ölçüm düzenlenemedi";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        // JSON parse hatası durumunda text olarak al
+        errorMessage = await response.text();
+      }
+      throw new Error(errorMessage);
     }
     
     return response.json();
@@ -288,13 +302,52 @@ export default function ClientDetail() {
   function onEditSubmit(data: MeasurementFormValues) {
     if (!selectedMeasurement) return;
     
+    // Sadece numerik alanları kontrol et
+    // TypeScript for index signature
+    interface CleanedData extends Record<string, any> {
+      date: string;
+      weight: number;
+      height: number;
+      bodyFatPercentage?: number | null;
+      waistCircumference?: number | null;
+      hipCircumference?: number | null;
+      chestCircumference?: number | null;
+      armCircumference?: number | null;
+      thighCircumference?: number | null;
+      calfCircumference?: number | null;
+      activityLevel?: string;
+      notes?: string;
+    }
+    
+    // Başlangıç verilerini kopyala
+    const cleanedData: CleanedData = { ...data };
+    
+    // Seçimli (optional) olan alanları işle - undefined veya boş string olabilirler
+    // Bu değerleri temizle ya da gerekirse uygun formata dönüştür
+    const optionalNumericFields = [
+      "bodyFatPercentage", "waistCircumference", "hipCircumference", 
+      "chestCircumference", "armCircumference", "thighCircumference", 
+      "calfCircumference"
+    ];
+    
+    // Optional alanları temizle
+    optionalNumericFields.forEach(field => {
+      const value = cleanedData[field];
+      if (value === "" || value === null || value === undefined || Number.isNaN(Number(value))) {
+        cleanedData[field] = null; // Null değerini kullan
+      }
+    });
+    
     // BMI'ı otomatik hesapla
     const bmi = calculateBMI(data.weight, data.height);
+    
     const measurementData = {
-      ...data,
+      ...cleanedData,
       clientId: Number(id),
       bmi: bmi.toString(), // Stringe dönüştür
     };
+    
+    console.log("Temizlenmiş düzenleme verisi:", JSON.stringify(measurementData));
     
     updateMeasurementMutation.mutate({ 
       measurementId: selectedMeasurement.id, 
