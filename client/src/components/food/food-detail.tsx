@@ -134,64 +134,72 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
   }
   
   // Helper function to check if a nutrient exists
-  const hasNutrient = (name) => {
-    return nutrients?.some(n => n.name === name || n.name.includes(name));
+  const hasNutrient = (name: string) => {
+    return nutrients?.some((n: any) => n.name === name || (typeof n.name === 'string' && n.name.includes(name)));
   };
 
   // For debugging
-  console.log('Nutrients received:', nutrients?.length, nutrients?.map(n => n.name).join(', '));
+  console.log('Nutrients received:', nutrients?.length, nutrients?.map((n: any) => n.name).join(', '));
 
   // Group nutrients by category for display
-  const nutrientCategories = {
+  const nutrientCategories: Record<string, any[]> = {
     [translateUI("Macronutrients")]: ["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars", "Calories"],
-    [translateUI("Vitamins")]: nutrients?.filter(n => 
-      n.name.includes("Vitamin") || 
-      n.name.includes("vitamin") || 
-      n.name.includes("Folate") ||
-      n.name.includes("Niacin") ||
-      n.name.includes("Riboflavin") ||
-      n.name.includes("Thiamin")
+    [translateUI("Vitamins")]: nutrients?.filter((n: any) => 
+      typeof n.name === 'string' && (
+        n.name.includes("Vitamin") || 
+        n.name.includes("vitamin") || 
+        n.name.includes("Folate") ||
+        n.name.includes("Niacin") ||
+        n.name.includes("Riboflavin") ||
+        n.name.includes("Thiamin")
+      )
     ) || [],
-    [translateUI("Minerals")]: nutrients?.filter(n => 
-      n.name.includes("Calcium") || 
-      n.name.includes("Iron") || 
-      n.name.includes("Magnesium") || 
-      n.name.includes("Phosphorus") || 
-      n.name.includes("Potassium") || 
-      n.name.includes("Sodium") || 
-      n.name.includes("Zinc") ||
-      n.name.includes("Copper") ||
-      n.name.includes("Manganese") ||
-      n.name.includes("Selenium") ||
-      n.name.includes("Fluoride")
+    [translateUI("Minerals")]: nutrients?.filter((n: any) => 
+      typeof n.name === 'string' && (
+        n.name.includes("Calcium") || 
+        n.name.includes("Iron") || 
+        n.name.includes("Magnesium") || 
+        n.name.includes("Phosphorus") || 
+        n.name.includes("Potassium") || 
+        n.name.includes("Sodium") || 
+        n.name.includes("Zinc") ||
+        n.name.includes("Copper") ||
+        n.name.includes("Manganese") ||
+        n.name.includes("Selenium") ||
+        n.name.includes("Fluoride")
+      )
     ) || [],
-    [translateUI("Fatty Acids")]: nutrients?.filter(n => 
-      n.name.includes("fatty acid") || 
-      n.name.includes("Fatty acids") ||
-      n.name.includes("saturated") ||
-      n.name.includes("monounsaturated") ||
-      n.name.includes("polyunsaturated") ||
-      n.name.includes("trans") ||
-      n.name.includes("Cholesterol")
+    [translateUI("Fatty Acids")]: nutrients?.filter((n: any) => 
+      typeof n.name === 'string' && (
+        n.name.includes("fatty acid") || 
+        n.name.includes("Fatty acids") ||
+        n.name.includes("saturated") ||
+        n.name.includes("monounsaturated") ||
+        n.name.includes("polyunsaturated") ||
+        n.name.includes("trans") ||
+        n.name.includes("Cholesterol")
+      )
     ) || [],
-    [translateUI("Other Nutrients")]: nutrients?.filter(n => 
-      !n.name.includes("Vitamin") && 
-      !n.name.includes("vitamin") && 
-      !n.name.includes("Calcium") && 
-      !n.name.includes("Iron") && 
-      !n.name.includes("Magnesium") && 
-      !n.name.includes("Phosphorus") && 
-      !n.name.includes("Potassium") && 
-      !n.name.includes("Sodium") && 
-      !n.name.includes("Zinc") &&
-      !n.name.includes("fatty acid") &&
-      !n.name.includes("Fatty acids") &&
-      !n.name.includes("saturated") &&
-      !n.name.includes("monounsaturated") &&
-      !n.name.includes("polyunsaturated") &&
-      !n.name.includes("trans") &&
-      !n.name.includes("Cholesterol") &&
-      !["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars", "Calories"].includes(n.name)
+    [translateUI("Other Nutrients")]: nutrients?.filter((n: any) => 
+      typeof n.name === 'string' && (
+        !n.name.includes("Vitamin") && 
+        !n.name.includes("vitamin") && 
+        !n.name.includes("Calcium") && 
+        !n.name.includes("Iron") && 
+        !n.name.includes("Magnesium") && 
+        !n.name.includes("Phosphorus") && 
+        !n.name.includes("Potassium") && 
+        !n.name.includes("Sodium") && 
+        !n.name.includes("Zinc") &&
+        !n.name.includes("fatty acid") &&
+        !n.name.includes("Fatty acids") &&
+        !n.name.includes("saturated") &&
+        !n.name.includes("monounsaturated") &&
+        !n.name.includes("polyunsaturated") &&
+        !n.name.includes("trans") &&
+        !n.name.includes("Cholesterol") &&
+        !["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars", "Calories"].includes(n.name)
+      )
     ) || [],
   };
   
@@ -218,9 +226,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                 {translateFood(food.foodCategory)}
               </Badge>
             )}
-            {food.foodAttributes && Array.isArray(food.foodAttributes) && food.foodAttributes.map((attr, i) => (
+            {food.foodAttributes && Array.isArray(food.foodAttributes) && food.foodAttributes.map((attr: any, i: number) => (
               <Badge key={i} variant="secondary" className="text-xs">
-                {attr.value}
+                {attr && attr.value}
               </Badge>
             ))}
           </div>
@@ -294,9 +302,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                           <div className="space-y-1">
                             {Array.isArray(categoryNutrients) && categoryNutrients.length > 0 ? 
                               // For vitamins, minerals, fatty acids
-                              categoryNutrients.map((nutrient, i) => (
+                              categoryNutrients.map((nutrient: any, i: number) => (
                                 <div key={i} className="flex justify-between text-sm">
-                                  <span>{nutrient.name && translateFood(nutrient.name)}</span>
+                                  <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                                   <span className="font-mono">
                                     {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                     {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -304,12 +312,12 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                                 </div>
                               )) :
                               // For macronutrients (strings array)
-                              nutrients && Array.isArray(categoryNutrients) && 
+                              nutrients && Array.isArray(nutrients) && Array.isArray(categoryNutrients) && 
                               nutrients
-                                .filter(n => categoryNutrients.includes(n.name))
-                                .map((nutrient, i) => (
+                                .filter((n: any) => categoryNutrients.includes(n.name))
+                                .map((nutrient: any, i: number) => (
                                   <div key={i} className="flex justify-between text-sm">
-                                    <span>{nutrient.name && translateFood(nutrient.name)}</span>
+                                    <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                                     <span className="font-mono">
                                       {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                       {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -327,11 +335,12 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                   <TabsContent value="macros">
                     <ScrollArea className="h-[400px] pr-4">
                       <div className="space-y-1">
-                        {nutrients && nutrients
-                          .filter(n => nutrientCategories[translateUI("Macronutrients")].includes(n.name))
-                          .map((nutrient, i) => (
+                        {nutrients && Array.isArray(nutrients) && 
+                          nutrients
+                          .filter((n: any) => Array.isArray(nutrientCategories[translateUI("Macronutrients")]) && nutrientCategories[translateUI("Macronutrients")].includes(n.name))
+                          .map((nutrient: any, i: number) => (
                             <div key={i} className="flex justify-between text-sm">
-                              <span>{nutrient.name && translateFood(nutrient.name)}</span>
+                              <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                               <span className="font-mono">
                                 {formatNutrientValue(nutrient.amount, nutrient.unit)}
                                 {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -347,9 +356,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                       <div className="space-y-1">
                         {nutrientCategories[translateUI("Vitamins")] && 
                          Array.isArray(nutrientCategories[translateUI("Vitamins")]) && 
-                         nutrientCategories[translateUI("Vitamins")].map((nutrient, i) => (
+                         nutrientCategories[translateUI("Vitamins")].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span>{nutrient.name && translateFood(nutrient.name)}</span>
+                            <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                             <span className="font-mono">
                               {formatNutrientValue(nutrient.amount, nutrient.unit)}
                               {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -365,9 +374,9 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                       <div className="space-y-1">
                         {nutrientCategories[translateUI("Minerals")] && 
                          Array.isArray(nutrientCategories[translateUI("Minerals")]) && 
-                         nutrientCategories[translateUI("Minerals")].map((nutrient, i) => (
+                         nutrientCategories[translateUI("Minerals")].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span>{nutrient.name && translateFood(nutrient.name)}</span>
+                            <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                             <span className="font-mono">
                               {formatNutrientValue(nutrient.amount, nutrient.unit)}
                               {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
