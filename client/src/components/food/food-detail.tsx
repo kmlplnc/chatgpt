@@ -142,8 +142,18 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
   console.log('Nutrients received:', nutrients?.length, nutrients?.map((n: any) => n.name).join(', '));
 
   // Group nutrients by category for display
+  const macronutrients = nutrients?.filter((n: any) => 
+    typeof n.name === 'string' && 
+    ["Protein", "Total lipid (fat)", "Carbohydrate, by difference", "Fiber, total dietary", "Sugars, total", "Energy"].some(
+      macroName => n.name.includes(macroName)
+    )
+  ) || [];
+  
+  // For debugging
+  console.log('Macronutrients:', macronutrients?.map((n: any) => n.name).join(', '));
+  
   const nutrientCategories: Record<string, any[]> = {
-    [translateUI("Macronutrients")]: ["Protein", "Total Fat", "Carbohydrates", "Fiber", "Sugars", "Calories"],
+    [translateUI("Macronutrients")]: macronutrients,
     [translateUI("Vitamins")]: nutrients?.filter((n: any) => 
       typeof n.name === 'string' && (
         n.name.includes("Vitamin") || 
@@ -288,10 +298,10 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
               {nutrients && nutrients.length > 0 ? (
                 <Tabs defaultValue="all">
                   <TabsList className="grid grid-cols-4 mb-4">
-                    <TabsTrigger value="all">{translateUI("All")}</TabsTrigger>
-                    <TabsTrigger value="macros">{translateUI("Macros")}</TabsTrigger>
-                    <TabsTrigger value="vitamins">{translateUI("Vitamins")}</TabsTrigger>
-                    <TabsTrigger value="minerals">{translateUI("Minerals")}</TabsTrigger>
+                    <TabsTrigger value="all" className="px-1">{translateUI("All")}</TabsTrigger>
+                    <TabsTrigger value="macros" className="px-1">{translateUI("Macros")}</TabsTrigger>
+                    <TabsTrigger value="vitamins" className="px-1">{translateUI("Vitamins")}</TabsTrigger>
+                    <TabsTrigger value="minerals" className="px-1">{translateUI("Minerals")}</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="all">

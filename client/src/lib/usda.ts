@@ -59,9 +59,12 @@ export async function getFoodDetails(fdcId: string): Promise<Food> {
 }
 
 // Helper function to format nutrient values with appropriate units
-export function formatNutrientValue(value: number, unit: string): string {
+export function formatNutrientValue(value: number | null | undefined, unit?: string | null): string {
+  if (value === null || value === undefined || isNaN(value)) {
+    return "N/A";
+  }
   const roundedValue = Math.round(value * 10) / 10;
-  return `${roundedValue} ${unit}`;
+  return `${roundedValue}${unit ? ` ${unit}` : ''}`;
 }
 
 // Helper function to calculate calories from macronutrients
