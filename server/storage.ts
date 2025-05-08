@@ -124,6 +124,100 @@ export class MemStorage implements IStorage {
     return user;
   }
 
+  // Client methods
+  async getClients(userId?: number, limit?: number): Promise<Client[]> {
+    let clients = Array.from(this.clients.values());
+    
+    if (userId) {
+      clients = clients.filter(client => client.userId === userId);
+    }
+    
+    // Sort by creation date (newest first)
+    clients.sort((a, b) => {
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+    
+    if (limit) {
+      clients = clients.slice(0, limit);
+    }
+    
+    return clients;
+  }
+
+  async getClient(id: number): Promise<Client | undefined> {
+    return this.clients.get(id);
+  }
+
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const id = this.clientIdCounter++;
+    const createdAt = new Date();
+    const client: Client = { ...insertClient, id, createdAt };
+    this.clients.set(id, client);
+    return client;
+  }
+
+  async updateClient(id: number, updates: Partial<Client>): Promise<Client | undefined> {
+    const existingClient = this.clients.get(id);
+    if (!existingClient) return undefined;
+    
+    const updatedClient = {
+      ...existingClient,
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    this.clients.set(id, updatedClient);
+    return updatedClient;
+  }
+
+  async deleteClient(id: number): Promise<boolean> {
+    return this.clients.delete(id);
+  }
+
+  // Measurement methods
+  async getMeasurements(clientId: number): Promise<Measurement[]> {
+    let measurements = Array.from(this.measurements.values());
+    
+    measurements = measurements.filter(m => m.clientId === clientId);
+    
+    // Sort by date (newest first)
+    measurements.sort((a, b) => {
+      return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
+    });
+    
+    return measurements;
+  }
+
+  async getMeasurement(id: number): Promise<Measurement | undefined> {
+    return this.measurements.get(id);
+  }
+
+  async createMeasurement(insertMeasurement: InsertMeasurement): Promise<Measurement> {
+    const id = this.measurementIdCounter++;
+    const createdAt = new Date();
+    const measurement: Measurement = { ...insertMeasurement, id, createdAt };
+    this.measurements.set(id, measurement);
+    return measurement;
+  }
+
+  async updateMeasurement(id: number, updates: Partial<Measurement>): Promise<Measurement | undefined> {
+    const existingMeasurement = this.measurements.get(id);
+    if (!existingMeasurement) return undefined;
+    
+    const updatedMeasurement = {
+      ...existingMeasurement,
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    this.measurements.set(id, updatedMeasurement);
+    return updatedMeasurement;
+  }
+
+  async deleteMeasurement(id: number): Promise<boolean> {
+    return this.measurements.delete(id);
+  }
+
   // Diet Plan methods
   async getDietPlans(userId?: number, limit?: number): Promise<DietPlan[]> {
     let plans = Array.from(this.dietPlans.values());
