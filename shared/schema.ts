@@ -1,6 +1,7 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, array } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, date, numeric, unique, foreignKey, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // User schema (extended from the existing schema)
 export const users = pgTable("users", {
@@ -11,6 +12,50 @@ export const users = pgTable("users", {
   name: text("name"),
   role: text("role").default("user"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Clients (danışanlar) schema
+export const clients = pgTable("clients", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  birthDate: date("birth_date"),
+  gender: text("gender").notNull(), // "male", "female", "other"
+  occupation: text("occupation"),
+  medicalConditions: text("medical_conditions"),
+  allergies: text("allergies"),
+  notes: text("notes"),
+  status: text("status").default("active").notNull(), // "active", "inactive"
+  startDate: date("start_date").defaultNow().notNull(),
+  endDate: date("end_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Client Measurements schema (ölçümler)
+export const measurements = pgTable("measurements", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").references(() => clients.id).notNull(),
+  date: date("date").defaultNow().notNull(),
+  weight: numeric("weight", { precision: 5, scale: 2 }).notNull(), // kg
+  height: numeric("height", { precision: 5, scale: 2 }).notNull(), // cm
+  bmi: numeric("bmi", { precision: 5, scale: 2 }).notNull(),
+  bodyFatPercentage: numeric("body_fat_percentage", { precision: 5, scale: 2 }),
+  waistCircumference: numeric("waist_circumference", { precision: 5, scale: 2 }), // cm
+  hipCircumference: numeric("hip_circumference", { precision: 5, scale: 2 }), // cm
+  chestCircumference: numeric("chest_circumference", { precision: 5, scale: 2 }), // cm
+  armCircumference: numeric("arm_circumference", { precision: 5, scale: 2 }), // cm
+  thighCircumference: numeric("thigh_circumference", { precision: 5, scale: 2 }), // cm
+  calfCircumference: numeric("calf_circumference", { precision: 5, scale: 2 }), // cm
+  basalMetabolicRate: integer("basal_metabolic_rate"), // BMR (kcal)
+  totalDailyEnergyExpenditure: integer("total_daily_energy_expenditure"), // TDEE (kcal)
+  activityLevel: text("activity_level"), // "sedentary", "light", "moderate", "active", "very_active"
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -35,7 +80,7 @@ export const dietPlans = pgTable("diet_plans", {
   includeSnacks: boolean("include_snacks").default(true),
   status: text("status").default("draft"),
   durationDays: integer("duration_days").default(7),
-  tags: text("tags").array(),
+  tags: text("tags"),
   dietType: text("diet_type"),
   content: jsonb("content"),
   createdAt: timestamp("created_at").defaultNow(),
