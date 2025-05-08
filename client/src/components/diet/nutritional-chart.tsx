@@ -58,30 +58,45 @@ export default function NutritionalChart({
         fat: fatPercentage
       };
   
+  // Helper function to format nutrient values and avoid NaN/undefined
+  const formatNutrientValue = (value: number | null | undefined): number => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return 0;
+    }
+    return value;
+  };
+
   // Create vitamin data for chart
   const vitamins = nutrients
-    .filter(n => n.name.includes("Vitamin") && n.amount > 0)
-    .map(n => ({
-      name: n.name.replace("Vitamin ", ""),
-      value: n.amount,
-      unit: n.unit,
-      percentage: n.percentDailyValue || 0
-    }))
+    .filter(n => n.name.includes("Vitamin"))
+    .map(n => {
+      const value = formatNutrientValue(n.amount);
+      return {
+        name: n.name.replace("Vitamin ", ""),
+        value: value,
+        unit: n.unit || "mg",
+        percentage: formatNutrientValue(n.percentDailyValue)
+      };
+    })
+    .filter(n => n.value > 0)
     .sort((a, b) => b.percentage - a.percentage)
     .slice(0, 8);
   
   // Create mineral data for chart
   const minerals = nutrients
     .filter(n => 
-      ["Calcium", "Iron", "Magnesium", "Phosphorus", "Potassium", "Sodium", "Zinc"].includes(n.name) && 
-      n.amount > 0
+      ["Calcium", "Iron", "Magnesium", "Phosphorus", "Potassium", "Sodium", "Zinc"].includes(n.name)
     )
-    .map(n => ({
-      name: n.name,
-      value: n.amount,
-      unit: n.unit,
-      percentage: n.percentDailyValue || 0
-    }))
+    .map(n => {
+      const value = formatNutrientValue(n.amount);
+      return {
+        name: n.name,
+        value: value,
+        unit: n.unit || "mg",
+        percentage: formatNutrientValue(n.percentDailyValue)
+      };
+    })
+    .filter(n => n.value > 0)
     .sort((a, b) => b.percentage - a.percentage)
     .slice(0, 8);
   
@@ -102,10 +117,10 @@ export default function NutritionalChart({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="macros" className="w-full">
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="macros">Macronutrients</TabsTrigger>
-            <TabsTrigger value="vitamins">Vitamins</TabsTrigger>
-            <TabsTrigger value="minerals">Minerals</TabsTrigger>
+          <TabsList className="grid grid-cols-3 mb-2">
+            <TabsTrigger value="macros" className="text-xs md:text-sm">Macros</TabsTrigger>
+            <TabsTrigger value="vitamins" className="text-xs md:text-sm">Vitamins</TabsTrigger>
+            <TabsTrigger value="minerals" className="text-xs md:text-sm">Minerals</TabsTrigger>
           </TabsList>
           
           <TabsContent value="macros" className="space-y-4">
