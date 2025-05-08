@@ -1,5 +1,5 @@
+import React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
 import { getFoodDetails, getFoodNutrients, saveFood, removeSavedFood } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -249,7 +249,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
             )}
             {food.foodAttributes && Array.isArray(food.foodAttributes) && food.foodAttributes.map((attr: any, i: number) => (
               <Badge key={i} variant="secondary" className="text-xs">
-                {attr && typeof attr.value === 'string' ? attr.value : ''}
+                {attr && attr.value}
               </Badge>
             ))}
           </div>
@@ -377,7 +377,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                          Array.isArray(nutrientCategories["Vitamins"]) && 
                          nutrientCategories["Vitamins"].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
+                            <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                             <span className="font-mono">
                               {formatNutrientValue(nutrient.amount, nutrient.unit)}
                               {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
@@ -395,7 +395,7 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                          Array.isArray(nutrientCategories["Minerals"]) && 
                          nutrientCategories["Minerals"].map((nutrient: any, i: number) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span>{nutrient.name && typeof nutrient.name === 'string' && simplifiedFood(nutrient.name)}</span>
+                            <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                             <span className="font-mono">
                               {formatNutrientValue(nutrient.amount, nutrient.unit)}
                               {nutrient.percentDailyValue ? ` (${nutrient.percentDailyValue}% DV)` : ""}
