@@ -3,6 +3,7 @@ import { Search, Filter, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { searchFoods } from "@/lib/usda";
 import { useDebounce } from "@/hooks/use-debounce";
+import { translateFoodToEnglish, translateUI } from "@/lib/translations";
 import FoodCard from "./food-card";
 
 import { Input } from "@/components/ui/input";
@@ -47,12 +48,19 @@ export default function FoodSearch() {
   // Debounce search term to prevent too many API calls
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   
-  // Query for food search
+  // Türkçeden İngilizce'ye çevrilen arama terimi
+  const translatedSearchTerm = debouncedSearchTerm ? translateFoodToEnglish(debouncedSearchTerm) : "";
+  
+  // Log the translated term for debugging
+  console.log("Arama terimi:", debouncedSearchTerm);
+  console.log("Çevrilen terim:", translatedSearchTerm);
+  
+  // Query for food search with translated term
   const { data, error, isLoading, isPending } = useQuery({
-    queryKey: ["/api/foods/search", debouncedSearchTerm, page, filters],
+    queryKey: ["/api/foods/search", translatedSearchTerm, page, filters],
     queryFn: () => 
       searchFoods({
-        query: debouncedSearchTerm,
+        query: translatedSearchTerm,
         dataType: filters.dataType,
         pageSize,
         pageNumber: page,
@@ -177,7 +185,7 @@ export default function FoodSearch() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search foods (e.g., apple, chicken, rice...)"
+            placeholder={translateUI("Enter a food name, brand, or ingredient to search our database")}
             value={searchTerm}
             onChange={handleSearchChange}
             className="pl-9"
@@ -189,7 +197,7 @@ export default function FoodSearch() {
             <PopoverTrigger asChild>
               <Button variant="outline" className="flex gap-2">
                 <Filter className="h-4 w-4" />
-                Filter
+                {translateUI("Filter")}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-72">

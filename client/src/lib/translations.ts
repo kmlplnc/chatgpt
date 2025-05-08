@@ -206,6 +206,36 @@ export function translateFood(englishName: string): string {
   return translatedWords.join(' ');
 }
 
+// Türkçe'den İngilizce'ye yemek isimlerini çevirmek için fonksiyon
+export function translateFoodToEnglish(turkishName: string): string {
+  // Türkçe-İngilizce çeviri sözlüğü oluştur
+  const turkishToEnglish: Record<string, string> = {};
+  
+  // foodTranslations nesnesi üzerinde döngü yaparak ters çeviri sözlüğü oluştur
+  Object.entries(foodTranslations).forEach(([english, turkish]) => {
+    turkishToEnglish[turkish.toLowerCase()] = english;
+  });
+  
+  // Tam eşleşme kontrol et (küçük harfe çevirerek)
+  if (turkishToEnglish[turkishName.toLowerCase()]) {
+    return turkishToEnglish[turkishName.toLowerCase()];
+  }
+  
+  // Eğer tam eşleşme yoksa, en iyi kısmi eşleşmeyi bul
+  const words = turkishName.toLowerCase().split(/,|\s|,\s/).filter(word => word.length > 2);
+  
+  // Her kelimeyi İngilizce'ye çevirmeye çalış
+  const translatedWords = words.map(word => turkishToEnglish[word] || word);
+  
+  // Eğer hiçbir çeviri bulunamadıysa orijinal metni döndür
+  if (JSON.stringify(words) === JSON.stringify(translatedWords)) {
+    return turkishName;
+  }
+  
+  // Çevirileri birleştir
+  return translatedWords.join(' ');
+}
+
 // UI metinleri için çeviriler
 export const uiTranslations: Record<string, string> = {
   "Food Database": "Yemek Veritabanı",
