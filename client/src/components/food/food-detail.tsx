@@ -142,11 +142,17 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
   console.log('Nutrients received:', nutrients?.length, nutrients?.map((n: any) => n.name).join(', '));
 
   // Group nutrients by category for display
+  // Makro besinler için özel bir filtreleme yapalım
   const macronutrients = nutrients?.filter((n: any) => 
     typeof n.name === 'string' && 
-    ["Protein", "Total lipid (fat)", "Carbohydrate, by difference", "Fiber, total dietary", "Sugars, total", "Energy"].some(
-      macroName => n.name.includes(macroName)
-    )
+    (n.name.includes("Protein") || 
+     n.name.includes("Total lipid") || 
+     n.name.includes("Total Fat") || 
+     n.name.includes("Carbohydrate") || 
+     n.name.includes("Fiber") || 
+     n.name.includes("Sugars") || 
+     n.name.includes("Energy") ||
+     n.name.includes("Calories"))
   ) || [];
   
   // For debugging
@@ -345,10 +351,8 @@ export default function FoodDetail({ fdcId }: FoodDetailProps) {
                   <TabsContent value="macros">
                     <ScrollArea className="h-[400px] pr-4">
                       <div className="space-y-1">
-                        {nutrients && Array.isArray(nutrients) && 
-                          nutrients
-                          .filter((n: any) => Array.isArray(nutrientCategories[translateUI("Macronutrients")]) && nutrientCategories[translateUI("Macronutrients")].includes(n.name))
-                          .map((nutrient: any, i: number) => (
+                        {macronutrients && Array.isArray(macronutrients) && macronutrients.length > 0 && 
+                          macronutrients.map((nutrient: any, i: number) => (
                             <div key={i} className="flex justify-between text-sm">
                               <span>{nutrient.name && typeof nutrient.name === 'string' && translateFood(nutrient.name)}</span>
                               <span className="font-mono">

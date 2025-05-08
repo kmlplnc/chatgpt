@@ -1,5 +1,12 @@
 // Yemek isimlerinin İngilizce-Türkçe çevirileri
 export const foodTranslations: Record<string, string> = {
+  // Besin Değerleri
+  "Energy (Atwater General Factors)": "Kalori",
+  "Energy (Atwater Specific Factors)": "Kalori",
+  "Total lipid (fat)": "Toplam Yağ",
+  "Carbohydrate, by difference": "Karbonhidrat",
+  "Fiber, total dietary": "Lif",
+  "Sugars, total": "Şeker",
   // Genel kategoriler
   "Vegetables": "Sebzeler",
   "Fruits": "Meyveler",
@@ -114,7 +121,6 @@ export const foodTranslations: Record<string, string> = {
   "Coffee": "Kahve",
   "Tea": "Çay",
   "Juice": "Meyve Suyu",
-  "Water": "Su",
   "Soda": "Gazlı İçecek",
   "Soft Drink": "Gazlı İçecek",
   "Wine": "Şarap",
@@ -185,14 +191,17 @@ export const foodTranslations: Record<string, string> = {
 };
 
 // Yemek isimlerini çevirmek için yardımcı fonksiyon
-export function translateFood(englishName: string): string {
+export function translateFood(englishName: string | null | undefined): string {
+  // Null ve undefined kontrolü
+  if (!englishName) return '';
+  
   // İlk olarak tam eşleşme ara
   if (foodTranslations[englishName]) {
     return foodTranslations[englishName];
   }
   
   // Eğer tam eşleşme yoksa, en iyi kısmi eşleşmeyi bul
-  const words = englishName.split(/,|\s|,\s/).filter(word => word.length > 2);
+  const words = englishName.split(/,|\s|,\s/).filter(word => word && word.length > 2);
   
   // Her kelimeyi Türkçeye çevirmeye çalış
   const translatedWords = words.map(word => foodTranslations[word] || word);
