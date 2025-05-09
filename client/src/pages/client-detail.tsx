@@ -162,7 +162,6 @@ export default function ClientDetail() {
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedMetric, setSelectedMetric] = useState("weight");
   
   // Client verilerini getir
   const { 
@@ -1025,35 +1024,13 @@ export default function ClientDetail() {
             <div className="grid grid-cols-1 gap-6">
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-semibold">Gelişim Grafiği</h2>
-                  
-                  <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
-                    <Select 
-                      defaultValue="weight" 
-                      value={selectedMetric} 
-                      onValueChange={setSelectedMetric}
-                    >
-                      <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Grafik metriği seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weight">Kilo (kg)</SelectItem>
-                        <SelectItem value="bmi">Vücut Kitle İndeksi</SelectItem>
-                        <SelectItem value="waistCircumference">Bel Çevresi (cm)</SelectItem>
-                        <SelectItem value="hipCircumference">Kalça Çevresi (cm)</SelectItem>
-                        <SelectItem value="chestCircumference">Göğüs Çevresi (cm)</SelectItem>
-                        <SelectItem value="armCircumference">Kol Çevresi (cm)</SelectItem>
-                        <SelectItem value="thighCircumference">Uyluk Çevresi (cm)</SelectItem>
-                        <SelectItem value="calfCircumference">Baldır Çevresi (cm)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <h2 className="text-xl font-semibold">3D Vücut Modeli</h2>
                 </div>
                 
-                <MeasurementChart 
+                <HumanModel 
                   measurements={measurements} 
-                  title="Gelişim Grafiği"
-                  metricKey={selectedMetric}
+                  title="Vücut Yapısı Modeli"
+                  height={500}
                 />
               </div>
               
