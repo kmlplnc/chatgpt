@@ -1,19 +1,30 @@
 import { Router, Request, Response } from "express";
-import { z } from "zod";
-import { fromZodError } from "zod-validation-error";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import { storage } from "../storage";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, User } from "@shared/schema";
 
-// Authentication router
 export const authRouter = Router();
 
-// Login schema
-const loginSchema = z.object({
-  username: z.string(),
-  password: z.string()
-});
+// scrypt'i promise tabanlı hale getirme
+const scryptAsync = promisify(scrypt);
 
-// Session extension to include user information
+// Şifre karma (hash) işlemi
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+// Şifre karşılaştırma işlemi
+async function comparePasswords(supplied: string, stored: string) {
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+// Session tipini genişlet
 declare module "express-session" {
   interface SessionData {
     user: {
@@ -24,120 +35,122 @@ declare module "express-session" {
   }
 }
 
-// Login route
+// Giriş yönlendirmesi
 authRouter.post("/login", async (req: Request, res: Response) => {
   try {
-    // Validate request body
-    const { username, password } = loginSchema.parse(req.body);
-    
-    // Find user by username
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Kullanıcı adı ve şifre gereklidir" });
+    }
+
+    // Kullanıcıyı bul
     const user = await storage.getUserByUsername(username);
-    
-    // Check if user exists and password matches
-    if (!user || user.password !== password) {
+
+    if (!user) {
       return res.status(401).json({ message: "Geçersiz kullanıcı adı veya şifre" });
     }
-    
-    // Set user in session
+
+    // Şifre doğrulama
+    const passwordMatch = await comparePasswords(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Geçersiz kullanıcı adı veya şifre" });
+    }
+
+    // Session'a kullanıcı bilgisi ekle
     req.session.user = {
       id: user.id,
       username: user.username,
-      role: user.role || "user"
+      role: user.role || 'user',
     };
-    
-    // Return user data (excluding password)
-    const { password: _, ...userData } = user;
-    res.json(userData);
-  } catch (err) {
-    console.error(err);
-    
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: fromZodError(err) 
-      });
-    }
-    
-    return res.status(500).json({ message: "Server error" });
+
+    // Kullanıcı bilgilerini dön (şifre olmadan)
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Giriş hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
   }
 });
 
-// Register route
+// Kayıt yönlendirmesi
 authRouter.post("/register", async (req: Request, res: Response) => {
   try {
-    // Validate request body
-    const userData = insertUserSchema.parse(req.body);
-    
-    // Check if username already exists
-    const existingUser = await storage.getUserByUsername(userData.username);
+    // Veri doğrulama
+    const validation = insertUserSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({ message: "Geçersiz kullanıcı bilgileri", errors: validation.error.errors });
+    }
+
+    const { username, email, password } = req.body;
+
+    // Kullanıcı adı kontrol
+    const existingUser = await storage.getUserByUsername(username);
     if (existingUser) {
-      return res.status(409).json({ message: "Bu kullanıcı adı zaten kullanılıyor" });
+      return res.status(400).json({ message: "Bu kullanıcı adı zaten kullanılıyor" });
     }
-    
-    // Create user
-    const newUser = await storage.createUser(userData);
-    
-    // Set user in session
+
+    // Şifreyi hashle
+    const hashedPassword = await hashPassword(password);
+
+    // Yeni kullanıcı oluştur
+    const user = await storage.createUser({
+      ...req.body,
+      password: hashedPassword,
+      role: 'user',
+      subscriptionStatus: 'free',
+      subscriptionStartDate: null,
+      subscriptionEndDate: null,
+      subscriptionPlan: null,
+    });
+
+    // Session'a kullanıcı bilgisi ekle
     req.session.user = {
-      id: newUser.id,
-      username: newUser.username,
-      role: newUser.role || "user"
+      id: user.id,
+      username: user.username,
+      role: user.role || 'user',
     };
-    
-    // Return user data (excluding password)
-    const { password: _, ...newUserData } = newUser;
-    res.status(201).json(newUserData);
-  } catch (err) {
-    console.error("Register error:", err);
-    
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: fromZodError(err) 
-      });
-    }
-    
-    return res.status(500).json({ message: "Server error" });
+
+    // Kullanıcı bilgilerini dön (şifre olmadan)
+    const { password: _, ...userWithoutPassword } = user;
+    res.status(201).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Kayıt hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
   }
 });
 
-// Logout route
+// Çıkış yönlendirmesi
 authRouter.post("/logout", (req: Request, res: Response) => {
   req.session.destroy((err) => {
     if (err) {
-      console.error("Logout error:", err);
-      return res.status(500).json({ message: "Çıkış yapılırken hata oluştu" });
+      return res.status(500).json({ message: "Çıkış yaparken bir hata oluştu" });
     }
-    
-    res.json({ message: "Başarıyla çıkış yapıldı" });
+    res.clearCookie("connect.sid");
+    res.status(200).json({ message: "Başarıyla çıkış yapıldı" });
   });
 });
 
-// Get current user route
+// Kullanıcı bilgisi alma
 authRouter.get("/me", async (req: Request, res: Response) => {
   try {
-    // Check if user is logged in
     if (!req.session.user) {
-      return res.status(401).json({ message: "Authenticated değil" });
+      return res.status(401).json({ message: "Oturum açılmamış" });
     }
-    
-    // Get user from database
+
     const user = await storage.getUser(req.session.user.id);
-    
+
     if (!user) {
-      // Clear invalid session
-      req.session.destroy((err) => {
-        if (err) console.error("Session destroy error:", err);
-      });
-      
-      return res.status(401).json({ message: "Kullanıcı bulunamadı" });
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
     }
-    
-    // Return user data (excluding password)
-    const { password: _, ...userData } = user;
-    res.json(userData);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+
+    // Kullanıcı bilgilerini dön (şifre olmadan)
+    const { password, ...userWithoutPassword } = user;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Kullanıcı bilgisi alma hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
   }
 });

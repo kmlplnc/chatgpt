@@ -3,127 +3,149 @@ import { storage } from "../storage";
 
 export const subscriptionRouter = Router();
 
-// Abonelik oluşturma
-subscriptionRouter.post("/create", async (req: Request, res: Response) => {
+// Middleware: oturum açmış kullanıcıyı kontrol eder
+const requireAuth = (req: Request, res: Response, next: Function) => {
+  if (!req.session.user) {
+    return res.status(401).json({ message: "Yetkilendirme gerekiyor" });
+  }
+  next();
+};
+
+// Abonelik oluşturma veya güncelleme
+subscriptionRouter.post("/create", requireAuth, async (req: Request, res: Response) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({ error: "Kimlik doğrulama gerekli" });
-    }
-
     const { plan } = req.body;
-
-    if (!plan || !["basic", "pro", "premium"].includes(plan)) {
-      return res.status(400).json({ error: "Geçersiz abonelik planı" });
+    
+    if (!plan) {
+      return res.status(400).json({ message: "Abonelik planı belirtilmelidir" });
     }
-
-    // Abonelik süresi (varsayılan: 30 gün)
-    const startDate = new Date();
+    
+    const userId = req.session.user!.id;
+    
+    // Plan geçerli mi?
+    const validPlans = ["basic", "premium", "pro"];
+    if (!validPlans.includes(plan)) {
+      return res.status(400).json({ message: "Geçersiz abonelik planı" });
+    }
+    
+    // Abonelik sürelerini belirle
+    const now = new Date();
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 30);
-
-    // Abonelik bilgilerini güncelle
-    const user = await storage.updateUserSubscription(req.session.user.id, {
+    endDate.setMonth(endDate.getMonth() + 1); // 1 aylık abonelik
+    
+    // Kullanıcının abonelik bilgisini güncelle
+    const updatedUser = await storage.updateUserSubscription(userId, {
       subscriptionStatus: "active",
       subscriptionPlan: plan,
-      subscriptionStartDate: startDate,
-      subscriptionEndDate: endDate,
+      subscriptionStartDate: now,
+      subscriptionEndDate: endDate
     });
-
-    res.json({
-      message: "Abonelik başarıyla oluşturuldu",
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionPlan: user.subscriptionPlan,
-        subscriptionStartDate: user.subscriptionStartDate,
-        subscriptionEndDate: user.subscriptionEndDate,
-      },
-    });
-  } catch (error: any) {
-    console.error("Abonelik oluşturma hatası:", error);
-    res.status(500).json({ error: `Abonelik oluşturulamadı: ${error.message}` });
-  }
-});
-
-// Abonelik iptal etme
-subscriptionRouter.post("/cancel", async (req: Request, res: Response) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ error: "Kimlik doğrulama gerekli" });
-    }
-
-    // Kullanıcı bilgilerini al
-    const user = await storage.getUser(req.session.user.id);
-    if (!user) {
-      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
-    }
-
-    // Abonelik durumunu güncelle
-    const updatedUser = await storage.updateUserSubscription(req.session.user.id, {
-      subscriptionStatus: "canceled",
-      // Diğer bilgiler (plan, tarihler) korunur
-    });
-
-    res.json({
-      message: "Abonelik başarıyla iptal edildi",
-      user: {
-        id: updatedUser.id,
-        username: updatedUser.username,
-        role: updatedUser.role,
-        subscriptionStatus: updatedUser.subscriptionStatus,
-        subscriptionPlan: updatedUser.subscriptionPlan,
-        subscriptionStartDate: updatedUser.subscriptionStartDate,
-        subscriptionEndDate: updatedUser.subscriptionEndDate,
-      },
-    });
-  } catch (error: any) {
-    console.error("Abonelik iptal hatası:", error);
-    res.status(500).json({ error: `Abonelik iptal edilemedi: ${error.message}` });
-  }
-});
-
-// Kullanıcının abonelik bilgilerini alma
-subscriptionRouter.get("/status", async (req: Request, res: Response) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ error: "Kimlik doğrulama gerekli" });
-    }
-
-    // Kullanıcı bilgilerini al
-    const user = await storage.getUser(req.session.user.id);
-    if (!user) {
-      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
-    }
-
-    // Abonelik bitmiş mi kontrol et
-    const now = new Date();
-    const endDate = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
     
-    if (endDate && now > endDate && user.subscriptionStatus !== "expired") {
-      // Abonelik süresi dolmuş, durumu güncelle
-      const updatedUser = await storage.updateUserSubscription(req.session.user.id, {
-        subscriptionStatus: "expired",
-      });
-      
-      return res.json({
-        subscriptionStatus: updatedUser.subscriptionStatus,
-        subscriptionPlan: updatedUser.subscriptionPlan,
-        subscriptionStartDate: updatedUser.subscriptionStartDate,
-        subscriptionEndDate: updatedUser.subscriptionEndDate,
-      });
-    }
-
-    // Mevcut abonelik bilgilerini döndür
-    res.json({
-      subscriptionStatus: user.subscriptionStatus,
-      subscriptionPlan: user.subscriptionPlan,
-      subscriptionStartDate: user.subscriptionStartDate,
-      subscriptionEndDate: user.subscriptionEndDate,
+    // Şifreyi çıkar
+    const { password, ...userWithoutPassword } = updatedUser;
+    
+    res.status(200).json({
+      success: true,
+      message: "Abonelik başarıyla oluşturuldu",
+      subscription: {
+        status: "active",
+        plan: plan,
+        startDate: now,
+        endDate: endDate
+      },
+      user: userWithoutPassword
     });
-  } catch (error: any) {
-    console.error("Abonelik durumu alma hatası:", error);
-    res.status(500).json({ error: `Abonelik durumu alınamadı: ${error.message}` });
+  } catch (error) {
+    console.error("Abonelik oluşturma hatası:", error);
+    res.status(500).json({ message: "Abonelik oluşturulurken bir hata oluştu" });
   }
 });
+
+// Abonelik iptali
+subscriptionRouter.post("/cancel", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    
+    // Kullanıcının abonelik bilgisini güncelle
+    const updatedUser = await storage.updateUserSubscription(userId, {
+      subscriptionStatus: "cancelled"
+    });
+    
+    // Şifreyi çıkar
+    const { password, ...userWithoutPassword } = updatedUser;
+    
+    res.status(200).json({
+      success: true,
+      message: "Abonelik başarıyla iptal edildi",
+      user: userWithoutPassword
+    });
+  } catch (error) {
+    console.error("Abonelik iptal hatası:", error);
+    res.status(500).json({ message: "Abonelik iptal edilirken bir hata oluştu" });
+  }
+});
+
+// Abonelik durumunu kontrol etme
+subscriptionRouter.get("/status", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    
+    // Kullanıcı bilgisini getir
+    const user = await storage.getUser(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+    
+    // Abonelik durumunu kontrol et
+    const now = new Date();
+    const isActive = 
+      user.subscriptionStatus === "active" && 
+      user.subscriptionEndDate && 
+      new Date(user.subscriptionEndDate) > now;
+    
+    // Abonelik bilgisini dön
+    res.status(200).json({
+      status: isActive ? "active" : "inactive",
+      plan: user.subscriptionPlan,
+      startDate: user.subscriptionStartDate,
+      endDate: user.subscriptionEndDate,
+      features: getFeaturesByPlan(user.subscriptionPlan)
+    });
+  } catch (error) {
+    console.error("Abonelik durumu kontrol hatası:", error);
+    res.status(500).json({ message: "Abonelik durumu kontrol edilirken bir hata oluştu" });
+  }
+});
+
+// Plan türüne göre özellikleri belirle
+function getFeaturesByPlan(plan: string | null): string[] {
+  switch (plan) {
+    case "basic":
+      return [
+        "Besin veritabanı erişimi",
+        "Sınırlı sayıda danışan yönetimi",
+        "Temel raporlama"
+      ];
+    case "premium":
+      return [
+        "Besin veritabanı erişimi",
+        "Sınırsız danışan yönetimi",
+        "Gelişmiş raporlama",
+        "Diyet planı oluşturma"
+      ];
+    case "pro":
+      return [
+        "Besin veritabanı erişimi",
+        "Sınırsız danışan yönetimi",
+        "Gelişmiş raporlama",
+        "Diyet planı oluşturma",
+        "Gelişmiş analiz araçları",
+        "PDF rapor çıktıları"
+      ];
+    default:
+      return [
+        "Sınırlı besin veritabanı erişimi"
+      ];
+  }
+}
