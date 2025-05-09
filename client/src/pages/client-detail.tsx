@@ -1028,12 +1028,29 @@ export default function ClientDetail() {
                   <h2 className="text-xl font-semibold">3D Vücut Modeli</h2>
                 </div>
                 
-                <EnhancedHumanModel 
-                  measurements={measurements} 
-                  title="Vücut Yapısı Modeli"
-                  height={500}
-                  gender={client?.gender === "female" ? "female" : "male"}
-                />
+                {client?.gender === "female" ? (
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <FbxModelViewer 
+                      modelPath="/models/Female Body.fbx" 
+                      title="Gerçekçi Kadın Modeli"
+                      height={500}
+                    />
+                    
+                    <EnhancedHumanModel 
+                      measurements={measurements} 
+                      title="Ölçüm Tabanlı Model"
+                      height={500}
+                      gender="female"
+                    />
+                  </div>
+                ) : (
+                  <EnhancedHumanModel 
+                    measurements={measurements} 
+                    title="Vücut Yapısı Modeli"
+                    height={500}
+                    gender="male"
+                  />
+                )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
