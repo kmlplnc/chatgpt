@@ -1,5 +1,8 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, calculateBMI } from "@/lib/utils";
@@ -680,6 +683,100 @@ export default function EnhancedHumanModel({
     }
   }, [measurements, showBothModels, showDifferences, gender]);
   
+  // Hazır 3D modeli yükle ve döndür
+  const loadExternalModel = (modelPath: string): Promise<THREE.Group> => {
+    return new Promise((resolve, reject) => {
+      // Model formatına göre uygun loader'ı seç
+      let loader;
+      if (modelPath.endsWith('.gltf') || modelPath.endsWith('.glb')) {
+        loader = new GLTFLoader();
+      } else if (modelPath.endsWith('.obj')) {
+        loader = new OBJLoader();
+      } else if (modelPath.endsWith('.fbx')) {
+        loader = new FBXLoader();
+      } else {
+        reject(new Error("Desteklenmeyen model formatı"));
+        return;
+      }
+      
+      // Modeli yükle
+      loader.load(
+        modelPath,
+        (result) => {
+          // GLTF modelleri için
+          if (modelPath.endsWith('.gltf') || modelPath.endsWith('.glb')) {
+            const model = result.scene;
+            // Modeli normalize et
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            // Merkeze al
+            model.position.x -= center.x;
+            model.position.y -= center.y;
+            model.position.z -= center.z;
+            
+            // Ölçeklendir (boyutunu normalleştir)
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 1 / maxDim;
+            model.scale.set(scale, scale, scale);
+            
+            resolve(model);
+          }
+          // OBJ modelleri için
+          else if (modelPath.endsWith('.obj')) {
+            const model = result;
+            // Modeli normalize et
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            // Merkeze al
+            model.position.x -= center.x;
+            model.position.y -= center.y;
+            model.position.z -= center.z;
+            
+            // Ölçeklendir (boyutunu normalleştir)
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 1 / maxDim;
+            model.scale.set(scale, scale, scale);
+            
+            resolve(model);
+          }
+          // FBX modelleri için
+          else if (modelPath.endsWith('.fbx')) {
+            const model = result;
+            // Modeli normalize et
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            // Merkeze al
+            model.position.x -= center.x;
+            model.position.y -= center.y;
+            model.position.z -= center.z;
+            
+            // Ölçeklendir (boyutunu normalleştir)
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 1 / maxDim;
+            model.scale.set(scale, scale, scale);
+            
+            resolve(model);
+          }
+        },
+        // Yükleme ilerlemesi
+        (xhr) => {
+          console.log((xhr.loaded / xhr.total) * 100 + '% yüklendi');
+        },
+        // Hata durumu
+        (error) => {
+          console.error('Model yüklenirken hata:', error);
+          reject(error);
+        }
+      );
+    });
+  };
+  
   // İnsan modellerini oluştur (güncel ve önceki)
   const createHumanModels = () => {
     if (!sceneRef.current) return;
@@ -700,13 +797,46 @@ export default function EnhancedHumanModel({
     
     // Güncel model
     try {
-      // Modeli oluştur
-      const modelGroup = createCustomModel(isMale);
+      // Eğer hazır modeller mevcutsa onları kullan, değilse kendi modelimizi oluştur
+      // Bu kısmı kendi projenizde gerçek model dosyalarınızla değiştirin
+      let modelPath = '';
+      if (isMale) {
+        // Erkek modeli için
+        // modelPath = '/models/male_character.glb'; // Gerçek bir GLB model
+        // Eğer model dosyası yoksa createCustomModel'e düş
+        const modelGroup = createCustomModel(isMale);
+        updateModelByMeasurements(modelGroup, latestMeasurements, true);
+        humanModelRef.current = modelGroup;
+        sceneRef.current.add(modelGroup);
+      } else {
+        // Kadın modeli için
+        // modelPath = '/models/female_character.glb'; // Gerçek bir GLB model
+        // Eğer model dosyası yoksa createCustomModel'e düş
+        const modelGroup = createCustomModel(isMale);
+        updateModelByMeasurements(modelGroup, latestMeasurements, true);
+        humanModelRef.current = modelGroup;
+        sceneRef.current.add(modelGroup);
+      }
       
-      // Ölçeklendirme uygula
-      updateModelByMeasurements(modelGroup, latestMeasurements, true);
-      humanModelRef.current = modelGroup;
-      sceneRef.current.add(modelGroup);
+      // Model yolu belirtilmişse hazır modeli yükle
+      /* Gerçek model eklemek istediğinizde bunu açın
+      if (modelPath) {
+        loadExternalModel(modelPath)
+          .then((modelGroup) => {
+            updateModelByMeasurements(modelGroup, latestMeasurements, true);
+            humanModelRef.current = modelGroup;
+            sceneRef.current.add(modelGroup);
+          })
+          .catch((error) => {
+            console.error("Dışarıdan model yüklenirken hata:", error);
+            // Yedek olarak custom modeli göster
+            const backupModel = createCustomModel(isMale);
+            updateModelByMeasurements(backupModel, latestMeasurements, true);
+            humanModelRef.current = backupModel;
+            sceneRef.current.add(backupModel);
+          });
+      }
+      */
       
       // Eğer karşılaştırma modundaysak ve önceki bir ölçüm varsa
       if (showBothModels && hasPreviousMeasurement && previousMeasurements) {
@@ -724,12 +854,21 @@ export default function EnhancedHumanModel({
           // Önceki modeli yarı saydam ve gri yap
           prevModelGroup.traverse((child: THREE.Object3D) => {
             if (child instanceof THREE.Mesh) {
-              const material = child.material.clone();
-              if (material instanceof THREE.Material) {
+              const material = child.material;
+              if (Array.isArray(material)) {
+                // Birden fazla materyal varsa
+                material.forEach(mat => {
+                  if (mat.color) {
+                    mat.transparent = true;
+                    mat.opacity = 0.6;
+                    mat.color.set(0xaaaaaa); // Gri ton
+                  }
+                });
+              } else if (material && material.color) {
+                // Tek materyal varsa
                 material.transparent = true;
                 material.opacity = 0.6;
                 material.color.set(0xaaaaaa); // Gri ton
-                child.material = material;
               }
             }
           });
