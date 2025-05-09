@@ -31,6 +31,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import MeasurementChart from "@/components/clients/measurement-chart";
 import EnhancedHumanModel from "@/components/clients/enhanced-human-model";
+import FbxModelViewer from "@/components/clients/fbx-model-viewer";
 import { queryClient } from "@/lib/queryClient";
 import { calculateBMI, formatDate } from "@/lib/utils";
 
