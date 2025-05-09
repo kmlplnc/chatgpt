@@ -550,37 +550,37 @@ export default function EnhancedMeasurementChart({ measurements, title = "Ölç�
                     const ideal = idealValues[metricId];
                     if (!ideal) return null;
                     
-                    return (
-                      <React.Fragment key={`ref-${metricId}`}>
-                        {ideal.min !== undefined && (
-                          <ReferenceLine 
-                            y={ideal.min} 
-                            stroke="#22c55e" 
-                            strokeDasharray="3 3" 
-                            strokeWidth={1.5}
-                            label={{ 
-                              value: `Min: ${ideal.min}`,
-                              fill: '#22c55e',
-                              fontSize: 10
-                            }}
-                          />
-                        )}
-                        {ideal.max !== undefined && (
-                          <ReferenceLine 
-                            y={ideal.max} 
-                            stroke="#22c55e" 
-                            strokeDasharray="3 3" 
-                            strokeWidth={1.5}
-                            label={{ 
-                              value: `Max: ${ideal.max}`,
-                              fill: '#22c55e',
-                              fontSize: 10
-                            }}
-                          />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                    return [
+                      ideal.min !== undefined && (
+                        <ReferenceLine 
+                          key={`refMin-${metricId}`}
+                          y={ideal.min} 
+                          stroke="#22c55e" 
+                          strokeDasharray="3 3" 
+                          strokeWidth={1.5}
+                          label={{ 
+                            value: `Min: ${ideal.min}`,
+                            fill: '#22c55e',
+                            fontSize: 10
+                          }}
+                        />
+                      ),
+                      ideal.max !== undefined && (
+                        <ReferenceLine 
+                          key={`refMax-${metricId}`}
+                          y={ideal.max} 
+                          stroke="#22c55e" 
+                          strokeDasharray="3 3" 
+                          strokeWidth={1.5}
+                          label={{ 
+                            value: `Max: ${ideal.max}`,
+                            fill: '#22c55e',
+                            fontSize: 10
+                          }}
+                        />
+                      )
+                    ].filter(Boolean);
+                  }).flat()}
                   
                   {/* Metrik çizgileri */}
                   {selectedMetrics.map((metric) => {
@@ -631,37 +631,37 @@ export default function EnhancedMeasurementChart({ measurements, title = "Ölç�
                     const ideal = idealValues[metricId];
                     if (!ideal) return null;
                     
-                    return (
-                      <React.Fragment key={`ref-${metricId}`}>
-                        {ideal.min !== undefined && (
-                          <ReferenceLine 
-                            y={ideal.min} 
-                            stroke="#22c55e" 
-                            strokeDasharray="3 3" 
-                            strokeWidth={1.5}
-                            label={{ 
-                              value: `Min: ${ideal.min}`,
-                              fill: '#22c55e',
-                              fontSize: 10
-                            }}
-                          />
-                        )}
-                        {ideal.max !== undefined && (
-                          <ReferenceLine 
-                            y={ideal.max} 
-                            stroke="#22c55e" 
-                            strokeDasharray="3 3" 
-                            strokeWidth={1.5}
-                            label={{ 
-                              value: `Max: ${ideal.max}`,
-                              fill: '#22c55e',
-                              fontSize: 10
-                            }}
-                          />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                    return [
+                      ideal.min !== undefined && (
+                        <ReferenceLine 
+                          key={`refMin-${metricId}`}
+                          y={ideal.min} 
+                          stroke="#22c55e" 
+                          strokeDasharray="3 3" 
+                          strokeWidth={1.5}
+                          label={{ 
+                            value: `Min: ${ideal.min}`,
+                            fill: '#22c55e',
+                            fontSize: 10
+                          }}
+                        />
+                      ),
+                      ideal.max !== undefined && (
+                        <ReferenceLine 
+                          key={`refMax-${metricId}`}
+                          y={ideal.max} 
+                          stroke="#22c55e" 
+                          strokeDasharray="3 3" 
+                          strokeWidth={1.5}
+                          label={{ 
+                            value: `Max: ${ideal.max}`,
+                            fill: '#22c55e',
+                            fontSize: 10
+                          }}
+                        />
+                      )
+                    ].filter(Boolean);
+                  }).flat()}
                   
                   {/* Metrik çubukları - renklendirme ile */}
                   {selectedMetrics.map((metric) => {
