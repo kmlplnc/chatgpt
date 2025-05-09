@@ -17,6 +17,7 @@ import DietPlanCard from "@/components/diet/diet-plan-card";
 import { useToast } from "@/hooks/use-toast";
 import { deleteDietPlan } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
+import ProtectedFeature from "@/components/premium/protected-feature";
 
 export default function DietPlans() {
   const { toast } = useToast();
@@ -61,15 +62,15 @@ export default function DietPlans() {
       await deleteDietPlan(id);
       
       toast({
-        title: "Diet plan deleted",
-        description: "The diet plan has been successfully deleted",
+        title: "Diyet planı silindi",
+        description: "Diyet planı başarıyla silindi",
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/diet-plans"] });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to delete diet plan",
+        title: "Hata",
+        description: "Diyet planı silinirken hata oluştu",
         variant: "destructive",
       });
     }
@@ -97,166 +98,168 @@ export default function DietPlans() {
   };
   
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-3xl font-bold">Diet Plans</h1>
-      </div>
+    <ProtectedFeature featureName="Diyet Planları">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="text-3xl font-bold">Diyet Planları</h1>
+        </div>
       
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Input
-            placeholder="Search diet plans..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10"
-          />
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Input
+              placeholder="Diyet planları ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10"
+            />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="hidden sm:inline">Filtreler</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Duruma Göre Filtrele</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={filters.status.includes("active")}
+                onCheckedChange={() => toggleStatusFilter("active")}
+              >
+                Aktif
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={filters.status.includes("draft")}
+                onCheckedChange={() => toggleStatusFilter("draft")}
+              >
+                Taslak
+              </DropdownMenuCheckboxItem>
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Diyet Türüne Göre Filtrele</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {["balanced", "low_carb", "high_protein", "vegetarian", "vegan", "keto", "paleo", "mediterranean"].map((type) => (
+                <DropdownMenuCheckboxItem
+                  key={type}
+                  checked={filters.dietType.includes(type)}
+                  onCheckedChange={() => toggleDietTypeFilter(type)}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <SlidersHorizontal className="h-4 w-4" />
-              <span className="hidden sm:inline">Filters</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Filter By Status</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={filters.status.includes("active")}
-              onCheckedChange={() => toggleStatusFilter("active")}
-            >
-              Active
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={filters.status.includes("draft")}
-              onCheckedChange={() => toggleStatusFilter("draft")}
-            >
-              Draft
-            </DropdownMenuCheckboxItem>
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="all">Tüm Planlar</TabsTrigger>
+            <TabsTrigger value="active">Aktif</TabsTrigger>
+            <TabsTrigger value="draft">Taslak</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="all">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-72 animate-pulse bg-muted rounded-lg"></div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="text-center p-8 text-destructive">
+                Diyet planları yüklenirken hata oluştu. Lütfen tekrar deneyin.
+              </div>
+            ) : filteredPlans.length === 0 ? (
+              <div className="text-center p-8 text-muted-foreground">
+                {search || filters.status.length < 2 || filters.dietType.length > 0 ? (
+                  <p>Mevcut filtrelere uygun diyet planı bulunamadı.</p>
+                ) : (
+                  <div className="space-y-4">
+                    <p>Henüz hiç diyet planınız yok.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPlans.map((plan: any) => (
+                  <DietPlanCard 
+                    key={plan.id} 
+                    dietPlan={plan} 
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="active">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-72 animate-pulse bg-muted rounded-lg"></div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="text-center p-8 text-destructive">
+                Diyet planları yüklenirken hata oluştu. Lütfen tekrar deneyin.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPlans
+                  .filter((plan: any) => plan.status === "active")
+                  .map((plan: any) => (
+                    <DietPlanCard 
+                      key={plan.id} 
+                      dietPlan={plan} 
+                      onDelete={handleDelete}
+                    />
+                  ))}
+              </div>
+            )}
             
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Filter By Type</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {["balanced", "low_carb", "high_protein", "vegetarian", "vegan", "keto", "paleo", "mediterranean"].map((type) => (
-              <DropdownMenuCheckboxItem
-                key={type}
-                checked={filters.dietType.includes(type)}
-                onCheckedChange={() => toggleDietTypeFilter(type)}
-              >
-                {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            {!isLoading && !error && filteredPlans.filter((plan: any) => plan.status === "active").length === 0 && (
+              <div className="text-center p-8 text-muted-foreground">
+                Aktif diyet planı bulunamadı.
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="draft">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-72 animate-pulse bg-muted rounded-lg"></div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="text-center p-8 text-destructive">
+                Diyet planları yüklenirken hata oluştu. Lütfen tekrar deneyin.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPlans
+                  .filter((plan: any) => plan.status === "draft")
+                  .map((plan: any) => (
+                    <DietPlanCard 
+                      key={plan.id} 
+                      dietPlan={plan} 
+                      onDelete={handleDelete}
+                    />
+                  ))}
+              </div>
+            )}
+            
+            {!isLoading && !error && filteredPlans.filter((plan: any) => plan.status === "draft").length === 0 && (
+              <div className="text-center p-8 text-muted-foreground">
+                Taslak diyet planı bulunamadı.
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
-      
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="all">All Plans</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="draft">Draft</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="all">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-72 animate-pulse bg-muted rounded-lg"></div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-center p-8 text-destructive">
-              Error loading diet plans. Please try again.
-            </div>
-          ) : filteredPlans.length === 0 ? (
-            <div className="text-center p-8 text-muted-foreground">
-              {search || filters.status.length < 2 || filters.dietType.length > 0 ? (
-                <p>No diet plans match the current filters.</p>
-              ) : (
-                <div className="space-y-4">
-                  <p>You don't have any diet plans yet.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPlans.map((plan: any) => (
-                <DietPlanCard 
-                  key={plan.id} 
-                  dietPlan={plan} 
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="active">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-72 animate-pulse bg-muted rounded-lg"></div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-center p-8 text-destructive">
-              Error loading diet plans. Please try again.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPlans
-                .filter((plan: any) => plan.status === "active")
-                .map((plan: any) => (
-                  <DietPlanCard 
-                    key={plan.id} 
-                    dietPlan={plan} 
-                    onDelete={handleDelete}
-                  />
-                ))}
-            </div>
-          )}
-          
-          {!isLoading && !error && filteredPlans.filter((plan: any) => plan.status === "active").length === 0 && (
-            <div className="text-center p-8 text-muted-foreground">
-              No active diet plans found.
-            </div>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="draft">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-72 animate-pulse bg-muted rounded-lg"></div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-center p-8 text-destructive">
-              Error loading diet plans. Please try again.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPlans
-                .filter((plan: any) => plan.status === "draft")
-                .map((plan: any) => (
-                  <DietPlanCard 
-                    key={plan.id} 
-                    dietPlan={plan} 
-                    onDelete={handleDelete}
-                  />
-                ))}
-            </div>
-          )}
-          
-          {!isLoading && !error && filteredPlans.filter((plan: any) => plan.status === "draft").length === 0 && (
-            <div className="text-center p-8 text-muted-foreground">
-              No draft diet plans found.
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+    </ProtectedFeature>
   );
 }
