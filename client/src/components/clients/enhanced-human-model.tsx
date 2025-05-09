@@ -814,11 +814,12 @@ export default function EnhancedHumanModel({
           modelPath = '';
         }
       } else {
-        // Kadın modeli için - dosya varsa kullan
+        // Kadın modeli için - yüklenen FBX dosyası var
         try {
-          // Önce female_model.glb'yi dene
+          // Yüklenen Female Body.fbx'i kullan
           if (modelPath === '') {
-            modelPath = '/models/female_model.glb';
+            modelPath = '/models/Female Body.fbx';
+            console.log("Kadın modeli olarak 'Female Body.fbx' kullanılıyor");
           }
         } catch (error) {
           console.log("Kadın modeli yüklenemedi, özel model kullanılıyor");
