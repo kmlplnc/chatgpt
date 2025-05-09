@@ -1,11 +1,10 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, calculateBMI } from "@/lib/utils";
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 interface EnhancedHumanModelProps {
   measurements: any;
