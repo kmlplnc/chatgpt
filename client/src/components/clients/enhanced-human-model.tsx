@@ -684,86 +684,36 @@ export default function EnhancedHumanModel({
     }
   }, [measurements, showBothModels, showDifferences, gender]);
   
-  // Hazır 3D modeli yükle ve döndür
-  const loadExternalModel = (modelPath: string): Promise<THREE.Group> => {
+  // FBX modeli için yükleyici fonksiyonu
+  const loadFbxModel = (modelPath: string): Promise<THREE.Group> => {
     return new Promise((resolve, reject) => {
-      // Model formatına göre uygun loader'ı seç
-      let loader;
-      if (modelPath.endsWith('.gltf') || modelPath.endsWith('.glb')) {
-        loader = new GLTFLoader();
-      } else if (modelPath.endsWith('.obj')) {
-        loader = new OBJLoader();
-      } else if (modelPath.endsWith('.fbx')) {
-        loader = new FBXLoader();
-      } else {
-        reject(new Error("Desteklenmeyen model formatı"));
+      if (!modelPath.endsWith('.fbx')) {
+        reject(new Error("Sadece FBX modelleri desteklenmektedir"));
         return;
       }
+      
+      const loader = new FBXLoader();
       
       // Modeli yükle
       loader.load(
         modelPath,
-        (result) => {
-          // GLTF modelleri için
-          if (modelPath.endsWith('.gltf') || modelPath.endsWith('.glb')) {
-            const model = result.scene;
-            // Modeli normalize et
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-            
-            // Merkeze al
-            model.position.x -= center.x;
-            model.position.y -= center.y;
-            model.position.z -= center.z;
-            
-            // Ölçeklendir (boyutunu normalleştir)
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 1 / maxDim;
-            model.scale.set(scale, scale, scale);
-            
-            resolve(model);
-          }
-          // OBJ modelleri için
-          else if (modelPath.endsWith('.obj')) {
-            const model = result;
-            // Modeli normalize et
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-            
-            // Merkeze al
-            model.position.x -= center.x;
-            model.position.y -= center.y;
-            model.position.z -= center.z;
-            
-            // Ölçeklendir (boyutunu normalleştir)
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 1 / maxDim;
-            model.scale.set(scale, scale, scale);
-            
-            resolve(model);
-          }
-          // FBX modelleri için
-          else if (modelPath.endsWith('.fbx')) {
-            const model = result;
-            // Modeli normalize et
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-            
-            // Merkeze al
-            model.position.x -= center.x;
-            model.position.y -= center.y;
-            model.position.z -= center.z;
-            
-            // Ölçeklendir (boyutunu normalleştir)
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 1 / maxDim;
-            model.scale.set(scale, scale, scale);
-            
-            resolve(model);
-          }
+        (fbxModel) => {
+          // Modeli normalize et
+          const box = new THREE.Box3().setFromObject(fbxModel);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          
+          // Merkeze al
+          fbxModel.position.x -= center.x;
+          fbxModel.position.y -= center.y;
+          fbxModel.position.z -= center.z;
+          
+          // Ölçeklendir (boyutunu normalleştir)
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scale = 1 / maxDim;
+          fbxModel.scale.set(scale, scale, scale);
+          
+          resolve(fbxModel);
         },
         // Yükleme ilerlemesi
         (xhr) => {
@@ -771,7 +721,7 @@ export default function EnhancedHumanModel({
         },
         // Hata durumu
         (error) => {
-          console.error('Model yüklenirken hata:', error);
+          console.error('FBX model yüklenirken hata:', error);
           reject(error);
         }
       );
@@ -796,68 +746,18 @@ export default function EnhancedHumanModel({
     const previousMeasurements = getPreviousMeasurements();
     const isMale = gender === "male";
     
-    // Güncel model
     try {
-      // Eğer hazır modeller mevcutsa onları kullan, değilse kendi modelimizi oluştur
-      let modelPath = '';
-      
-      // Model dosya yollarını ayarla - kendi 3D model dosyalarınızı yükledikten sonra
-      // bu yolları kendi dosyalarınızla güncelleyin
-      if (isMale) {
-        // Erkek modeli için - dosya varsa kullan
-        try {
-          // Önce male_model.glb'yi dene
-          if (modelPath === '') {
-            modelPath = '/models/male_model.glb';
-          }
-        } catch (error) {
-          console.log("Erkek modeli yüklenemedi, özel model kullanılıyor");
-          modelPath = '';
-        }
-      } else {
-        // Kadın modeli için - yüklenen FBX dosyası var
-        try {
-          // Yüklenen Female Body.fbx'i kullan
-          if (modelPath === '') {
-            modelPath = '/models/Female Body.fbx';
-            console.log("Kadın modeli olarak 'Female Body.fbx' kullanılıyor");
-          }
-        } catch (error) {
-          console.log("Kadın modeli yüklenemedi, özel model kullanılıyor");
-          modelPath = '';
-        }
-      }
-      
-      // Model yolu belirtilmişse hazır modeli yükle
-      if (modelPath) {
-        console.log(`${modelPath} yükleniyor...`);
-        loadExternalModel(modelPath)
-          .then((modelGroup) => {
-            console.log("Model başarıyla yüklendi!");
-            updateModelByMeasurements(modelGroup, latestMeasurements, true);
-            humanModelRef.current = modelGroup;
-            sceneRef.current.add(modelGroup);
-          })
-          .catch((error) => {
-            console.error("Dışarıdan model yüklenirken hata:", error);
-            // Yedek olarak custom modeli göster
-            console.log("Yedek model kullanılıyor...");
-            const backupModel = createCustomModel(isMale);
-            updateModelByMeasurements(backupModel, latestMeasurements, true);
-            humanModelRef.current = backupModel;
-            sceneRef.current.add(backupModel);
-          });
-      } else {
-        // Model dosyası yoksa özel modeli kullan
-        console.log("Hazır model bulunamadı, özel model oluşturuluyor...");
-        const modelGroup = createCustomModel(isMale);
-        updateModelByMeasurements(modelGroup, latestMeasurements, true);
-        humanModelRef.current = modelGroup;
+      // Özel model oluştur
+      console.log(`${isMale ? "Erkek" : "Kadın"} modeli oluşturuluyor...`);
+      const modelGroup = createCustomModel(isMale);
+      updateModelByMeasurements(modelGroup, latestMeasurements, true);
+      humanModelRef.current = modelGroup;
+      if (sceneRef.current) {
         sceneRef.current.add(modelGroup);
       }
       
       // Eğer karşılaştırma modundaysak ve önceki bir ölçüm varsa
-      if (showBothModels && hasPreviousMeasurement && previousMeasurements) {
+      if (showBothModels && hasPreviousMeasurement && previousMeasurements && sceneRef.current) {
         const prevModelGroup = createCustomModel(isMale);
         
         updateModelByMeasurements(prevModelGroup, previousMeasurements, false);
@@ -872,21 +772,20 @@ export default function EnhancedHumanModel({
           // Önceki modeli yarı saydam ve gri yap
           prevModelGroup.traverse((child: THREE.Object3D) => {
             if (child instanceof THREE.Mesh) {
-              const material = child.material;
-              if (Array.isArray(material)) {
+              if (Array.isArray(child.material)) {
                 // Birden fazla materyal varsa
-                material.forEach(mat => {
+                child.material.forEach(mat => {
                   if (mat.color) {
                     mat.transparent = true;
                     mat.opacity = 0.6;
                     mat.color.set(0xaaaaaa); // Gri ton
                   }
                 });
-              } else if (material && material.color) {
+              } else if (child.material && child.material.color) {
                 // Tek materyal varsa
-                material.transparent = true;
-                material.opacity = 0.6;
-                material.color.set(0xaaaaaa); // Gri ton
+                child.material.transparent = true;
+                child.material.opacity = 0.6;
+                child.material.color.set(0xaaaaaa); // Gri ton
               }
             }
           });
