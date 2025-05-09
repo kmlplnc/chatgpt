@@ -798,31 +798,40 @@ export default function EnhancedHumanModel({
     // Güncel model
     try {
       // Eğer hazır modeller mevcutsa onları kullan, değilse kendi modelimizi oluştur
-      // Bu kısmı kendi projenizde gerçek model dosyalarınızla değiştirin
       let modelPath = '';
+      
+      // Model dosya yollarını ayarla - kendi 3D model dosyalarınızı yükledikten sonra
+      // bu yolları kendi dosyalarınızla güncelleyin
       if (isMale) {
-        // Erkek modeli için
-        // modelPath = '/models/male_character.glb'; // Gerçek bir GLB model
-        // Eğer model dosyası yoksa createCustomModel'e düş
-        const modelGroup = createCustomModel(isMale);
-        updateModelByMeasurements(modelGroup, latestMeasurements, true);
-        humanModelRef.current = modelGroup;
-        sceneRef.current.add(modelGroup);
+        // Erkek modeli için - dosya varsa kullan
+        try {
+          // Önce male_model.glb'yi dene
+          if (modelPath === '') {
+            modelPath = '/models/male_model.glb';
+          }
+        } catch (error) {
+          console.log("Erkek modeli yüklenemedi, özel model kullanılıyor");
+          modelPath = '';
+        }
       } else {
-        // Kadın modeli için
-        // modelPath = '/models/female_character.glb'; // Gerçek bir GLB model
-        // Eğer model dosyası yoksa createCustomModel'e düş
-        const modelGroup = createCustomModel(isMale);
-        updateModelByMeasurements(modelGroup, latestMeasurements, true);
-        humanModelRef.current = modelGroup;
-        sceneRef.current.add(modelGroup);
+        // Kadın modeli için - dosya varsa kullan
+        try {
+          // Önce female_model.glb'yi dene
+          if (modelPath === '') {
+            modelPath = '/models/female_model.glb';
+          }
+        } catch (error) {
+          console.log("Kadın modeli yüklenemedi, özel model kullanılıyor");
+          modelPath = '';
+        }
       }
       
       // Model yolu belirtilmişse hazır modeli yükle
-      /* Gerçek model eklemek istediğinizde bunu açın
       if (modelPath) {
+        console.log(`${modelPath} yükleniyor...`);
         loadExternalModel(modelPath)
           .then((modelGroup) => {
+            console.log("Model başarıyla yüklendi!");
             updateModelByMeasurements(modelGroup, latestMeasurements, true);
             humanModelRef.current = modelGroup;
             sceneRef.current.add(modelGroup);
@@ -830,13 +839,20 @@ export default function EnhancedHumanModel({
           .catch((error) => {
             console.error("Dışarıdan model yüklenirken hata:", error);
             // Yedek olarak custom modeli göster
+            console.log("Yedek model kullanılıyor...");
             const backupModel = createCustomModel(isMale);
             updateModelByMeasurements(backupModel, latestMeasurements, true);
             humanModelRef.current = backupModel;
             sceneRef.current.add(backupModel);
           });
+      } else {
+        // Model dosyası yoksa özel modeli kullan
+        console.log("Hazır model bulunamadı, özel model oluşturuluyor...");
+        const modelGroup = createCustomModel(isMale);
+        updateModelByMeasurements(modelGroup, latestMeasurements, true);
+        humanModelRef.current = modelGroup;
+        sceneRef.current.add(modelGroup);
       }
-      */
       
       // Eğer karşılaştırma modundaysak ve önceki bir ölçüm varsa
       if (showBothModels && hasPreviousMeasurement && previousMeasurements) {
