@@ -1,282 +1,320 @@
 import React from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { 
-  AppleIcon, 
   Utensils, 
-  Brain, 
   Database, 
-  Search,
+  Users,
+  Calculator,
+  Activity,
   ArrowRight, 
-  RefreshCw,
-  TrendingUp
+  BarChart,
+  SparklesIcon,
+  Search,
+  Heart
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import FoodCard from "@/components/food/food-card";
-import DietPlanCard from "@/components/diet/diet-plan-card";
-import NutritionalChart from "@/components/diet/nutritional-chart";
 
 export default function Dashboard() {
-  // Fetch recent diet plans
-  const { 
-    data: recentDietPlans,
-    isLoading: isLoadingDietPlans,
-  } = useQuery({
-    queryKey: ["/api/diet-plans?limit=2"],
-  });
-  
-  // Fetch recent foods
-  const { 
-    data: recentFoods,
-    isLoading: isLoadingFoods,
-  } = useQuery({
-    queryKey: ["/api/foods/recent?limit=3"],
-  });
-  
-  // Sample diet plan for demo chart
-  const sampleDietPlan = {
-    calorieGoal: 2000,
-    proteinPercentage: 30,
-    carbsPercentage: 45,
-    fatPercentage: 25,
-    meals: [
-      { name: "Breakfast", calories: 500 },
-      { name: "Lunch", calories: 700 },
-      { name: "Dinner", calories: 600 },
-      { name: "Snacks", calories: 200 },
-    ]
-  };
-  
   return (
-    <div className="space-y-8">
-      {/* Quick Actions Section */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-gradient-to-br from-secondary/50 to-secondary/30 text-secondary-foreground hover:shadow-lg transition-shadow border-none">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Database className="h-5 w-5 mr-2" />
-              Food Database
-            </CardTitle>
-            <CardDescription className="text-secondary-foreground/80">
-              Explore our comprehensive food database
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm opacity-90">
-              Access detailed nutritional information for thousands of foods.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button asChild className="w-full bg-white text-secondary hover:bg-white/90">
-              <Link href="/food-database">
-                Browse Foods
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-accent to-accent/30 text-accent-foreground hover:shadow-lg transition-shadow border-none">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Search className="h-5 w-5 mr-2" />
-              Nutrition Analysis
-            </CardTitle>
-            <CardDescription className="text-accent-foreground/80">
-              View nutrient details for different foods
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm opacity-90">
-              Search and compare nutritional information for different foods and ingredients.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button asChild className="w-full bg-white text-primary hover:bg-white/90">
-              <Link href="/food-database">
-                Explore Now
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      </section>
-      
-      {/* Nutritional Chart Section */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Nutritional Overview</h2>
-          <Button variant="ghost" size="sm" className="gap-1">
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
+    <div className="space-y-10 max-w-5xl mx-auto py-6">
+      {/* Hero Section */}
+      <section className="text-center space-y-6 py-8">
+        <div className="inline-flex items-center justify-center p-2 bg-primary/10 rounded-full text-primary mb-4">
+          <SparklesIcon className="h-6 w-6 mr-2" />
+          <span className="text-sm font-medium">DietKEM - Beslenme ve Diyet Takip Platformu</span>
         </div>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <NutritionalChart dietPlan={sampleDietPlan} />
-          </CardContent>
-        </Card>
-      </section>
-      
-      {/* Recent Diet Plans */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Your Diet Plans</h2>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/diet-plans" className="flex items-center gap-1">
-              View All
-              <ArrowRight className="h-4 w-4" />
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          Beslenme ve Danışan Takibinde<br />Diyetisyenlere Özel Çözüm
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+          DietKEM, diyetisyenlerin danışanlarını takip etmesini, beslenme değerlerini analiz etmesini ve 
+          etkili diyet planları oluşturmasını sağlayan kapsamlı bir araçtır.
+        </p>
+        <div className="flex flex-wrap gap-4 justify-center pt-4">
+          <Button asChild size="lg" className="rounded-full px-8">
+            <Link href="/clients">
+              Danışanlara Göz At
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="rounded-full px-8">
+            <Link href="/health-calculator">
+              Sağlık Hesaplayıcı
             </Link>
           </Button>
         </div>
-        
-        {isLoadingDietPlans ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="animate-pulse h-64">
-              <CardContent className="p-6">
-                <div className="h-6 bg-muted rounded w-3/4 mb-4"></div>
-                <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
-                <div className="grid grid-cols-3 gap-2 mt-6">
-                  <div className="h-16 bg-muted rounded"></div>
-                  <div className="h-16 bg-muted rounded"></div>
-                  <div className="h-16 bg-muted rounded"></div>
-                </div>
-                <div className="h-8 bg-muted rounded w-full mt-6"></div>
-              </CardContent>
-            </Card>
-            <Card className="animate-pulse h-64">
-              <CardContent className="p-6">
-                <div className="h-6 bg-muted rounded w-3/4 mb-4"></div>
-                <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
-                <div className="grid grid-cols-3 gap-2 mt-6">
-                  <div className="h-16 bg-muted rounded"></div>
-                  <div className="h-16 bg-muted rounded"></div>
-                  <div className="h-16 bg-muted rounded"></div>
-                </div>
-                <div className="h-8 bg-muted rounded w-full mt-6"></div>
-              </CardContent>
-            </Card>
-          </div>
-        ) : recentDietPlans && recentDietPlans.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {recentDietPlans.map((plan: any) => (
-              <DietPlanCard key={plan.id} dietPlan={plan} />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="p-6 text-center">
-              <Utensils className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Diet Plans Yet</h3>
-              <p className="text-muted-foreground mb-4">
-                You haven't added any diet plans to your collection yet.
-              </p>
-              <Button asChild>
-                <Link href="/diet-plans">View Diet Plans</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </section>
       
-      {/* Recently Viewed Foods */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Recently Viewed Foods</h2>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/food-database" className="flex items-center gap-1">
-              Browse All
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+      {/* App Features */}
+      <section className="space-y-6">
+        <h2 className="text-3xl font-bold text-center">DietKEM Ne İşe Yarar?</h2>
+        <p className="text-center text-muted-foreground max-w-3xl mx-auto">
+          Diyetisyenler için geliştirilmiş kapsamlı hizmetlerle danışanlarınızın beslenmesini
+          ve sağlığını kolayca takip edin.
+        </p>
         
-        {isLoadingFoods ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Array(3).fill(0).map((_, i) => (
-              <Card key={i} className="animate-pulse h-56">
-                <CardContent className="p-6">
-                  <div className="h-4 bg-muted rounded w-1/4 mb-4"></div>
-                  <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
-                  <div className="h-4 bg-muted rounded w-full mt-6"></div>
-                  <div className="flex gap-2 mt-4">
-                    <div className="h-6 bg-muted rounded w-1/3"></div>
-                    <div className="h-6 bg-muted rounded w-1/3"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : recentFoods && recentFoods.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {recentFoods.map((food: any) => (
-              <FoodCard key={food.fdcId} food={food} />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="p-6 text-center">
-              <AppleIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Recently Viewed Foods</h3>
-              <p className="text-muted-foreground mb-4">
-                Explore our food database to find detailed nutritional information.
-              </p>
-              <Button asChild>
-                <Link href="/food-database">Browse Food Database</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </section>
-      
-      {/* Tips & Resources */}
-      <section>
-        <h2 className="text-2xl font-bold mb-4">Nutrition Tips & Resources</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <Card className="border-2 border-primary/10 hover:border-primary/30 transition-colors">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2" />
-                Healthy Eating Tips
+                <Users className="h-5 w-5 mr-2 text-primary" />
+                Danışan Yönetimi
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Focus on whole foods rather than processed foods.</li>
-                <li>Include a variety of colorful vegetables in your meals.</li>
-                <li>Stay hydrated by drinking plenty of water throughout the day.</li>
-                <li>Monitor portion sizes to avoid overeating.</li>
-                <li>Limit added sugars and excess sodium in your diet.</li>
-              </ul>
+              <p className="text-muted-foreground">
+                Tüm danışanlarınızı tek platformda yönetin. Kişisel bilgilerini ve sağlık verilerini
+                güvenle kaydedin ve takip edin.
+              </p>
             </CardContent>
-            <CardFooter>
-              <Button variant="outline">Read More Tips</Button>
-            </CardFooter>
           </Card>
           
-          <Card>
+          <Card className="border-2 border-primary/10 hover:border-primary/30 transition-colors">
             <CardHeader>
-              <CardTitle>Weekly Meal Planning Guide</CardTitle>
-              <CardDescription>
-                Efficient meal planning saves time and promotes healthier eating
-              </CardDescription>
+              <CardTitle className="flex items-center">
+                <BarChart className="h-5 w-5 mr-2 text-primary" />
+                İlerleme Takibi
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm">
-                <strong>Monday:</strong> Plan your meals for the week and make a shopping list.
-              </p>
-              <p className="text-sm">
-                <strong>Wednesday:</strong> Prepare basic ingredients that can be used in multiple meals.
-              </p>
-              <p className="text-sm">
-                <strong>Weekend:</strong> Batch cook meals that can be refrigerated or frozen for later use.
+            <CardContent>
+              <p className="text-muted-foreground">
+                Danışanlarınızın vücut ölçümlerini ve sağlık göstergelerini takip edin. 
+                Gelişimi grafiklerle görselleştirin ve analiz edin.
               </p>
             </CardContent>
-            <CardFooter>
-              <Button variant="outline">Download Guide</Button>
-            </CardFooter>
           </Card>
+          
+          <Card className="border-2 border-primary/10 hover:border-primary/30 transition-colors">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Database className="h-5 w-5 mr-2 text-primary" />
+                Besin Veritabanı
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                300.000'den fazla besini içeren kapsamlı veritabanımızda detaylı besin değerlerine
+                ulaşın ve danışanlarınıza doğru öneriler sunun.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-2 border-primary/10 hover:border-primary/30 transition-colors">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Utensils className="h-5 w-5 mr-2 text-primary" />
+                Diyet Planları
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Danışanlarınızın ihtiyaçlarına uygun özelleştirilmiş diyet planları oluşturun.
+                Makro besin değerlerini hesaplayın ve öneriler sunun.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-2 border-primary/10 hover:border-primary/30 transition-colors">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Calculator className="h-5 w-5 mr-2 text-primary" />
+                Sağlık Hesaplayıcı
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                VKİ, BMH ve diğer önemli sağlık göstergelerini hesaplayın. Aktivite seviyesine
+                göre enerji gereksinimlerini belirleyin.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-2 border-primary/10 hover:border-primary/30 transition-colors">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Search className="h-5 w-5 mr-2 text-primary" />
+                Beslenme Analizi
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Besinlerin vitamin ve mineral içeriklerini detaylı olarak analiz edin.
+                Makro ve mikro besin değerlerini karşılaştırın.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+      
+      {/* How to Use */}
+      <section className="space-y-6">
+        <h2 className="text-3xl font-bold text-center">Nasıl Kullanılır?</h2>
+        <p className="text-center text-muted-foreground max-w-3xl mx-auto">
+          DietKEM'i kullanarak danışanlarınızın beslenmesini optimize etmek çok kolay.
+          İşte başlamanız için adımlar:
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+          <div className="flex">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              1
+            </div>
+            <div>
+              <h3 className="font-bold">Danışan Ekleyin</h3>
+              <p className="text-muted-foreground mt-1">
+                Danışan sayfasından yeni danışanlarınızı sisteme ekleyin. Temel bilgilerini, 
+                sağlık durumunu ve beslenme hedeflerini kaydedin.
+              </p>
+              <Button asChild variant="link" className="px-0 mt-2">
+                <Link href="/clients" className="flex items-center">
+                  Danışan Ekle
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              2
+            </div>
+            <div>
+              <h3 className="font-bold">Ölçüm Kaydedin</h3>
+              <p className="text-muted-foreground mt-1">
+                Danışanlarınızın vücut ölçümlerini ve sağlık verilerini düzenli olarak kaydedin.
+                Bu veriler ilerlemeyi izlemek için kullanılacaktır.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              3
+            </div>
+            <div>
+              <h3 className="font-bold">Besinleri Araştırın</h3>
+              <p className="text-muted-foreground mt-1">
+                Besin veritabanında arama yaparak besinlerin besin değerlerini inceleyebilir ve
+                danışanlarınız için uygun besinleri belirleyebilirsiniz.
+              </p>
+              <Button asChild variant="link" className="px-0 mt-2">
+                <Link href="/food-database" className="flex items-center">
+                  Besin Veritabanını İncele
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              4
+            </div>
+            <div>
+              <h3 className="font-bold">Diyet Planı Oluşturun</h3>
+              <p className="text-muted-foreground mt-1">
+                Danışanın ihtiyaçlarına ve hedeflerine uygun kişiselleştirilmiş diyet planları
+                oluşturun ve takip edin.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              5
+            </div>
+            <div>
+              <h3 className="font-bold">Gelişimi Takip Edin</h3>
+              <p className="text-muted-foreground mt-1">
+                Grafikler ve raporlar aracılığıyla danışanlarınızın ilerlemesini takip edin,
+                hedeflere ne kadar yaklaştıklarını görün.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              6
+            </div>
+            <div>
+              <h3 className="font-bold">Sağlık Değerlerini Hesaplayın</h3>
+              <p className="text-muted-foreground mt-1">
+                Sağlık hesaplayıcı ile VKİ, BMH değerlerini ve gerekli kalori miktarlarını
+                otomatik olarak hesaplayın.
+              </p>
+              <Button asChild variant="link" className="px-0 mt-2">
+                <Link href="/health-calculator" className="flex items-center">
+                  Hesaplayıcıyı Kullan
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Why Use */}
+      <section className="space-y-6 bg-gradient-to-b from-primary/5 to-background rounded-3xl p-8">
+        <h2 className="text-3xl font-bold text-center">Neden DietKEM Kullanmalısınız?</h2>
+        <p className="text-center text-muted-foreground max-w-3xl mx-auto">
+          DietKEM, diyetisyenlerin işini kolaylaştırmak ve danışanlarına daha iyi hizmet vermek için
+          tasarlanmış özel bir platformdur.
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          <Card className="bg-white/50 backdrop-blur border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Activity className="h-5 w-5 mr-2 text-primary" />
+                Verimli Çalışma
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Tüm besin değerlerini manuel olarak hesaplamak yerine, platformdaki verileri kullanarak
+                zamandan tasarruf edin ve daha fazla danışana hizmet verin.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/50 backdrop-blur border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Heart className="h-5 w-5 mr-2 text-primary" />
+                Doğru Beslenme Önerileri
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Kapsamlı besin veritabanı sayesinde, danışanlarınız için en doğru ve sağlıklı
+                beslenme önerilerini oluşturun.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/50 backdrop-blur border-0 md:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart className="h-5 w-5 mr-2 text-primary" />
+                Görsel İlerleme Takibi
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Danışanlarınızın verilerini görselleştirerek ilerlemeyi daha net gösterir, motivasyonu artırır
+                ve hedeflere ulaşmayı kolaylaştırır. Renkli grafikler ve tablolar ile sağlık durumundaki
+                değişiklikleri anında fark edin.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="text-center mt-8">
+          <Button asChild size="lg" className="rounded-full px-8">
+            <Link href="/clients">
+              Hemen Başlayın
+            </Link>
+          </Button>
         </div>
       </section>
     </div>
