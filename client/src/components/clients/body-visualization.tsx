@@ -172,13 +172,15 @@ export default function BodyVisualization({
     </Badge>
   );
 
-  // SVG içindeki insan modelini oluştur
+  // SVG içindeki insan modelini oluştur - daha gerçekçi
   const renderHumanModel = (scale: any, color: string, offsetX: number = 0) => {
     // Ölçeklendirme faktörleri
     const bodyScale = scale.body;
     const armScale = scale.arm;
     const legScale = scale.leg;
     const waistScale = scale.waist;
+    const chestScale = scale.chest;
+    const hipScale = scale.hip;
     
     // Erkek ve kadın modeller için değerler biraz farklı
     const shoulderWidth = gender === "male" ? 80 : 70;
@@ -188,35 +190,159 @@ export default function BodyVisualization({
     // Vücut parçalarının konumları
     const baseX = 100 + offsetX;
     const headY = 50;
-    const shoulderY = headY + headRadius + 15;
-    const waistY = shoulderY + 80;
-    const hipY = waistY + 40;
+    const shoulderY = headY + headRadius + 10;
+    const chestY = shoulderY + 30;
+    const waistY = chestY + 45;
+    const hipY = waistY + 25;
     const kneeY = hipY + 80;
     const footY = kneeY + 80;
     
     return (
       <>
-        {/* Baş */}
-        <circle 
-          cx={baseX} 
-          cy={headY} 
-          r={headRadius} 
-          fill={color} 
-          stroke="#000" 
-          strokeWidth="2" 
-        />
+        {/* Baş - Yüz detaylarıyla */}
+        <g>
+          {/* Kafa */}
+          <circle 
+            cx={baseX} 
+            cy={headY} 
+            r={headRadius} 
+            fill={color} 
+            stroke="#000" 
+            strokeWidth="2" 
+          />
+          
+          {/* Gözler */}
+          <ellipse 
+            cx={baseX - 8} 
+            cy={headY - 5} 
+            rx={3} 
+            ry={4} 
+            fill="white" 
+            stroke="#000" 
+            strokeWidth="1" 
+          />
+          <ellipse 
+            cx={baseX + 8} 
+            cy={headY - 5} 
+            rx={3} 
+            ry={4} 
+            fill="white" 
+            stroke="#000" 
+            strokeWidth="1" 
+          />
+          <circle cx={baseX - 8} cy={headY - 5} r={2} fill="#000" />
+          <circle cx={baseX + 8} cy={headY - 5} r={2} fill="#000" />
+          
+          {/* Ağız */}
+          <path 
+            d={`M${baseX - 10},${headY + 8} Q${baseX},${headY + 12} ${baseX + 10},${headY + 8}`} 
+            fill="none" 
+            stroke="#000" 
+            strokeWidth="1.5" 
+          />
+          
+          {/* Kulaklar */}
+          <path 
+            d={`M${baseX - headRadius},${headY - 5} Q${baseX - headRadius - 5},${headY} ${baseX - headRadius},${headY + 5}`} 
+            fill={color} 
+            stroke="#000" 
+            strokeWidth="1" 
+          />
+          <path 
+            d={`M${baseX + headRadius},${headY - 5} Q${baseX + headRadius + 5},${headY} ${baseX + headRadius},${headY + 5}`} 
+            fill={color} 
+            stroke="#000" 
+            strokeWidth="1" 
+          />
+          
+          {/* Cinsiyet özel özellikler */}
+          {gender === "female" ? (
+            <>
+              {/* Kadın saçı - daha uzun ve stilize */}
+              <path
+                d={`M${baseX - headRadius},${headY - 12} 
+                   C${baseX - headRadius - 5},${headY - 5} ${baseX - headRadius - 8},${headY + 10} ${baseX - headRadius - 3},${headY + 15}
+                   L${baseX + headRadius + 3},${headY + 15}
+                   C${baseX + headRadius + 8},${headY + 10} ${baseX + headRadius + 5},${headY - 5} ${baseX + headRadius},${headY - 12}
+                   C${baseX + 15},${headY - 30} ${baseX - 15},${headY - 30} ${baseX - headRadius},${headY - 12}
+                   Z`}
+                fill={color}
+                stroke="#000"
+                strokeWidth="1.5"
+              />
+            </>
+          ) : (
+            <>
+              {/* Erkek saçı - daha kısa */}
+              <path
+                d={`M${baseX - headRadius},${headY - 12} 
+                   C${baseX - headRadius - 2},${headY - 18} ${baseX - 15},${headY - 25} ${baseX},${headY - 25}
+                   C${baseX + 15},${headY - 25} ${baseX + headRadius + 2},${headY - 18} ${baseX + headRadius},${headY - 12}`}
+                fill={color}
+                stroke="#000"
+                strokeWidth="1"
+              />
+            </>
+          )}
+        </g>
         
-        {/* Gövde - Trapezoid şekli */}
-        <polygon
-          points={`
-            ${baseX - shoulderWidth * bodyScale / 2},${shoulderY}
-            ${baseX + shoulderWidth * bodyScale / 2},${shoulderY}
-            ${baseX + hipWidth * waistScale / 2},${hipY}
-            ${baseX - hipWidth * waistScale / 2},${hipY}
-          `}
+        {/* Boyun */}
+        <rect
+          x={baseX - 8}
+          y={headY + headRadius - 2}
+          width={16}
+          height={12}
           fill={color}
           stroke="#000"
-          strokeWidth="2"
+          strokeWidth="1"
+        />
+        
+        {/* Omuzlar */}
+        <path
+          d={`M${baseX - 8},${shoulderY} 
+             L${baseX - shoulderWidth * bodyScale / 2},${shoulderY + 5} 
+             L${baseX + shoulderWidth * bodyScale / 2},${shoulderY + 5} 
+             L${baseX + 8},${shoulderY} 
+             Z`}
+          fill={color}
+          stroke="#000"
+          strokeWidth="1.5"
+        />
+        
+        {/* Gövde - Daha detaylı vücut şekli */}
+        <path
+          d={`M${baseX - shoulderWidth * bodyScale / 2},${shoulderY + 5}
+             C${baseX - shoulderWidth * bodyScale / 2 + 5},${chestY - 10} ${baseX - shoulderWidth * chestScale / 2 - 5},${chestY} ${baseX - shoulderWidth * chestScale / 2},${chestY}
+             L${baseX + shoulderWidth * chestScale / 2},${chestY}
+             C${baseX + shoulderWidth * chestScale / 2 + 5},${chestY} ${baseX + shoulderWidth * bodyScale / 2 - 5},${shoulderY + 5} ${baseX + shoulderWidth * bodyScale / 2},${shoulderY + 5}
+             `}
+          fill={color}
+          stroke="#000"
+          strokeWidth="1.5"
+        />
+        
+        {/* Karın Bölgesi */}
+        <path
+          d={`M${baseX - shoulderWidth * chestScale / 2},${chestY}
+             C${baseX - shoulderWidth * chestScale / 2 + 5},${waistY - 20} ${baseX - hipWidth * waistScale / 2 - 10},${waistY - 10} ${baseX - hipWidth * waistScale / 2},${waistY}
+             L${baseX + hipWidth * waistScale / 2},${waistY}
+             C${baseX + hipWidth * waistScale / 2 + 10},${waistY - 10} ${baseX + shoulderWidth * chestScale / 2 - 5},${waistY - 20} ${baseX + shoulderWidth * chestScale / 2},${chestY}
+             `}
+          fill={color}
+          stroke="#000"
+          strokeWidth="1.5"
+        />
+        
+        {/* Kalça Bölgesi */}
+        <path
+          d={`M${baseX - hipWidth * waistScale / 2},${waistY}
+             C${baseX - hipWidth * waistScale / 2 - 5},${hipY - 15} ${baseX - hipWidth * hipScale / 2 - 5},${hipY - 5} ${baseX - hipWidth * hipScale / 2},${hipY}
+             L${baseX + hipWidth * hipScale / 2},${hipY}
+             C${baseX + hipWidth * hipScale / 2 + 5},${hipY - 5} ${baseX + hipWidth * waistScale / 2 + 5},${hipY - 15} ${baseX + hipWidth * waistScale / 2},${waistY}
+             `}
+          fill={color}
+          stroke="#000"
+          strokeWidth="1.5"
         />
         
         {/* Bel bölgesi - ölçeklendirmeyi göster */}
@@ -226,64 +352,239 @@ export default function BodyVisualization({
           x2={baseX + hipWidth * waistScale / 2 + 10}
           y2={waistY}
           stroke="#000"
-          strokeWidth="3"
-          strokeDasharray={gender === "female" ? "5,5" : ""}
+          strokeWidth="1.5"
+          strokeDasharray="3,3"
         />
         
-        {/* Sol kol */}
-        <line
-          x1={baseX - shoulderWidth * bodyScale / 2}
-          y1={shoulderY + 5}
-          x2={baseX - shoulderWidth * bodyScale / 2 - 25 * armScale}
-          y2={waistY - 20}
-          stroke={color}
-          strokeWidth={20 * armScale}
-          strokeLinecap="round"
-        />
+        {/* Sol kol - Eklemlerle */}
+        <g>
+          {/* Üst kol */}
+          <path
+            d={`M${baseX - shoulderWidth * bodyScale / 2},${shoulderY + 7}
+               C${baseX - shoulderWidth * bodyScale / 2 - 10 * armScale},${shoulderY + 25} 
+               ${baseX - shoulderWidth * bodyScale / 2 - 15 * armScale},${shoulderY + 40} 
+               ${baseX - shoulderWidth * bodyScale / 2 - 20 * armScale},${waistY - 15}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={18 * armScale}
+            strokeLinecap="round"
+          />
+          
+          {/* Dirsek */}
+          <circle 
+            cx={baseX - shoulderWidth * bodyScale / 2 - 20 * armScale}
+            cy={waistY - 15}
+            r={8 * armScale}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1"
+          />
+          
+          {/* Alt kol */}
+          <path
+            d={`M${baseX - shoulderWidth * bodyScale / 2 - 20 * armScale},${waistY - 15}
+               C${baseX - shoulderWidth * bodyScale / 2 - 25 * armScale},${waistY} 
+               ${baseX - shoulderWidth * bodyScale / 2 - 30 * armScale},${waistY + 15}
+               ${baseX - shoulderWidth * bodyScale / 2 - 25 * armScale},${waistY + 30}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={16 * armScale}
+            strokeLinecap="round"
+          />
+          
+          {/* El */}
+          <ellipse
+            cx={baseX - shoulderWidth * bodyScale / 2 - 25 * armScale}
+            cy={waistY + 35}
+            rx={9 * armScale}
+            ry={7 * armScale}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1"
+          />
+        </g>
         
-        {/* Sağ kol */}
-        <line
-          x1={baseX + shoulderWidth * bodyScale / 2}
-          y1={shoulderY + 5}
-          x2={baseX + shoulderWidth * bodyScale / 2 + 25 * armScale}
-          y2={waistY - 20}
-          stroke={color}
-          strokeWidth={20 * armScale}
-          strokeLinecap="round"
-        />
+        {/* Sağ kol - Eklemlerle */}
+        <g>
+          {/* Üst kol */}
+          <path
+            d={`M${baseX + shoulderWidth * bodyScale / 2},${shoulderY + 7}
+               C${baseX + shoulderWidth * bodyScale / 2 + 10 * armScale},${shoulderY + 25} 
+               ${baseX + shoulderWidth * bodyScale / 2 + 15 * armScale},${shoulderY + 40} 
+               ${baseX + shoulderWidth * bodyScale / 2 + 20 * armScale},${waistY - 15}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={18 * armScale}
+            strokeLinecap="round"
+          />
+          
+          {/* Dirsek */}
+          <circle 
+            cx={baseX + shoulderWidth * bodyScale / 2 + 20 * armScale}
+            cy={waistY - 15}
+            r={8 * armScale}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1"
+          />
+          
+          {/* Alt kol */}
+          <path
+            d={`M${baseX + shoulderWidth * bodyScale / 2 + 20 * armScale},${waistY - 15}
+               C${baseX + shoulderWidth * bodyScale / 2 + 25 * armScale},${waistY} 
+               ${baseX + shoulderWidth * bodyScale / 2 + 30 * armScale},${waistY + 15}
+               ${baseX + shoulderWidth * bodyScale / 2 + 25 * armScale},${waistY + 30}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={16 * armScale}
+            strokeLinecap="round"
+          />
+          
+          {/* El */}
+          <ellipse
+            cx={baseX + shoulderWidth * bodyScale / 2 + 25 * armScale}
+            cy={waistY + 35}
+            rx={9 * armScale}
+            ry={7 * armScale}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1"
+          />
+        </g>
         
-        {/* Sol bacak */}
-        <line
-          x1={baseX - hipWidth * waistScale / 4}
-          y1={hipY}
-          x2={baseX - hipWidth * waistScale / 4 - 15 * legScale}
-          y2={footY}
-          stroke={color}
-          strokeWidth={25 * legScale}
-          strokeLinecap="round"
-        />
+        {/* Sol bacak - Daha detaylı */}
+        <g>
+          {/* Üst bacak */}
+          <path
+            d={`M${baseX - hipWidth * hipScale / 3},${hipY}
+               C${baseX - hipWidth * hipScale / 3 - 5 * legScale},${hipY + 30} 
+               ${baseX - hipWidth * hipScale / 3 - 10 * legScale},${kneeY - 20} 
+               ${baseX - hipWidth * hipScale / 3 - 15 * legScale},${kneeY}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={22 * legScale}
+            strokeLinecap="round"
+          />
+          
+          {/* Diz */}
+          <circle 
+            cx={baseX - hipWidth * hipScale / 3 - 15 * legScale}
+            cy={kneeY}
+            r={10 * legScale}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1"
+          />
+          
+          {/* Alt bacak */}
+          <path
+            d={`M${baseX - hipWidth * hipScale / 3 - 15 * legScale},${kneeY}
+               C${baseX - hipWidth * hipScale / 3 - 18 * legScale},${kneeY + 30} 
+               ${baseX - hipWidth * hipScale / 3 - 20 * legScale},${footY - 20}
+               ${baseX - hipWidth * hipScale / 3 - 15 * legScale},${footY - 10}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={20 * legScale}
+            strokeLinecap="round"
+          />
+          
+          {/* Ayak */}
+          <path
+            d={`M${baseX - hipWidth * hipScale / 3 - 25 * legScale},${footY - 5}
+               C${baseX - hipWidth * hipScale / 3 - 30 * legScale},${footY} 
+               ${baseX - hipWidth * hipScale / 3 - 30 * legScale},${footY + 5}
+               ${baseX - hipWidth * hipScale / 3 - 5 * legScale},${footY + 5}
+               C${baseX - hipWidth * hipScale / 3},${footY} 
+               ${baseX - hipWidth * hipScale / 3 - 5 * legScale},${footY - 5}
+               Z
+              `}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1.5"
+          />
+        </g>
         
-        {/* Sağ bacak */}
-        <line
-          x1={baseX + hipWidth * waistScale / 4}
-          y1={hipY}
-          x2={baseX + hipWidth * waistScale / 4 + 15 * legScale}
-          y2={footY}
-          stroke={color}
-          strokeWidth={25 * legScale}
-          strokeLinecap="round"
-        />
+        {/* Sağ bacak - Daha detaylı */}
+        <g>
+          {/* Üst bacak */}
+          <path
+            d={`M${baseX + hipWidth * hipScale / 3},${hipY}
+               C${baseX + hipWidth * hipScale / 3 + 5 * legScale},${hipY + 30} 
+               ${baseX + hipWidth * hipScale / 3 + 10 * legScale},${kneeY - 20} 
+               ${baseX + hipWidth * hipScale / 3 + 15 * legScale},${kneeY}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={22 * legScale}
+            strokeLinecap="round"
+          />
+          
+          {/* Diz */}
+          <circle 
+            cx={baseX + hipWidth * hipScale / 3 + 15 * legScale}
+            cy={kneeY}
+            r={10 * legScale}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1"
+          />
+          
+          {/* Alt bacak */}
+          <path
+            d={`M${baseX + hipWidth * hipScale / 3 + 15 * legScale},${kneeY}
+               C${baseX + hipWidth * hipScale / 3 + 18 * legScale},${kneeY + 30} 
+               ${baseX + hipWidth * hipScale / 3 + 20 * legScale},${footY - 20}
+               ${baseX + hipWidth * hipScale / 3 + 15 * legScale},${footY - 10}
+              `}
+            fill="none"
+            stroke={color}
+            strokeWidth={20 * legScale}
+            strokeLinecap="round"
+          />
+          
+          {/* Ayak */}
+          <path
+            d={`M${baseX + hipWidth * hipScale / 3 + 5 * legScale},${footY - 5}
+               C${baseX + hipWidth * hipScale / 3},${footY} 
+               ${baseX + hipWidth * hipScale / 3},${footY + 5}
+               ${baseX + hipWidth * hipScale / 3 + 25 * legScale},${footY + 5}
+               C${baseX + hipWidth * hipScale / 3 + 30 * legScale},${footY} 
+               ${baseX + hipWidth * hipScale / 3 + 30 * legScale},${footY - 5}
+               Z
+              `}
+            fill={color}
+            stroke="#000"
+            strokeWidth="1.5"
+          />
+        </g>
         
-        {/* Kadın modeli için ek detaylar */}
+        {/* Cinsiyet özellikleri */}
         {gender === "female" && (
           <>
-            {/* Saç */}
+            {/* Göğüs bölgesi - kadın modeli için */}
             <path
-              d={`M${baseX - headRadius},${headY - 10} 
-                 a${headRadius},${headRadius + 10} 0 1,1 ${headRadius * 2},0`}
-              fill={color}
+              d={`M${baseX - 25 * chestScale},${chestY - 5}
+                 Q${baseX},${chestY - 15} ${baseX + 25 * chestScale},${chestY - 5}`}
+              fill="none"
               stroke="#000"
-              strokeWidth="2"
+              strokeWidth="1"
+              strokeDasharray="2,2"
+            />
+            
+            {/* Bel kıvrımı */}
+            <path
+              d={`M${baseX - hipWidth * waistScale / 2},${waistY}
+                 Q${baseX},${waistY - 10 * waistScale} ${baseX + hipWidth * waistScale / 2},${waistY}`}
+              fill="none"
+              stroke="#000"
+              strokeWidth="1"
+              strokeDasharray="2,2"
             />
           </>
         )}
