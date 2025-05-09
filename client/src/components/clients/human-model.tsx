@@ -26,63 +26,97 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
   const hasPreviousMeasurement = measurements && measurements.length >= 2;
   
   // En son 2 ölçümü al
+  // Varsayılan ölçümleri döndür
+  const getDefaultMeasurements = () => {
+    return {
+      weight: 70,
+      height: 170,
+      bodyFatPercentage: 20,
+      waistCircumference: 80,
+      hipCircumference: 90,
+      chestCircumference: 90,
+      armCircumference: 30,
+      thighCircumference: 55,
+      calfCircumference: 35,
+      date: new Date().toISOString().split('T')[0],
+      bmi: calculateBMI(70, 170).toString()
+    };
+  };
+
+  // Son ölçümleri al
   const getLatestMeasurements = () => {
     if (!measurements || measurements.length === 0) {
-      return {
-        weight: 70,
-        height: 170,
-        bodyFatPercentage: 20,
-        waistCircumference: 80,
-        hipCircumference: 90,
-        chestCircumference: 90,
-        armCircumference: 30,
-        thighCircumference: 55,
-        calfCircumference: 35,
-        date: new Date().toISOString().split('T')[0],
-      };
+      return getDefaultMeasurements();
     }
     
-    // En son ölçümü al
-    const sorted = [...measurements].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    
-    return {
-      weight: parseFloat(sorted[0].weight) || 70,
-      height: parseFloat(sorted[0].height) || 170,
-      bodyFatPercentage: parseFloat(sorted[0].bodyFatPercentage) || 20,
-      waistCircumference: parseFloat(sorted[0].waistCircumference) || 80,
-      hipCircumference: parseFloat(sorted[0].hipCircumference) || 90,
-      chestCircumference: parseFloat(sorted[0].chestCircumference) || 90,
-      armCircumference: parseFloat(sorted[0].armCircumference) || 30,
-      thighCircumference: parseFloat(sorted[0].thighCircumference) || 55,
-      calfCircumference: parseFloat(sorted[0].calfCircumference) || 35,
-      date: sorted[0].date,
-    };
+    try {
+      // En son ölçümü al
+      const sorted = [...measurements].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      
+      if (!sorted || sorted.length === 0) {
+        return getDefaultMeasurements();
+      }
+      
+      const weight = parseFloat(sorted[0].weight) || 70;
+      const height = parseFloat(sorted[0].height) || 170;
+      
+      return {
+        weight: weight,
+        height: height,
+        bodyFatPercentage: parseFloat(sorted[0].bodyFatPercentage) || 20,
+        waistCircumference: parseFloat(sorted[0].waistCircumference) || 80,
+        hipCircumference: parseFloat(sorted[0].hipCircumference) || 90,
+        chestCircumference: parseFloat(sorted[0].chestCircumference) || 90,
+        armCircumference: parseFloat(sorted[0].armCircumference) || 30,
+        thighCircumference: parseFloat(sorted[0].thighCircumference) || 55,
+        calfCircumference: parseFloat(sorted[0].calfCircumference) || 35,
+        date: sorted[0].date,
+        bmi: sorted[0].bmi ? parseFloat(sorted[0].bmi).toString() : calculateBMI(weight, height).toString()
+      };
+    } catch (error) {
+      console.error("Ölçüm verileri alınırken hata oluştu:", error);
+      return getDefaultMeasurements();
+    }
   };
   
   // Önceki ölçümü al
   const getPreviousMeasurements = () => {
+    // En az 2 ölçüm yoksa son ölçümü döndür
     if (!measurements || measurements.length < 2) {
       return getLatestMeasurements();
     }
     
-    const sorted = [...measurements].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    
-    return {
-      weight: parseFloat(sorted[1].weight) || 70,
-      height: parseFloat(sorted[1].height) || 170,
-      bodyFatPercentage: parseFloat(sorted[1].bodyFatPercentage) || 20,
-      waistCircumference: parseFloat(sorted[1].waistCircumference) || 80,
-      hipCircumference: parseFloat(sorted[1].hipCircumference) || 90,
-      chestCircumference: parseFloat(sorted[1].chestCircumference) || 90,
-      armCircumference: parseFloat(sorted[1].armCircumference) || 30,
-      thighCircumference: parseFloat(sorted[1].thighCircumference) || 55,
-      calfCircumference: parseFloat(sorted[1].calfCircumference) || 35,
-      date: sorted[1].date,
-    };
+    try {
+      const sorted = [...measurements].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      
+      if (!sorted || sorted.length < 2) {
+        return getLatestMeasurements();
+      }
+      
+      const weight = parseFloat(sorted[1].weight) || 70;
+      const height = parseFloat(sorted[1].height) || 170;
+      
+      return {
+        weight: weight,
+        height: height,
+        bodyFatPercentage: parseFloat(sorted[1].bodyFatPercentage) || 20,
+        waistCircumference: parseFloat(sorted[1].waistCircumference) || 80,
+        hipCircumference: parseFloat(sorted[1].hipCircumference) || 90,
+        chestCircumference: parseFloat(sorted[1].chestCircumference) || 90,
+        armCircumference: parseFloat(sorted[1].armCircumference) || 30,
+        thighCircumference: parseFloat(sorted[1].thighCircumference) || 55,
+        calfCircumference: parseFloat(sorted[1].calfCircumference) || 35,
+        date: sorted[1].date,
+        bmi: sorted[1].bmi ? parseFloat(sorted[1].bmi).toString() : calculateBMI(weight, height).toString()
+      };
+    } catch (error) {
+      console.error("Önceki ölçüm verileri alınırken hata oluştu:", error);
+      return getLatestMeasurements();
+    }
   };
   
   // 3D sahneyi kur
@@ -268,6 +302,14 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
   const createHumanModels = () => {
     if (!sceneRef.current) return;
     
+    // Mevcut modelleri temizle
+    if (humanModelRef.current) {
+      sceneRef.current.remove(humanModelRef.current);
+    }
+    if (prevHumanModelRef.current) {
+      sceneRef.current.remove(prevHumanModelRef.current);
+    }
+    
     const latestMeasurements = getLatestMeasurements();
     const previousMeasurements = getPreviousMeasurements();
     
@@ -361,8 +403,11 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
   };
   
   // İnsan modeli oluştur
-  const createHumanModel = (measurements: any, isLatest: boolean) => {
+  const createHumanModel = (measurements?: any, isLatest: boolean = true) => {
     if (!sceneRef.current) return;
+    
+    // Ölçümler tanımsızsa varsayılan değerleri kullan
+    measurements = measurements || getLatestMeasurements();
     
     // Model ölçeklemesi için değerler
     // Vücut yağ yüzdesi arttıkça model şişmanlar
