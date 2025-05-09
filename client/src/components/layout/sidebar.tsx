@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { 
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 export default function Sidebar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
   
   const navItems = [
@@ -38,6 +38,7 @@ export default function Sidebar() {
   // Çıkış işlemi
   const handleLogout = async () => {
     await logout();
+    navigate('/login');
   };
   
   return (
@@ -72,19 +73,18 @@ export default function Sidebar() {
             const isActive = location === item.href;
             return (
               <li key={item.name}>
-                <Link href={item.href}>
-                  <a
-                    className={cn(
-                      "flex items-center px-4 py-3 text-sm font-medium rounded-md",
-                      isActive
-                        ? "text-primary bg-primary/5 border-l-2 border-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 mr-2" />
-                    {item.name}
-                  </a>
-                </Link>
+                <button
+                  onClick={() => navigate(item.href)}
+                  className={cn(
+                    "flex items-center px-4 py-3 text-sm font-medium rounded-md w-full text-left",
+                    isActive
+                      ? "text-primary bg-primary/5 border-l-2 border-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-5 w-5 mr-2" />
+                  {item.name}
+                </button>
               </li>
             );
           })}
@@ -97,9 +97,12 @@ export default function Sidebar() {
           <p className="text-xs text-muted-foreground mb-3">
             Destek ekibimiz her türlü sorunuzda size yardımcı olmaya hazır.
           </p>
-          <Link href="/support">
-            <a className="text-xs text-primary font-medium">Destek Hattı</a>
-          </Link>
+          <button 
+            onClick={() => navigate("/support")} 
+            className="text-xs text-primary font-medium hover:underline cursor-pointer"
+          >
+            Destek Hattı
+          </button>
         </div>
         
         {isAuthenticated ? (
@@ -112,18 +115,20 @@ export default function Sidebar() {
           </button>
         ) : (
           <div className="mt-4 space-y-2">
-            <Link href="/login">
-              <a className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full">
-                <LogIn className="h-5 w-5 mr-2" />
-                Giriş Yap
-              </a>
-            </Link>
-            <Link href="/register">
-              <a className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full">
-                <UserPlus className="h-5 w-5 mr-2" />
-                Kayıt Ol
-              </a>
-            </Link>
+            <button 
+              onClick={() => navigate('/login')}
+              className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full text-left"
+            >
+              <LogIn className="h-5 w-5 mr-2" />
+              Giriş Yap
+            </button>
+            <button 
+              onClick={() => navigate('/register')}
+              className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full text-left"
+            >
+              <UserPlus className="h-5 w-5 mr-2" />
+              Kayıt Ol
+            </button>
           </div>
         )}
       </div>
