@@ -19,20 +19,27 @@ export default function Header() {
   const getPageTitle = () => {
     switch (location) {
       case "/":
-        return "Dashboard";
+        return "Ana Sayfa";
+      case "/clients":
+        return "Danışanlar";
       case "/diet-plans":
-        return "Diet Plans";
+        return "Diyet Planları";
       case "/create-diet-plan":
-        return "Create Diet Plan";
+        return "Diyet Planı Oluştur";
       case "/food-database":
-        return "Food Database";
+        return "Besin Veritabanı";
       case "/nutrition":
-        return "Nutritional Analysis";
+        return "Beslenme Analizi";
+      case "/health-calculator":
+        return "Sağlık Hesaplayıcı";
       case "/settings":
-        return "Settings";
+        return "Ayarlar";
       default:
         if (location.startsWith("/food/")) {
-          return "Food Details";
+          return "Besin Detayları";
+        }
+        if (location.startsWith("/clients/")) {
+          return "Danışan Detayları";
         }
         return "DietKEM";
     }
@@ -43,7 +50,7 @@ export default function Header() {
       <div className="flex items-center justify-between px-6 py-4">
         <div>
           <h1 className="text-xl font-heading font-semibold">{getPageTitle()}</h1>
-          <p className="text-sm text-muted-foreground">Your personal diet assistant</p>
+          <p className="text-sm text-muted-foreground">Kişisel diyet asistanınız</p>
         </div>
         
         <div className="flex-1 max-w-md mx-4 hidden md:block">
@@ -51,7 +58,7 @@ export default function Header() {
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search foods, nutrients..."
+              placeholder="Besin, vitamin, mineral ara..."
               className="pl-8 bg-muted"
             />
           </div>
@@ -77,22 +84,22 @@ export default function Header() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">Dr. Sarah Chen</p>
+                  <p className="text-sm font-medium leading-none">Dr. Ahmet Yılmaz</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    dietician@nutrisage.com
+                    diyetisyen@dietkem.com
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                Profile
+                Profil
               </DropdownMenuItem>
               <DropdownMenuItem>
-                Settings
+                Ayarlar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                Sign out
+                Çıkış Yap
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

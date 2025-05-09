@@ -16,12 +16,12 @@ export default function Sidebar() {
   const [location] = useLocation();
   
   const navItems = [
-    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Ana Sayfa", href: "/", icon: Home },
     { name: "Danışanlar", href: "/clients", icon: BarChart },
-    { name: "Diet Plans", href: "/diet-plans", icon: Utensils },
-    { name: "Food Database", href: "/food-database", icon: Apple },
+    { name: "Diyet Planları", href: "/diet-plans", icon: Utensils },
+    { name: "Besin Veritabanı", href: "/food-database", icon: Apple },
     { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Ayarlar", href: "/settings", icon: Settings },
   ];
   
   return (
@@ -61,18 +61,18 @@ export default function Sidebar() {
       
       <div className="absolute bottom-8 w-full px-4">
         <div className="p-4 bg-accent rounded-lg">
-          <h3 className="font-medium text-sm mb-2">Need Help?</h3>
+          <h3 className="font-medium text-sm mb-2">Yardıma Mı İhtiyacınız Var?</h3>
           <p className="text-xs text-muted-foreground mb-3">
-            Our support team is always ready to assist you with any questions.
+            Destek ekibimiz her türlü sorunuzda size yardımcı olmaya hazır.
           </p>
           <Link href="/support">
-            <a className="text-xs text-primary font-medium">Contact Support</a>
+            <a className="text-xs text-primary font-medium">Destek Hattı</a>
           </Link>
         </div>
         
         <button className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full mt-4">
           <LogOut className="h-5 w-5 mr-2" />
-          Sign Out
+          Çıkış Yap
         </button>
       </div>
     </aside>
