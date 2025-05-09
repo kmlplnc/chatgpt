@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart,
@@ -18,7 +17,6 @@ import {
   Cell,
 } from "recharts";
 import { formatDate } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 interface MeasurementChartProps {
   measurements: any[];
@@ -399,6 +397,7 @@ const CustomBarTooltip = ({ active, payload, label, idealValues }: TooltipProps<
 };
 
 export default function EnhancedMeasurementChart({ measurements, title = "Ölçüm Grafiği", metricKey }: MeasurementChartProps) {
+  // State tanımları
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(metricKey ? [metricKey] : ["weight", "bmi"]);
   const [activeTab, setActiveTab] = useState("line");
   
