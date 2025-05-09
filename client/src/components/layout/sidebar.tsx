@@ -45,7 +45,7 @@ export default function Sidebar() {
                     className={cn(
                       "flex items-center px-4 py-3 text-sm font-medium rounded-md",
                       isActive
-                        ? "text-primary bg-primary bg-opacity-10"
+                        ? "text-primary bg-primary/5 border-l-2 border-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
