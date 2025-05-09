@@ -30,8 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import MeasurementChart from "@/components/clients/measurement-chart";
-import EnhancedHumanModel from "@/components/clients/enhanced-human-model";
-import FbxModelViewer from "@/components/clients/fbx-model-viewer";
+import BodyVisualization from "@/components/clients/body-visualization";
 import { queryClient } from "@/lib/queryClient";
 import { calculateBMI, formatDate } from "@/lib/utils";
 
@@ -1025,32 +1024,15 @@ export default function ClientDetail() {
             <div className="grid grid-cols-1 gap-6">
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-semibold">3D Vücut Modeli</h2>
+                  <h2 className="text-xl font-semibold">2D Vücut Modeli</h2>
                 </div>
                 
-                {client?.gender === "female" ? (
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <FbxModelViewer 
-                      modelPath="/models/Female Body.fbx" 
-                      title="Gerçekçi Kadın Modeli"
-                      height={500}
-                    />
-                    
-                    <EnhancedHumanModel 
-                      measurements={measurements} 
-                      title="Ölçüm Tabanlı Model"
-                      height={500}
-                      gender="female"
-                    />
-                  </div>
-                ) : (
-                  <EnhancedHumanModel 
-                    measurements={measurements} 
-                    title="Vücut Yapısı Modeli"
-                    height={500}
-                    gender="male"
-                  />
-                )}
+                <BodyVisualization 
+                  measurements={measurements}
+                  gender={client?.gender === "female" ? "female" : "male"}
+                  title="Vücut Yapısı Görselleştirmesi"
+                  showComparison={true}
+                />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
