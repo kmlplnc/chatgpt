@@ -224,17 +224,17 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
             <TabsTrigger value="calf" className="text-xs py-1 hidden lg:flex">Baldır</TabsTrigger>
           </TabsList>
           
-          <div className="h-52">
+          <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
                 data={combinedData} 
                 margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                barCategoryGap={30}
+                barCategoryGap={20}
                 barGap={2}
-                barSize={12}
+                barSize={14}
               >
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} height={30} tickMargin={5} />
                 <YAxis tick={{ fontSize: 11 }} width={30} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />
