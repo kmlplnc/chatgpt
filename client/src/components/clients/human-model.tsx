@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
+import { formatDate, calculateBMI } from "@/lib/utils";
 
 interface HumanModelProps {
   measurements: any;
@@ -518,7 +518,7 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     humanGroup.add(rightLeg);
     
     // Kollar
-    const armScale = latestMeasurements.armCircumference / 30; // 30 cm referans
+    const armScale = measurements.armCircumference / 30; // 30 cm referans
     
     // Sol kol
     const leftArm = new THREE.Group();
@@ -586,6 +586,62 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     sceneRef.current.add(humanGroup);
   };
   
+  // Son ve önceki ölçüm arasındaki değişimi hesapla
+  const calculateDifference = () => {
+    if (!hasPreviousMeasurement) return null;
+    
+    const current = getLatestMeasurements();
+    const previous = getPreviousMeasurements();
+    
+    if (!current || !previous) return null;
+    
+    // Ağırlık değişimi
+    const weightDiff = current.weight - previous.weight;
+    const weightPercentage = (weightDiff / previous.weight * 100).toFixed(1);
+    
+    // Vücut yağ oranı değişimi
+    const bodyFatDiff = current.bodyFatPercentage - previous.bodyFatPercentage;
+    
+    // BMI değişimi
+    const currentBMI = parseFloat(current.bmi) || current.weight / Math.pow(current.height / 100, 2);
+    const previousBMI = parseFloat(previous.bmi) || previous.weight / Math.pow(previous.height / 100, 2);
+    const bmiDiff = currentBMI - previousBMI;
+    const bmiPercentage = (bmiDiff / previousBMI * 100).toFixed(1);
+    
+    // Bel çevresi değişimi
+    const waistDiff = current.waistCircumference - previous.waistCircumference;
+    const waistPercentage = (waistDiff / previous.waistCircumference * 100).toFixed(1);
+    
+    return {
+      weight: {
+        value: weightDiff.toFixed(1),
+        percentage: weightPercentage,
+        improved: weightDiff < 0 // Kilo kaybı iyileşme göstergesidir (çoğu durumda)
+      },
+      bodyFat: {
+        value: bodyFatDiff.toFixed(1),
+        improved: bodyFatDiff < 0 // Yağ oranı düşmesi iyileşme göstergesidir
+      },
+      bmi: {
+        value: bmiDiff.toFixed(1),
+        percentage: bmiPercentage,
+        improved: bmiDiff < 0 // BMI düşmesi genelde iyileşme göstergesidir
+      },
+      waist: {
+        value: waistDiff.toFixed(1),
+        percentage: waistPercentage,
+        improved: waistDiff < 0 // Bel incelme iyileşme göstergesidir
+      },
+      dates: {
+        current: formatDate(current.date),
+        previous: formatDate(previous.date)
+      }
+    };
+  };
+  
+  // Değişim verileri
+  const differences = calculateDifference();
+  
   return (
     <Card>
       <CardHeader>
@@ -593,30 +649,109 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
         <CardDescription>Danışanın 3D vücut yapısı modeli</CardDescription>
       </CardHeader>
       <CardContent>
-        <div 
-          ref={containerRef} 
-          style={{ 
-            height: `${height}px`, 
-            width: '100%', 
-            position: 'relative',
-            borderRadius: '0.5rem',
-            overflow: 'hidden'
-          }}
-        >
+        <div className="space-y-4">
+          {/* Model görüntüleyici */}
           <div 
+            ref={containerRef} 
             style={{ 
-              position: 'absolute', 
-              bottom: '1rem', 
-              left: '1rem', 
-              backgroundColor: 'rgba(255,255,255,0.7)', 
-              padding: '0.5rem', 
-              borderRadius: '0.25rem',
-              fontSize: '0.75rem',
-              color: '#333'
+              height: `${height}px`, 
+              width: '100%', 
+              position: 'relative',
+              borderRadius: '0.5rem',
+              overflow: 'hidden'
             }}
           >
-            Döndürmek için fare ile sürükleyin
+            <div 
+              style={{ 
+                position: 'absolute', 
+                bottom: '1rem', 
+                left: '1rem', 
+                backgroundColor: 'rgba(255,255,255,0.7)', 
+                padding: '0.5rem', 
+                borderRadius: '0.25rem',
+                fontSize: '0.75rem',
+                color: '#333'
+              }}
+            >
+              Döndürmek için fare ile sürükleyin
+            </div>
           </div>
+          
+          {/* Sağlık renk kodu açıklamaları */}
+          <div className="flex items-center justify-center space-x-3 text-xs">
+            <div className="flex items-center space-x-1">
+              <div className="w-3 h-3 rounded-full bg-sky-300"></div>
+              <span>Zayıf</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-3 h-3 rounded-full bg-green-200"></div>
+              <span>Normal</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-3 h-3 rounded-full bg-yellow-300"></div>
+              <span>Fazla Kilolu</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-3 h-3 rounded-full bg-red-200"></div>
+              <span>Obez</span>
+            </div>
+          </div>
+          
+          {hasPreviousMeasurement && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Button 
+                  size="sm" 
+                  variant={showBothModels ? "default" : "outline"} 
+                  onClick={() => {
+                    setShowBothModels(!showBothModels);
+                    createHumanModels();
+                  }}
+                >
+                  {showBothModels ? "Tek Model Göster" : "Karşılaştır"}
+                </Button>
+                
+                {showBothModels && (
+                  <Button 
+                    size="sm" 
+                    variant={showDifferences ? "default" : "outline"} 
+                    onClick={() => {
+                      setShowDifferences(!showDifferences);
+                      createHumanModels();
+                    }}
+                  >
+                    {showDifferences ? "Tüm Farkları Göster" : "Farkları Göster"}
+                  </Button>
+                )}
+              </div>
+              
+              {differences && (
+                <div className="p-3 bg-muted rounded-md text-sm">
+                  <div className="text-xs text-muted-foreground mb-2">
+                    {differences.dates.previous} &rarr; {differences.dates.current}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`flex items-center ${differences.weight.improved ? 'text-green-600' : 'text-red-500'}`}>
+                      <span>Ağırlık: {differences.weight.value} kg</span>
+                      <span className="ml-1 text-xs">({differences.weight.improved ? '↓' : '↑'} {differences.weight.percentage}%)</span>
+                    </div>
+                    <div className={`flex items-center ${differences.bodyFat.improved ? 'text-green-600' : 'text-red-500'}`}>
+                      <span>Vücut Yağı: {differences.bodyFat.value}%</span>
+                      <span className="ml-1 text-xs">{differences.bodyFat.improved ? '↓ düşüş' : '↑ artış'}</span>
+                    </div>
+                    <div className={`flex items-center ${differences.bmi.improved ? 'text-green-600' : 'text-red-500'}`}>
+                      <span>BMI: {differences.bmi.value}</span>
+                      <span className="ml-1 text-xs">({differences.bmi.improved ? '↓' : '↑'} {differences.bmi.percentage}%)</span>
+                    </div>
+                    <div className={`flex items-center ${differences.waist.improved ? 'text-green-600' : 'text-red-500'}`}>
+                      <span>Bel: {differences.waist.value} cm</span>
+                      <span className="ml-1 text-xs">({differences.waist.improved ? '↓' : '↑'} {differences.waist.percentage}%)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
