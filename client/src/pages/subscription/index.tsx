@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { Link, useLocation } from 'wouter';
@@ -6,7 +6,6 @@ import { CalendarClock, CheckCircle, Lock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Layout from '@/components/layout/layout';
 import { SubscriptionPlans } from '@/components/auth/subscription-plans';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -111,113 +110,109 @@ export default function SubscriptionPage() {
   // If user is not logged in, show login prompt
   if (!isLoading && !user) {
     return (
-      <Layout>
-        <div className="container mx-auto max-w-5xl py-8">
-          <Alert className="mb-8">
-            <Lock className="h-4 w-4" />
-            <AlertTitle>Oturum açmanız gerekiyor</AlertTitle>
-            <AlertDescription>
-              Abonelik planlarını görüntülemek ve satın almak için lütfen oturum açın.
-            </AlertDescription>
-          </Alert>
-          
-          <div className="flex justify-center gap-4 mt-8">
-            <Button asChild>
-              <Link href="/login">Giriş Yap</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/register">Kayıt Ol</Link>
-            </Button>
-          </div>
+      <div className="container mx-auto max-w-5xl py-8">
+        <Alert className="mb-8">
+          <Lock className="h-4 w-4" />
+          <AlertTitle>Oturum açmanız gerekiyor</AlertTitle>
+          <AlertDescription>
+            Abonelik planlarını görüntülemek ve satın almak için lütfen oturum açın.
+          </AlertDescription>
+        </Alert>
+        
+        <div className="flex justify-center gap-4 mt-8">
+          <Button asChild>
+            <Link href="/login">Giriş Yap</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/register">Kayıt Ol</Link>
+          </Button>
         </div>
-      </Layout>
+      </div>
     );
   }
   
   return (
-    <Layout>
-      <div className="container mx-auto max-w-6xl py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Abonelik Planları</h1>
-          <p className="text-muted-foreground">
-            DietKEM'in sunduğu tüm özelliklere erişmek için aşağıdaki planlardan birini seçin
-          </p>
-        </div>
-        
-        {/* Current subscription info */}
-        {user && (isActiveSubscription || isCanceledSubscription) && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CalendarClock className="mr-2 h-5 w-5" />
-                Mevcut Abonelik Durumu
-              </CardTitle>
-              <CardDescription>
-                Abonelik bilgileriniz ve durumunuz aşağıda gösterilmektedir
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium">Durum:</p>
-                  <p className="flex items-center">
-                    {isActiveSubscription ? (
-                      <>
-                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                        <span className="text-green-600 font-medium">Aktif</span>
-                      </>
-                    ) : (
-                      <span className="text-yellow-600 font-medium">İptal Edildi (Süre sonuna kadar kullanılabilir)</span>
-                    )}
-                  </p>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium">Plan:</p>
-                  <p className="font-medium capitalize">{user.subscriptionPlan}</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium">Başlangıç Tarihi:</p>
-                  <p>{startDate}</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium">Bitiş Tarihi:</p>
-                  <p>{endDate}</p>
-                </div>
+    <div className="container mx-auto max-w-6xl py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold mb-2">Abonelik Planları</h1>
+        <p className="text-muted-foreground">
+          DietKEM'in sunduğu tüm özelliklere erişmek için aşağıdaki planlardan birini seçin
+        </p>
+      </div>
+      
+      {/* Current subscription info */}
+      {user && (isActiveSubscription || isCanceledSubscription) && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <CalendarClock className="mr-2 h-5 w-5" />
+              Mevcut Abonelik Durumu
+            </CardTitle>
+            <CardDescription>
+              Abonelik bilgileriniz ve durumunuz aşağıda gösterilmektedir
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium">Durum:</p>
+                <p className="flex items-center">
+                  {isActiveSubscription ? (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                      <span className="text-green-600 font-medium">Aktif</span>
+                    </>
+                  ) : (
+                    <span className="text-yellow-600 font-medium">İptal Edildi (Süre sonuna kadar kullanılabilir)</span>
+                  )}
+                </p>
               </div>
               
-              <div className="flex justify-end mt-6">
-                {isActiveSubscription && (
-                  <Button variant="destructive" onClick={handleCancel}>
-                    Aboneliği İptal Et
-                  </Button>
-                )}
-                
-                {isCanceledSubscription && (
-                  <div className="text-muted-foreground text-sm">
-                    Aboneliğiniz süre sonunda otomatik olarak sona erecektir
-                  </div>
-                )}
+              <div>
+                <p className="text-sm font-medium">Plan:</p>
+                <p className="font-medium capitalize">{user.subscriptionPlan}</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
-        
-        {/* Subscription plans */}
-        {(!isActiveSubscription || isSubscriptionExpired) && (
-          <>
-            <SubscriptionPlans onSelectPlan={(plan) => setSelectedPlan(plan)} selectedPlan={selectedPlan || undefined} />
-            
-            <div className="mt-8 flex justify-center">
-              <Button size="lg" onClick={handlePurchase} disabled={!selectedPlan}>
-                {isSubscriptionExpired ? 'Aboneliği Yenile' : 'Aboneliği Başlat'}
-              </Button>
+              
+              <div>
+                <p className="text-sm font-medium">Başlangıç Tarihi:</p>
+                <p>{startDate}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium">Bitiş Tarihi:</p>
+                <p>{endDate}</p>
+              </div>
             </div>
-          </>
-        )}
-      </div>
-    </Layout>
+            
+            <div className="flex justify-end mt-6">
+              {isActiveSubscription && (
+                <Button variant="destructive" onClick={handleCancel}>
+                  Aboneliği İptal Et
+                </Button>
+              )}
+              
+              {isCanceledSubscription && (
+                <div className="text-muted-foreground text-sm">
+                  Aboneliğiniz süre sonunda otomatik olarak sona erecektir
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Subscription plans */}
+      {(!isActiveSubscription || isSubscriptionExpired) && (
+        <>
+          <SubscriptionPlans onSelectPlan={(plan) => setSelectedPlan(plan)} selectedPlan={selectedPlan || undefined} />
+          
+          <div className="mt-8 flex justify-center">
+            <Button size="lg" onClick={handlePurchase} disabled={!selectedPlan}>
+              {isSubscriptionExpired ? 'Aboneliği Yenile' : 'Aboneliği Başlat'}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
