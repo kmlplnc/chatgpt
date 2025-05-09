@@ -9,11 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  ReferenceLine,
-  Cell
+  Cell,
+  LabelList
 } from "recharts";
 import { formatDate } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface SimpleChartProps {
   measurements: any[];
@@ -26,11 +27,11 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
   if (!measurements || measurements.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
+        <CardHeader className="p-4">
+          <CardTitle className="text-lg">{title}</CardTitle>
           <CardDescription>Danışanın ölçüm değişimleri</CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center items-center h-64">
+        <CardContent className="flex justify-center items-center h-48 p-4">
           <p className="text-muted-foreground">Henüz ölçüm kaydı bulunmamaktadır.</p>
         </CardContent>
       </Card>
@@ -75,15 +76,36 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
   // Metrik başlıkları
   const metricLabels = {
     weight: "Kilo (kg)",
-    bmi: "Vücut Kitle İndeksi",
+    bmi: "BMI",
     bodyFat: "Vücut Yağı (%)",
-    waist: "Bel Çevresi (cm)",
-    hip: "Kalça Çevresi (cm)",
-    chest: "Göğüs Çevresi (cm)",
-    arm: "Kol Çevresi (cm)",
-    thigh: "Uyluk Çevresi (cm)",
-    calf: "Baldır Çevresi (cm)"
+    waist: "Bel (cm)",
+    hip: "Kalça (cm)",
+    chest: "Göğüs (cm)",
+    arm: "Kol (cm)",
+    thigh: "Uyluk (cm)",
+    calf: "Baldır (cm)"
   };
+
+  // Her ölçüm için ideal değer ile gerçek değeri içeren veri oluştur
+  const combinedData = chartData.map(entry => {
+    const metric = activeMetric as keyof typeof idealValues;
+    const idealValue = idealValues[metric];
+    
+    // İdeal değeri hesapla (min-max ortalaması veya sadece min/max)
+    let idealValueData = 0;
+    if (idealValue.min && idealValue.max) {
+      idealValueData = (idealValue.min + idealValue.max) / 2;
+    } else if (idealValue.min) {
+      idealValueData = idealValue.min;
+    } else if (idealValue.max) {
+      idealValueData = idealValue.max;
+    }
+    
+    return {
+      ...entry,
+      [`ideal_${activeMetric}`]: idealValueData,
+    };
+  });
 
   // Değerin ideal aralıkta olup olmadığını kontrol et ve buna göre renk ver
   const getBarColor = (value: number, metricKey: string) => {
@@ -114,10 +136,14 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
   // Tooltip içeriğini özelleştirme
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const data = payload[0];
       const metricKey = activeMetric as keyof typeof idealValues;
       const idealValue = idealValues[metricKey];
-      const value = data.value;
+      
+      // Gerçek değer
+      const actualPayload = payload.find((p: any) => p.dataKey === activeMetric);
+      if (!actualPayload) return null;
+      
+      const value = actualPayload.value;
       
       let status = "İdeal";
       let statusColor = "#4caf50";
@@ -141,20 +167,24 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
       }
       
       return (
-        <div className="bg-white p-3 shadow-md rounded border">
-          <p className="font-semibold">{label}</p>
-          <p>{`${metricLabels[metricKey as keyof typeof metricLabels]}: ${value} ${idealValue?.unit || ''}`}</p>
+        <div className="bg-white p-2 shadow-md rounded border text-sm">
+          <p className="font-medium">{label}</p>
+          <p>{`${metricLabels[metricKey as keyof typeof metricLabels]}: ${value}`}</p>
           {idealValue && (
             <>
-              <p style={{ color: statusColor }} className="font-medium mt-1">{status}</p>
+              <div className="flex items-center mt-1">
+                <Badge style={{ backgroundColor: statusColor }} variant="outline" className="text-white text-xs">
+                  {status}
+                </Badge>
+              </div>
               {idealValue.min && idealValue.max && (
-                <p className="text-xs text-muted-foreground">İdeal aralık: {idealValue.min} - {idealValue.max} {idealValue.unit}</p>
+                <p className="text-xs text-gray-500 mt-1">İdeal: {idealValue.min} - {idealValue.max} {idealValue.unit}</p>
               )}
               {idealValue.max && !idealValue.min && (
-                <p className="text-xs text-muted-foreground">Maksimum ideal değer: {idealValue.max} {idealValue.unit}</p>
+                <p className="text-xs text-gray-500 mt-1">Maks. ideal: {idealValue.max} {idealValue.unit}</p>
               )}
               {idealValue.min && !idealValue.max && (
-                <p className="text-xs text-muted-foreground">Minimum ideal değer: {idealValue.min} {idealValue.unit}</p>
+                <p className="text-xs text-gray-500 mt-1">Min. ideal: {idealValue.min} {idealValue.unit}</p>
               )}
             </>
           )}
@@ -164,69 +194,93 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
     return null;
   };
 
+  // İdeal değerin etiketini render et
+  const renderCustomizedLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    return (
+      <text x={x + width / 2} y={y - 8} fill="#333" textAnchor="middle" dominantBaseline="middle" fontSize={12}>
+        {value ? value.toFixed(1) : ""}
+      </text>
+    );
+  };
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+      <CardHeader className="p-4">
+        <CardTitle className="text-lg">{title}</CardTitle>
         <CardDescription>Danışanın ölçüm değişimleri</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4">
         <Tabs defaultValue="weight" onValueChange={setActiveMetric} className="w-full">
-          <TabsList className="grid grid-cols-3 lg:grid-cols-5 mb-4">
-            <TabsTrigger value="weight">Kilo</TabsTrigger>
-            <TabsTrigger value="bmi">BMI</TabsTrigger>
-            <TabsTrigger value="bodyFat">Vücut Yağı</TabsTrigger>
-            <TabsTrigger value="waist">Bel</TabsTrigger>
-            <TabsTrigger value="hip">Kalça</TabsTrigger>
-            <TabsTrigger value="chest">Göğüs</TabsTrigger>
-            <TabsTrigger value="arm">Kol</TabsTrigger>
-            <TabsTrigger value="thigh">Uyluk</TabsTrigger>
-            <TabsTrigger value="calf">Baldır</TabsTrigger>
+          <TabsList className="grid grid-cols-3 lg:grid-cols-5 mb-2">
+            <TabsTrigger value="weight" className="text-xs py-1">Kilo</TabsTrigger>
+            <TabsTrigger value="bmi" className="text-xs py-1">BMI</TabsTrigger>
+            <TabsTrigger value="bodyFat" className="text-xs py-1">Yağ %</TabsTrigger>
+            <TabsTrigger value="waist" className="text-xs py-1">Bel</TabsTrigger>
+            <TabsTrigger value="hip" className="text-xs py-1">Kalça</TabsTrigger>
+            <TabsTrigger value="chest" className="text-xs py-1 hidden lg:flex">Göğüs</TabsTrigger>
+            <TabsTrigger value="arm" className="text-xs py-1 hidden lg:flex">Kol</TabsTrigger>
+            <TabsTrigger value="thigh" className="text-xs py-1 hidden lg:flex">Uyluk</TabsTrigger>
+            <TabsTrigger value="calf" className="text-xs py-1 hidden lg:flex">Baldır</TabsTrigger>
           </TabsList>
           
-          <div className="h-80">
+          <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="date" />
-                <YAxis />
+              <BarChart 
+                data={combinedData} 
+                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                barCategoryGap={15}
+              >
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} width={30} />
                 <Tooltip content={<CustomTooltip />} />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
                 
-                {/* İdeal Değer Çizgileri */}
-                {activeMetric && idealValues[activeMetric as keyof typeof idealValues]?.min && (
-                  <ReferenceLine 
-                    y={idealValues[activeMetric as keyof typeof idealValues].min} 
-                    stroke="green" 
-                    strokeDasharray="3 3" 
-                    label={{ value: 'Minimum İdeal', position: 'top', fill: 'green' }} 
-                  />
-                )}
+                {/* İdeal Değer Çubukları */}
+                <Bar 
+                  dataKey={`ideal_${activeMetric}`} 
+                  name="İdeal Değer" 
+                  fill="#a5d6a7" 
+                  opacity={0.7}
+                  radius={[2, 2, 0, 0]}
+                >
+                  <LabelList dataKey={`ideal_${activeMetric}`} position="top" content={renderCustomizedLabel} />
+                </Bar>
                 
-                {activeMetric && idealValues[activeMetric as keyof typeof idealValues]?.max && (
-                  <ReferenceLine 
-                    y={idealValues[activeMetric as keyof typeof idealValues].max} 
-                    stroke="red" 
-                    strokeDasharray="3 3" 
-                    label={{ value: 'Maksimum İdeal', position: 'top', fill: 'red' }} 
-                  />
-                )}
-                
-                {/* Ölçüm Çubukları */}
+                {/* Gerçek Ölçüm Çubukları */}
                 <Bar 
                   dataKey={activeMetric} 
-                  name={metricLabels[activeMetric as keyof typeof metricLabels]}
-                  isAnimationActive={true}
+                  name="Ölçüm" 
+                  radius={[2, 2, 0, 0]}
                 >
-                  {chartData.map((entry, index) => (
+                  {combinedData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={getBarColor(entry[activeMetric as keyof typeof entry] as number, activeMetric)} 
                     />
                   ))}
+                  <LabelList dataKey={activeMetric} position="top" content={renderCustomizedLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          
+          {/* İdeal değer göstergesi */}
+          <div className="mt-2 text-xs flex flex-wrap gap-1">
+            {activeMetric && idealValues[activeMetric as keyof typeof idealValues]?.min && (
+              <Badge variant="outline" className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                Min: {idealValues[activeMetric as keyof typeof idealValues].min} {idealValues[activeMetric as keyof typeof idealValues].unit}
+              </Badge>
+            )}
+            {activeMetric && idealValues[activeMetric as keyof typeof idealValues]?.max && (
+              <Badge variant="outline" className="bg-red-100 text-red-700 hover:bg-red-100">
+                Maks: {idealValues[activeMetric as keyof typeof idealValues].max} {idealValues[activeMetric as keyof typeof idealValues].unit}
+              </Badge>
+            )}
+            <Badge variant="outline" className="bg-green-100 text-green-700 hover:bg-green-100">
+              İdeal aralık
+            </Badge>
           </div>
         </Tabs>
       </CardContent>
