@@ -325,8 +325,8 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     const bodyFatDiff = current.bodyFatPercentage - previous.bodyFatPercentage;
     
     // BMI değişimi
-    const currentBMI = parseFloat(current.bmi) || current.weight / Math.pow(current.height / 100, 2);
-    const previousBMI = parseFloat(previous.bmi) || previous.weight / Math.pow(previous.height / 100, 2);
+    const currentBMI = current.bmi ? parseFloat(current.bmi) : calculateBMI(current.weight, current.height);
+    const previousBMI = previous.bmi ? parseFloat(previous.bmi) : calculateBMI(previous.weight, previous.height);
     const bmiDiff = currentBMI - previousBMI;
     
     // Bel çevresi değişimi
@@ -346,7 +346,7 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
   // Sağlık durumu analizi yap ve uygun renk döndür
   const getHealthColor = (measurements: any) => {
     // Vücut yağ yüzdesi ve BMI'ya göre renk belirleme
-    const bmi = parseFloat(measurements.bmi) || parseFloat(measurements.weight) / Math.pow(measurements.height / 100, 2);
+    const bmi = measurements.bmi ? parseFloat(measurements.bmi) : calculateBMI(measurements.weight, measurements.height);
     const bodyFat = measurements.bodyFatPercentage;
     
     if (bmi < 18.5) {
@@ -603,8 +603,8 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     const bodyFatDiff = current.bodyFatPercentage - previous.bodyFatPercentage;
     
     // BMI değişimi
-    const currentBMI = parseFloat(current.bmi) || current.weight / Math.pow(current.height / 100, 2);
-    const previousBMI = parseFloat(previous.bmi) || previous.weight / Math.pow(previous.height / 100, 2);
+    const currentBMI = current.bmi ? parseFloat(current.bmi) : calculateBMI(current.weight, current.height);
+    const previousBMI = previous.bmi ? parseFloat(previous.bmi) : calculateBMI(previous.weight, previous.height);
     const bmiDiff = currentBMI - previousBMI;
     const bmiPercentage = (bmiDiff / previousBMI * 100).toFixed(1);
     
