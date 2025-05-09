@@ -13,27 +13,26 @@ import {
   LogOut,
   LogIn,
   UserPlus,
-  CreditCard
+  CreditCard,
+  Lock
 } from "lucide-react";
 
 export default function Sidebar() {
   const [location, navigate] = useLocation();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, isPremium } = useAuth();
   
   const navItems = [
     { name: "Ana Sayfa", href: "/", icon: Home },
-    { name: "Danışanlar", href: "/clients", icon: BarChart, requireAuth: true },
-    { name: "Diyet Planları", href: "/diet-plans", icon: Utensils, requireAuth: true },
-    { name: "Besin Veritabanı", href: "/food-database", icon: Apple },
-    { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search },
+    { name: "Danışanlar", href: "/clients", icon: BarChart, requireAuth: true, requirePremium: true },
+    { name: "Diyet Planları", href: "/diet-plans", icon: Utensils, requireAuth: true, requirePremium: true },
+    { name: "Besin Veritabanı", href: "/food-database", icon: Apple, requirePremium: false },
+    { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: false },
     { name: "Abonelik", href: "/subscription", icon: CreditCard },
-    { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true },
+    { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true, requirePremium: false },
   ];
   
-  // Filtrelenmiş menü öğeleri
-  const filteredNavItems = navItems.filter(item => 
-    !item.requireAuth || (item.requireAuth && isAuthenticated)
-  );
+  // Filtrelenmiş menü öğeleri - Sadece kimlik doğrulaması ve premium kontrolü
+  const filteredNavItems = navItems;
   
   // Çıkış işlemi
   const handleLogout = async () => {
@@ -71,19 +70,29 @@ export default function Sidebar() {
         <ul className="space-y-1">
           {filteredNavItems.map((item) => {
             const isActive = location === item.href;
+            const isLocked = 
+              isAuthenticated && 
+              item.requirePremium && 
+              !isPremium && 
+              item.href !== "/subscription";
+            
             return (
               <li key={item.name}>
                 <button
                   onClick={() => navigate(item.href)}
                   className={cn(
-                    "flex items-center px-4 py-3 text-sm font-medium rounded-md w-full text-left",
+                    "flex items-center px-4 py-3 text-sm font-medium rounded-md w-full text-left relative",
                     isActive
                       ? "text-primary bg-primary/5 border-l-2 border-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    isLocked && "opacity-75"
                   )}
                 >
                   <item.icon className="h-5 w-5 mr-2" />
                   {item.name}
+                  {isLocked && (
+                    <Lock className="h-4 w-4 ml-2 text-amber-500" />
+                  )}
                 </button>
               </li>
             );
