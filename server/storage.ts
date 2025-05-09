@@ -28,6 +28,12 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserSubscription(id: number, updates: {
+    subscriptionStatus?: string;
+    subscriptionPlan?: string;
+    subscriptionStartDate?: Date;
+    subscriptionEndDate?: Date;
+  }): Promise<User>;
   
   // Client methods
   getClients(userId?: number, limit?: number): Promise<Client[]>;
