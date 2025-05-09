@@ -1,0 +1,219 @@
+{
+  "metadata": {
+    "version": 4.5,
+    "type": "Object",
+    "generator": "DietKEM App"
+  },
+  "geometries": [
+    {
+      "uuid": "head",
+      "type": "SphereGeometry",
+      "radius": 0.25,
+      "widthSegments": 32,
+      "heightSegments": 32
+    },
+    {
+      "uuid": "torso",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.3,
+      "radiusBottom": 0.25,
+      "height": 0.8,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "hip",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.28,
+      "radiusBottom": 0.26,
+      "height": 0.25,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "leftUpperArm",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.08,
+      "radiusBottom": 0.06,
+      "height": 0.35,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "leftLowerArm",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.06,
+      "radiusBottom": 0.05,
+      "height": 0.35,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "rightUpperArm",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.08,
+      "radiusBottom": 0.06,
+      "height": 0.35,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "rightLowerArm",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.06,
+      "radiusBottom": 0.05,
+      "height": 0.35,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "leftUpperLeg",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.12,
+      "radiusBottom": 0.09,
+      "height": 0.45,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "leftLowerLeg",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.09,
+      "radiusBottom": 0.06,
+      "height": 0.45,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "rightUpperLeg",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.12,
+      "radiusBottom": 0.09,
+      "height": 0.45,
+      "radialSegments": 32
+    },
+    {
+      "uuid": "rightLowerLeg",
+      "type": "CylinderGeometry",
+      "radiusTop": 0.09,
+      "radiusBottom": 0.06,
+      "height": 0.45,
+      "radialSegments": 32
+    }
+  ],
+  "materials": [
+    {
+      "uuid": "skinMaterial",
+      "type": "MeshStandardMaterial",
+      "color": 11513775,
+      "roughness": 0.8,
+      "metalness": 0.1
+    }
+  ],
+  "object": {
+    "uuid": "maleModel",
+    "type": "Group",
+    "name": "Male Model",
+    "children": [
+      {
+        "uuid": "head",
+        "type": "Mesh",
+        "geometry": "head",
+        "material": "skinMaterial",
+        "position": [0, 1.5, 0]
+      },
+      {
+        "uuid": "torso",
+        "type": "Mesh",
+        "geometry": "torso",
+        "material": "skinMaterial",
+        "position": [0, 0.8, 0]
+      },
+      {
+        "uuid": "hip",
+        "type": "Mesh",
+        "geometry": "hip",
+        "material": "skinMaterial",
+        "position": [0, 0.35, 0]
+      },
+      {
+        "uuid": "leftArm",
+        "type": "Group",
+        "position": [-0.4, 0.9, 0],
+        "rotation": [0, 0, -0.2],
+        "children": [
+          {
+            "uuid": "leftUpperArm",
+            "type": "Mesh",
+            "geometry": "leftUpperArm",
+            "material": "skinMaterial",
+            "position": [0, -0.175, 0]
+          },
+          {
+            "uuid": "leftLowerArm",
+            "type": "Mesh",
+            "geometry": "leftLowerArm",
+            "material": "skinMaterial",
+            "position": [0, -0.525, 0]
+          }
+        ]
+      },
+      {
+        "uuid": "rightArm",
+        "type": "Group",
+        "position": [0.4, 0.9, 0],
+        "rotation": [0, 0, 0.2],
+        "children": [
+          {
+            "uuid": "rightUpperArm",
+            "type": "Mesh",
+            "geometry": "rightUpperArm",
+            "material": "skinMaterial",
+            "position": [0, -0.175, 0]
+          },
+          {
+            "uuid": "rightLowerArm",
+            "type": "Mesh",
+            "geometry": "rightLowerArm",
+            "material": "skinMaterial",
+            "position": [0, -0.525, 0]
+          }
+        ]
+      },
+      {
+        "uuid": "leftLeg",
+        "type": "Group",
+        "position": [-0.15, 0.1, 0],
+        "children": [
+          {
+            "uuid": "leftUpperLeg",
+            "type": "Mesh",
+            "geometry": "leftUpperLeg",
+            "material": "skinMaterial",
+            "position": [0, -0.225, 0]
+          },
+          {
+            "uuid": "leftLowerLeg",
+            "type": "Mesh",
+            "geometry": "leftLowerLeg",
+            "material": "skinMaterial",
+            "position": [0, -0.675, 0]
+          }
+        ]
+      },
+      {
+        "uuid": "rightLeg",
+        "type": "Group",
+        "position": [0.15, 0.1, 0],
+        "children": [
+          {
+            "uuid": "rightUpperLeg",
+            "type": "Mesh",
+            "geometry": "rightUpperLeg",
+            "material": "skinMaterial",
+            "position": [0, -0.225, 0]
+          },
+          {
+            "uuid": "rightLowerLeg",
+            "type": "Mesh",
+            "geometry": "rightLowerLeg",
+            "material": "skinMaterial",
+            "position": [0, -0.675, 0]
+          }
+        ]
+      }
+    ]
+  }
+}
