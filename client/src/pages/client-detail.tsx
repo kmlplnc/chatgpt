@@ -30,7 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import MeasurementChart from "@/components/clients/measurement-chart";
-import EnhancedMeasurementChart from "@/components/clients/enhanced-measurement-chart-fixed";
+import SimpleChart from "@/components/clients/simple-chart";
 import { queryClient } from "@/lib/queryClient";
 import { calculateBMI, formatDate } from "@/lib/utils";
 
@@ -1027,7 +1027,7 @@ export default function ClientDetail() {
                   <h2 className="text-xl font-semibold">Gelişmiş Ölçüm Grafiği</h2>
                 </div>
                 
-                <EnhancedMeasurementChart 
+                <SimpleChart 
                   measurements={measurements || []}
                   title="Vücut Ölçümleri Grafiği"
                 />
