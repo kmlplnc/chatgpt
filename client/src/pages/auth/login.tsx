@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,9 +36,16 @@ type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [_, navigate] = useLocation();
+  const { login, isAuthenticated, isLoading, error } = useAuth();
   const { toast } = useToast();
+
+  // Kullanıcı zaten giriş yapmışsa ana sayfaya yönlendir
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Form
   const form = useForm<LoginFormValues>({
@@ -51,34 +58,7 @@ export default function Login() {
 
   // Giriş işlemi
   const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-
-    try {
-      const response = await apiRequest('POST', '/api/auth/login', data);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Giriş başarısız');
-      }
-
-      const userData = await response.json();
-
-      toast({
-        title: 'Giriş başarılı',
-        description: 'Hoş geldiniz!',
-      });
-
-      // Ana sayfaya yönlendir
-      navigate('/');
-    } catch (error: any) {
-      toast({
-        title: 'Giriş başarısız',
-        description: error.message || 'Lütfen bilgilerinizi kontrol edin',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    await login(data.username, data.password);
   };
 
   return (

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   Home, 
   Utensils, 
@@ -9,20 +10,35 @@ import {
   Calendar, 
   BarChart, 
   Settings, 
-  LogOut
+  LogOut,
+  LogIn,
+  UserPlus,
+  CreditCard
 } from "lucide-react";
 
 export default function Sidebar() {
   const [location] = useLocation();
+  const { isAuthenticated, user, logout } = useAuth();
   
   const navItems = [
     { name: "Ana Sayfa", href: "/", icon: Home },
-    { name: "Danışanlar", href: "/clients", icon: BarChart },
-    { name: "Diyet Planları", href: "/diet-plans", icon: Utensils },
+    { name: "Danışanlar", href: "/clients", icon: BarChart, requireAuth: true },
+    { name: "Diyet Planları", href: "/diet-plans", icon: Utensils, requireAuth: true },
     { name: "Besin Veritabanı", href: "/food-database", icon: Apple },
     { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search },
-    { name: "Ayarlar", href: "/settings", icon: Settings },
+    { name: "Abonelik", href: "/subscription", icon: CreditCard },
+    { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true },
   ];
+  
+  // Filtrelenmiş menü öğeleri
+  const filteredNavItems = navItems.filter(item => 
+    !item.requireAuth || (item.requireAuth && isAuthenticated)
+  );
+  
+  // Çıkış işlemi
+  const handleLogout = async () => {
+    await logout();
+  };
   
   return (
     <aside className="w-64 bg-white border-r border-neutral-200 h-screen fixed">
@@ -34,9 +50,25 @@ export default function Sidebar() {
         <p className="text-xs text-muted-foreground mt-1">Beslenme ve Diyet Planlama</p>
       </div>
       
+      {isAuthenticated && user && (
+        <div className="p-4 border-b border-neutral-200">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
+              {user.username.charAt(0).toUpperCase()}
+            </div>
+            <div className="ml-2">
+              <p className="text-sm font-medium">{user.name || user.username}</p>
+              <p className="text-xs text-muted-foreground">
+                {user.subscriptionPlan ? `${user.subscriptionPlan.charAt(0).toUpperCase() + user.subscriptionPlan.slice(1)} Abonelik` : 'Ücretsiz Kullanıcı'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <nav className="py-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = location === item.href;
             return (
               <li key={item.name}>
@@ -70,10 +102,30 @@ export default function Sidebar() {
           </Link>
         </div>
         
-        <button className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full mt-4">
-          <LogOut className="h-5 w-5 mr-2" />
-          Çıkış Yap
-        </button>
+        {isAuthenticated ? (
+          <button 
+            onClick={handleLogout}
+            className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full mt-4"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            Çıkış Yap
+          </button>
+        ) : (
+          <div className="mt-4 space-y-2">
+            <Link href="/login">
+              <a className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full">
+                <LogIn className="h-5 w-5 mr-2" />
+                Giriş Yap
+              </a>
+            </Link>
+            <Link href="/register">
+              <a className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full">
+                <UserPlus className="h-5 w-5 mr-2" />
+                Kayıt Ol
+              </a>
+            </Link>
+          </div>
+        )}
       </div>
     </aside>
   );

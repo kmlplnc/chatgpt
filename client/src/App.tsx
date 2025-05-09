@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,35 +16,53 @@ import SubscriptionPage from "@/pages/subscription";
 import CheckoutPage from "@/pages/subscription/checkout";
 import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
+import { AuthProvider } from "@/hooks/use-auth";
 
 function Router() {
+  const [location] = useLocation();
+  
+  // Auth sayfaları için Layout'u devre dışı bırak
+  const isAuthPage = location === "/login" || location === "/register";
+  
+  // Auth sayfaları için doğrudan component renderla, diğerleri için Layout içinde renderla
+  if (isAuthPage) {
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/register" component={Register} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+  
+  // Ana uygulama sayfaları için Layout içinde renderla
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/diet-plans" component={DietPlans} />
-      <Route path="/food-database" component={FoodDatabase} />
-      <Route path="/food/:id" component={FoodDetail} />
-      <Route path="/health-calculator" component={HealthCalculator} />
-      <Route path="/clients" component={ClientsPage} />
-      <Route path="/clients/:id" component={ClientDetail} />
-      <Route path="/subscription" component={SubscriptionPage} />
-      <Route path="/subscription/checkout" component={CheckoutPage} />
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route component={NotFound} />
-    </Switch>
+    <Layout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/diet-plans" component={DietPlans} />
+        <Route path="/food-database" component={FoodDatabase} />
+        <Route path="/food/:id" component={FoodDetail} />
+        <Route path="/health-calculator" component={HealthCalculator} />
+        <Route path="/clients" component={ClientsPage} />
+        <Route path="/clients/:id" component={ClientDetail} />
+        <Route path="/subscription" component={SubscriptionPage} />
+        <Route path="/subscription/checkout" component={CheckoutPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Layout>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
           <Router />
-        </Layout>
-      </TooltipProvider>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
