@@ -1,243 +1,349 @@
-import React, { useState, useEffect } from "react";
-import { useLocation, useRoute, Link } from "wouter";
-import { ArrowLeft, CreditCard, CheckCircle } from "lucide-react";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
+import { CheckCircle2, CreditCard, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { SUBSCRIPTION_PLANS } from "@/components/auth/subscription-plans";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import Layout from '@/components/layout/layout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+
+// Ödeme formu şeması
+const paymentFormSchema = z.object({
+  cardNumber: z.string().min(16, "Kart numarası en az 16 karakter olmalıdır").max(19, "Kart numarası en fazla 19 karakter olmalıdır"),
+  cardHolder: z.string().min(3, "Kart sahibi adı en az 3 karakter olmalıdır"),
+  expiryDate: z.string().min(5, "Geçerlilik tarihi MM/YY formatında olmalıdır").max(5, "Geçerlilik tarihi MM/YY formatında olmalıdır"),
+  cvv: z.string().min(3, "CVV en az 3 karakter olmalıdır").max(4, "CVV en fazla 4 karakter olmalıdır"),
+});
+
+type PaymentFormValues = z.infer<typeof paymentFormSchema>;
 
 export default function CheckoutPage() {
-  const [, params] = useRoute("/subscription/checkout?:query");
-  const queryParams = new URLSearchParams(params?.query);
-  const planId = queryParams.get("plan") || "pro";
-  const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId) || SUBSCRIPTION_PLANS[1]; // Default to Pro
-  
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSuccessful, setIsSuccessful] = useState(false);
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: "",
-    cardHolderName: "",
-    expireMonth: "",
-    expireYear: "",
-    cvc: ""
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [_, navigate] = useLocation();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate form
-    if (!cardDetails.cardNumber.trim() || 
-        !cardDetails.cardHolderName.trim() || 
-        !cardDetails.expireMonth.trim() || 
-        !cardDetails.expireYear.trim() || 
-        !cardDetails.cvc.trim()) {
-      toast({
-        title: "Hata",
-        description: "Lütfen tüm alanları doldurun.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsProcessing(true);
+  
+  // Kullanıcı bilgilerini getir
+  const { data: user, isLoading } = useQuery({ 
+    queryKey: ['/api/auth/me'],
+    staleTime: 1000 * 60
+  });
+  
+  // Ödeme formu
+  const form = useForm<PaymentFormValues>({
+    resolver: zodResolver(paymentFormSchema),
+    defaultValues: {
+      cardNumber: "",
+      cardHolder: "",
+      expiryDate: "",
+      cvv: "",
+    },
+  });
+  
+  const handleCreditCardPayment = async (values: PaymentFormValues) => {
+    // Gerçek bir ödeme sistemi olmadığından, simüle ediyoruz
+    setIsSubmitting(true);
     
     try {
-      // Bu bir demo, gerçek ödeme işlemi bulunmuyor
-      // Normalde burada apiRequest ile ödeme işlemi gerçekleştirilir
-      // await apiRequest("POST", "/api/subscription/create", { planId, cardDetails });
+      // Ödeme işlemini simüle et (1 saniye bekle)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       
-      // Demo amaçlı 2 saniye bekletelim
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Başarılı ödeme
+      setIsSuccess(true);
       
-      setIsSuccessful(true);
-      
-      // Demo amaçlı 3 saniye sonra anasayfaya yönlendirelim
-      setTimeout(() => {
-        navigate("/");
-      }, 3000);
-      
-    } catch (error) {
       toast({
-        title: "Hata",
-        description: "Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.",
-        variant: "destructive"
+        title: "Ödeme başarılı",
+        description: "Aboneliğiniz başarıyla aktifleştirildi",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Ödeme hatası:", error);
+      toast({
+        title: "Ödeme hatası",
+        description: "Ödeme işlemi sırasında bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
-      setIsProcessing(false);
+      setIsSubmitting(false);
     }
   };
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCardDetails(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Kart numarası formatı
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] || '';
+    const parts = [];
+    
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    
+    if (parts.length) {
+      return parts.join(' ');
+    } else {
+      return value;
+    }
   };
 
+  // Tarih formatı
+  const formatExpiryDate = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return `${v.substring(0, 2)}/${v.substring(2, 4)}`;
+    }
+    return v;
+  };
+
+  // Input change handlers
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCardNumber(e.target.value);
+    form.setValue("cardNumber", formatted);
+  };
+
+  const handleExpiryDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatExpiryDate(e.target.value);
+    form.setValue("expiryDate", formatted);
+  };
+  
+  // Başarılı ödeme durumu
+  if (isSuccess) {
+    return (
+      <Layout>
+        <div className="container mx-auto max-w-3xl py-12">
+          <Card className="border-green-200 bg-green-50">
+            <CardHeader>
+              <div className="flex justify-center mb-4">
+                <div className="rounded-full bg-green-100 p-3">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+              </div>
+              <CardTitle className="text-center text-2xl">Ödeme Başarılı</CardTitle>
+              <CardDescription className="text-center">
+                Aboneliğiniz başarıyla aktifleştirildi.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="mb-6 text-muted-foreground">
+                Artık DietKEM'in tüm premium özelliklerine erişebilirsiniz.
+              </p>
+            </CardContent>
+            <CardFooter className="flex justify-center">
+              <Button onClick={() => navigate("/dashboard")}>
+                Ana Sayfaya Dön
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+  
+  // Yükleniyor ekranı
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto max-w-3xl py-12 flex justify-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      </Layout>
+    );
+  }
+  
+  // Kullanıcı giriş yapmadıysa veya abonelik başlatmadıysa
+  if (!user || user.subscriptionStatus !== 'active') {
+    return (
+      <Layout>
+        <div className="container mx-auto max-w-3xl py-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Geçersiz İşlem</CardTitle>
+              <CardDescription>
+                Bu sayfaya erişmek için önce bir abonelik planı seçmeniz gerekmektedir.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button variant="outline" onClick={() => navigate("/subscription")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Abonelik Sayfasına Dön
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+  
   return (
-    <div className="container py-10 max-w-3xl mx-auto">
-      <div className="mb-10">
-        <Button variant="ghost" asChild className="mb-6">
-          <Link href="/subscription" className="flex items-center">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Abonelik Planlarına Geri Dön
-          </Link>
-        </Button>
+    <Layout>
+      <div className="container mx-auto max-w-3xl py-12">
+        <div className="mb-8">
+          <Button variant="ghost" onClick={() => navigate("/subscription")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Abonelik Planlarına Dön
+          </Button>
+        </div>
         
-        <h1 className="text-3xl font-bold tracking-tight mb-4">
-          Ödeme
-        </h1>
-        <p className="text-muted-foreground">
-          {plan.name} planını seçtiniz. Aylık ₺{plan.price} ödeyerek DietKEM'in tüm özelliklerine erişim sağlayacaksınız.
-        </p>
-      </div>
-      
-      {isSuccessful ? (
-        <Card className="bg-green-50 border-green-200">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="w-16 h-16 mx-auto text-green-500 mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Ödeme Başarılı!</h2>
-            <p className="mb-6">
-              {plan.name} planına başarıyla abone oldunuz. Artık DietKEM'in tüm özelliklerine erişebilirsiniz.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Anasayfaya yönlendiriliyorsunuz...
-            </p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Ödeme İşlemi</CardTitle>
+            <CardDescription>
+              Abonelik planınız için ödeme bilgilerinizi girin
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Satın Alma Detayları</h3>
+              <div className="bg-muted p-4 rounded-md">
+                <div className="flex justify-between mb-2">
+                  <span>Plan:</span>
+                  <span className="font-medium capitalize">{user.subscriptionPlan}</span>
+                </div>
+                {user.subscriptionPlan === "basic" && (
+                  <div className="flex justify-between">
+                    <span>Tutar:</span>
+                    <span className="font-medium">₺199.00</span>
+                  </div>
+                )}
+                {user.subscriptionPlan === "pro" && (
+                  <div className="flex justify-between">
+                    <span>Tutar:</span>
+                    <span className="font-medium">₺349.00</span>
+                  </div>
+                )}
+                {user.subscriptionPlan === "premium" && (
+                  <div className="flex justify-between">
+                    <span>Tutar:</span>
+                    <span className="font-medium">₺599.00</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <Tabs defaultValue="card">
+              <TabsList className="grid w-full grid-cols-1">
+                <TabsTrigger value="card" className="flex items-center">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Kredi Kartı
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="card" className="pt-4">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleCreditCardPayment)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="cardNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kart Numarası</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="0000 0000 0000 0000" 
+                              {...field} 
+                              onChange={handleCardNumberChange}
+                              maxLength={19}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="cardHolder"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kart Sahibi</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ad Soyad" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="expiryDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Son Kullanma Tarihi</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="AA/YY" 
+                                {...field} 
+                                onChange={handleExpiryDateChange}
+                                maxLength={5}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="cvv"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CVV</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="123" 
+                                {...field} 
+                                maxLength={4}
+                                type="password"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="pt-4">
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="mr-2 animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
+                            İşleniyor...
+                          </>
+                        ) : (
+                          'Ödemeyi Tamamla'
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-8 md:grid-cols-5">
-          <div className="md:col-span-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Ödeme Bilgileri
-                </CardTitle>
-                <CardDescription>
-                  Bu bir demo sayfasıdır. Gerçek ödeme alınmayacaktır.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="cardHolderName">Kart Üzerindeki İsim</Label>
-                      <Input
-                        id="cardHolderName"
-                        name="cardHolderName"
-                        placeholder="Ad Soyad"
-                        value={cardDetails.cardHolderName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="cardNumber">Kart Numarası</Label>
-                      <Input
-                        id="cardNumber"
-                        name="cardNumber"
-                        placeholder="1234 5678 9012 3456"
-                        value={cardDetails.cardNumber}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="expireMonth">Ay</Label>
-                        <Input
-                          id="expireMonth"
-                          name="expireMonth"
-                          placeholder="MM"
-                          value={cardDetails.expireMonth}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="expireYear">Yıl</Label>
-                        <Input
-                          id="expireYear"
-                          name="expireYear"
-                          placeholder="YY"
-                          value={cardDetails.expireYear}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="cvc">CVC</Label>
-                        <Input
-                          id="cvc"
-                          name="cvc"
-                          placeholder="123"
-                          value={cardDetails.cvc}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <span className="mr-2">İşleniyor</span>
-                        <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full"></div>
-                      </>
-                    ) : (
-                      `₺${plan.price} Öde ve Abone Ol`
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="md:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Sipariş Özeti</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>{plan.name} Plan</span>
-                  <span>₺{plan.price}/ay</span>
-                </div>
-                <div className="border-t pt-4 flex justify-between font-bold">
-                  <span>Toplam</span>
-                  <span>₺{plan.price}</span>
-                </div>
-              </CardContent>
-              <CardFooter className="bg-muted/30 text-xs text-muted-foreground">
-                <p>
-                  Abone olarak, aboneliğiniz otomatik olarak yenilenecektir. İstediğiniz zaman aboneliğinizi iptal edebilirsiniz.
-                </p>
-              </CardFooter>
-            </Card>
-          </div>
+        
+        <div className="mt-6 text-center text-sm text-muted-foreground">
+          <p>Bu bir demo uygulamasıdır. Gerçek ödeme işlemi gerçekleştirilmeyecektir.</p>
+          <p>Herhangi bir kart bilgisi girebilirsiniz, ödeme simüle edilecektir.</p>
         </div>
-      )}
-    </div>
+      </div>
+    </Layout>
   );
 }

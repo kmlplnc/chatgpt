@@ -1,79 +1,129 @@
 import { Router, Request, Response } from "express";
-import { z } from "zod";
 import { storage } from "../storage";
 
-// Subscription router
 export const subscriptionRouter = Router();
 
-// Create or upgrade subscription route
+// Abonelik oluşturma
 subscriptionRouter.post("/create", async (req: Request, res: Response) => {
   try {
-    // Check if user is authenticated
     if (!req.session.user) {
-      return res.status(401).json({ message: "Kimlik doğrulama gerekli" });
+      return res.status(401).json({ error: "Kimlik doğrulama gerekli" });
     }
-    
-    // Get subscription details from request body
+
     const { plan } = req.body;
-    
+
     if (!plan || !["basic", "pro", "premium"].includes(plan)) {
-      return res.status(400).json({ message: "Geçersiz abonelik planı" });
+      return res.status(400).json({ error: "Geçersiz abonelik planı" });
     }
-    
-    // Get the user from database
-    const user = await storage.getUser(req.session.user.id);
-    
-    if (!user) {
-      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
-    }
-    
-    // Set subscription start and end dates
+
+    // Abonelik süresi (varsayılan: 30 gün)
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 1); // 1 aylık abonelik
-    
-    // Update user subscription status
-    const updatedUser = await storage.updateUserSubscription(user.id, {
+    endDate.setDate(endDate.getDate() + 30);
+
+    // Abonelik bilgilerini güncelle
+    const user = await storage.updateUserSubscription(req.session.user.id, {
       subscriptionStatus: "active",
       subscriptionPlan: plan,
       subscriptionStartDate: startDate,
-      subscriptionEndDate: endDate
+      subscriptionEndDate: endDate,
     });
-    
-    // Return updated user data (excluding password)
-    const { password: _, ...userData } = updatedUser;
-    res.json(userData);
-  } catch (err) {
-    console.error("Create subscription error:", err);
-    res.status(500).json({ message: "Server error" });
+
+    res.json({
+      message: "Abonelik başarıyla oluşturuldu",
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionPlan: user.subscriptionPlan,
+        subscriptionStartDate: user.subscriptionStartDate,
+        subscriptionEndDate: user.subscriptionEndDate,
+      },
+    });
+  } catch (error: any) {
+    console.error("Abonelik oluşturma hatası:", error);
+    res.status(500).json({ error: `Abonelik oluşturulamadı: ${error.message}` });
   }
 });
 
-// Cancel subscription route
+// Abonelik iptal etme
 subscriptionRouter.post("/cancel", async (req: Request, res: Response) => {
   try {
-    // Check if user is authenticated
     if (!req.session.user) {
-      return res.status(401).json({ message: "Kimlik doğrulama gerekli" });
+      return res.status(401).json({ error: "Kimlik doğrulama gerekli" });
     }
-    
-    // Get the user from database
+
+    // Kullanıcı bilgilerini al
     const user = await storage.getUser(req.session.user.id);
-    
     if (!user) {
-      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
     }
-    
-    // Update user subscription status
-    const updatedUser = await storage.updateUserSubscription(user.id, {
-      subscriptionStatus: "canceled"
+
+    // Abonelik durumunu güncelle
+    const updatedUser = await storage.updateUserSubscription(req.session.user.id, {
+      subscriptionStatus: "canceled",
+      // Diğer bilgiler (plan, tarihler) korunur
     });
+
+    res.json({
+      message: "Abonelik başarıyla iptal edildi",
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        role: updatedUser.role,
+        subscriptionStatus: updatedUser.subscriptionStatus,
+        subscriptionPlan: updatedUser.subscriptionPlan,
+        subscriptionStartDate: updatedUser.subscriptionStartDate,
+        subscriptionEndDate: updatedUser.subscriptionEndDate,
+      },
+    });
+  } catch (error: any) {
+    console.error("Abonelik iptal hatası:", error);
+    res.status(500).json({ error: `Abonelik iptal edilemedi: ${error.message}` });
+  }
+});
+
+// Kullanıcının abonelik bilgilerini alma
+subscriptionRouter.get("/status", async (req: Request, res: Response) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ error: "Kimlik doğrulama gerekli" });
+    }
+
+    // Kullanıcı bilgilerini al
+    const user = await storage.getUser(req.session.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
+    }
+
+    // Abonelik bitmiş mi kontrol et
+    const now = new Date();
+    const endDate = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
     
-    // Return updated user data (excluding password)
-    const { password: _, ...userData } = updatedUser;
-    res.json(userData);
-  } catch (err) {
-    console.error("Cancel subscription error:", err);
-    res.status(500).json({ message: "Server error" });
+    if (endDate && now > endDate && user.subscriptionStatus !== "expired") {
+      // Abonelik süresi dolmuş, durumu güncelle
+      const updatedUser = await storage.updateUserSubscription(req.session.user.id, {
+        subscriptionStatus: "expired",
+      });
+      
+      return res.json({
+        subscriptionStatus: updatedUser.subscriptionStatus,
+        subscriptionPlan: updatedUser.subscriptionPlan,
+        subscriptionStartDate: updatedUser.subscriptionStartDate,
+        subscriptionEndDate: updatedUser.subscriptionEndDate,
+      });
+    }
+
+    // Mevcut abonelik bilgilerini döndür
+    res.json({
+      subscriptionStatus: user.subscriptionStatus,
+      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStartDate: user.subscriptionStartDate,
+      subscriptionEndDate: user.subscriptionEndDate,
+    });
+  } catch (error: any) {
+    console.error("Abonelik durumu alma hatası:", error);
+    res.status(500).json({ error: `Abonelik durumu alınamadı: ${error.message}` });
   }
 });

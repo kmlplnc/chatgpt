@@ -12,6 +12,8 @@ import FoodDetail from "@/pages/food-detail";
 import HealthCalculator from "@/pages/health-calculator";
 import ClientsPage from "@/pages/clients";
 import ClientDetail from "@/pages/client-detail";
+import SubscriptionPage from "@/pages/subscription";
+import CheckoutPage from "@/pages/subscription/checkout";
 
 function Router() {
   return (
@@ -23,6 +25,8 @@ function Router() {
       <Route path="/health-calculator" component={HealthCalculator} />
       <Route path="/clients" component={ClientsPage} />
       <Route path="/clients/:id" component={ClientDetail} />
+      <Route path="/subscription" component={SubscriptionPage} />
+      <Route path="/subscription/checkout" component={CheckoutPage} />
       <Route component={NotFound} />
     </Switch>
   );
