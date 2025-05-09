@@ -1,6 +1,8 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/utils";
 
 interface HumanModelProps {
   measurements: any;
@@ -14,8 +16,16 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const humanModelRef = useRef<THREE.Group | null>(null);
+  const prevHumanModelRef = useRef<THREE.Group | null>(null);
   
-  // Danışan verilerini analiz et
+  const [showBothModels, setShowBothModels] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [showDifferences, setShowDifferences] = useState(true);
+  
+  // Danışan verileri
+  const hasPreviousMeasurement = measurements && measurements.length >= 2;
+  
+  // En son 2 ölçümü al
   const getLatestMeasurements = () => {
     if (!measurements || measurements.length === 0) {
       return {
@@ -28,6 +38,7 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
         armCircumference: 30,
         thighCircumference: 55,
         calfCircumference: 35,
+        date: new Date().toISOString().split('T')[0],
       };
     }
     
@@ -46,6 +57,31 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
       armCircumference: parseFloat(sorted[0].armCircumference) || 30,
       thighCircumference: parseFloat(sorted[0].thighCircumference) || 55,
       calfCircumference: parseFloat(sorted[0].calfCircumference) || 35,
+      date: sorted[0].date,
+    };
+  };
+  
+  // Önceki ölçümü al
+  const getPreviousMeasurements = () => {
+    if (!measurements || measurements.length < 2) {
+      return getLatestMeasurements();
+    }
+    
+    const sorted = [...measurements].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    
+    return {
+      weight: parseFloat(sorted[1].weight) || 70,
+      height: parseFloat(sorted[1].height) || 170,
+      bodyFatPercentage: parseFloat(sorted[1].bodyFatPercentage) || 20,
+      waistCircumference: parseFloat(sorted[1].waistCircumference) || 80,
+      hipCircumference: parseFloat(sorted[1].hipCircumference) || 90,
+      chestCircumference: parseFloat(sorted[1].chestCircumference) || 90,
+      armCircumference: parseFloat(sorted[1].armCircumference) || 30,
+      thighCircumference: parseFloat(sorted[1].thighCircumference) || 55,
+      calfCircumference: parseFloat(sorted[1].calfCircumference) || 35,
+      date: sorted[1].date,
     };
   };
   
@@ -214,41 +250,152 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
   
   // Ölçümleri değiştirince insan modelini güncelle
   useEffect(() => {
-    if (sceneRef.current && humanModelRef.current) {
-      // Önceki modeli kaldır
-      sceneRef.current.remove(humanModelRef.current);
+    if (sceneRef.current) {
+      // Önceki modelleri kaldır
+      if (humanModelRef.current) {
+        sceneRef.current.remove(humanModelRef.current);
+      }
+      if (prevHumanModelRef.current) {
+        sceneRef.current.remove(prevHumanModelRef.current);
+      }
       
-      // Yeni model oluştur
-      createHumanModel();
+      // Yeni modelleri oluştur
+      createHumanModels();
     }
-  }, [measurements]);
+  }, [measurements, showBothModels, showDifferences]);
   
-  // İnsan modeli oluştur
-  const createHumanModel = () => {
+  // İnsan modellerini oluştur (güncel ve önceki)
+  const createHumanModels = () => {
     if (!sceneRef.current) return;
     
     const latestMeasurements = getLatestMeasurements();
+    const previousMeasurements = getPreviousMeasurements();
+    
+    // Modelleri oluştur
+    createHumanModel(latestMeasurements, true);
+    
+    // Karşılaştırma modunu etkinleştirince önceki ölçüme göre de model oluştur
+    if (showBothModels && hasPreviousMeasurement) {
+      createPreviousHumanModel(previousMeasurements);
+    }
+  };
+  
+  // Önceki versiyonu da göster
+  const createPreviousHumanModel = (measurements: any) => {
+    if (!sceneRef.current) return;
+    
+    // Önceki modeli oluştur, showDifferences moduna göre renklerini değiştir
+    if (showDifferences) {
+      // Sağ tarafa mevcut modelin yarı saydamlıkta önceki halini koy
+      createHumanModel(measurements, false);
+      if (prevHumanModelRef.current) {
+        prevHumanModelRef.current.position.set(1.5, 0, 0);
+        
+        // Önceki modeli saydamlaştır ve rengini değiştir
+        prevHumanModelRef.current.traverse((child: any) => {
+          if (child instanceof THREE.Mesh) {
+            const material = child.material.clone();
+            material.transparent = true;
+            material.opacity = 0.6;
+            material.color.set(0xaaaaaa); // Gri ton
+            child.material = material;
+          }
+        });
+        
+        // Fark etiketlerini ekle
+        addDifferenceLabels(measurements);
+      }
+    } else {
+      // Normal yan yana gösterme modu
+      createHumanModel(measurements, false);
+    }
+  };
+  
+  // Fark etiketlerini ekle (değişim oklarını göster)
+  const addDifferenceLabels = (previousMeasurements: any) => {
+    if (!sceneRef.current || !humanModelRef.current || !prevHumanModelRef.current) return;
+    
+    const current = getLatestMeasurements();
+    const previous = previousMeasurements;
+    
+    // Ağırlık değişimi
+    const weightDiff = current.weight - previous.weight;
+    
+    // Vücut yağ oranı değişimi
+    const bodyFatDiff = current.bodyFatPercentage - previous.bodyFatPercentage;
+    
+    // BMI değişimi
+    const currentBMI = parseFloat(current.bmi) || current.weight / Math.pow(current.height / 100, 2);
+    const previousBMI = parseFloat(previous.bmi) || previous.weight / Math.pow(previous.height / 100, 2);
+    const bmiDiff = currentBMI - previousBMI;
+    
+    // Bel çevresi değişimi
+    const waistDiff = current.waistCircumference - previous.waistCircumference;
+    
+    // Değişim metni
+    const text = `
+    Ağırlık: ${weightDiff.toFixed(1)} kg (${(weightDiff / previous.weight * 100).toFixed(1)}%)
+    Vücut Yağı: ${bodyFatDiff.toFixed(1)}% (${bodyFatDiff > 0 ? '+' : ''}${bodyFatDiff.toFixed(1)}%)
+    BMI: ${bmiDiff.toFixed(1)} (${(bmiDiff / previousBMI * 100).toFixed(1)}%)
+    Bel: ${waistDiff.toFixed(1)} cm (${(waistDiff / previous.waistCircumference * 100).toFixed(1)}%)
+    `;
+    
+    // İleride: 3D ok eklentisi eklenebilir
+  };
+  
+  // Sağlık durumu analizi yap ve uygun renk döndür
+  const getHealthColor = (measurements: any) => {
+    // Vücut yağ yüzdesi ve BMI'ya göre renk belirleme
+    const bmi = parseFloat(measurements.bmi) || parseFloat(measurements.weight) / Math.pow(measurements.height / 100, 2);
+    const bodyFat = measurements.bodyFatPercentage;
+    
+    if (bmi < 18.5) {
+      return 0x87CEFA; // Zayıf - açık mavi
+    } else if (bmi < 25 && bodyFat < 25) {
+      return 0x98FB98; // Sağlıklı - açık yeşil
+    } else if (bmi < 30 && bodyFat < 30) {
+      return 0xFFD700; // Fazla kilolu - sarı
+    } else {
+      return 0xFFA07A; // Obez - açık kırmızı
+    }
+  };
+  
+  // İnsan modeli oluştur
+  const createHumanModel = (measurements: any, isLatest: boolean) => {
+    if (!sceneRef.current) return;
     
     // Model ölçeklemesi için değerler
     // Vücut yağ yüzdesi arttıkça model şişmanlar
-    const fatScale = latestMeasurements.bodyFatPercentage / 25; // 25% yağ oranı referans
-    const heightScale = latestMeasurements.height / 170; // 170 cm referans boy
+    const fatScale = measurements.bodyFatPercentage / 25; // 25% yağ oranı referans
+    const heightScale = measurements.height / 170; // 170 cm referans boy
     
     // İnsan modeli grubu
     const humanGroup = new THREE.Group();
-    humanModelRef.current = humanGroup;
+    
+    if (isLatest) {
+      humanModelRef.current = humanGroup;
+      // Güncel model ortada
+      humanGroup.position.set(0, 0, 0);
+    } else {
+      prevHumanModelRef.current = humanGroup;
+      // Önceki model sol tarafta
+      humanGroup.position.set(-1.5, 0, 0);
+    }
+    
+    // Sağlığa göre renk belirleme
+    const healthColor = getHealthColor(measurements);
     
     // Malzemeler
     const skinMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xffd0b0,
+      color: healthColor,
       roughness: 0.8,
       metalness: 0.1
     });
     
     const fatMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xffe0c0, 
+      color: healthColor, 
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.6,
       roughness: 0.9
     });
     
@@ -261,8 +408,8 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     humanGroup.add(head);
     
     // Gövde (torso)
-    const waistScale = latestMeasurements.waistCircumference / 80; // 80 cm referans
-    const chestScale = latestMeasurements.chestCircumference / 90; // 90 cm referans
+    const waistScale = measurements.waistCircumference / 80; // 80 cm referans
+    const chestScale = measurements.chestCircumference / 90; // 90 cm referans
     
     // Gövde ana model
     const torso = new THREE.Mesh(
@@ -293,7 +440,7 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     }
     
     // Kalça
-    const hipScale = latestMeasurements.hipCircumference / 90; // 90 cm referans
+    const hipScale = measurements.hipCircumference / 90; // 90 cm referans
     const hip = new THREE.Mesh(
       new THREE.CylinderGeometry(
         0.28 * hipScale * (1 + (fatScale - 1) * 0.5), 
@@ -307,8 +454,8 @@ export default function HumanModel({ measurements, title = "Vücut Modeli", heig
     humanGroup.add(hip);
     
     // Bacaklar
-    const thighScale = latestMeasurements.thighCircumference / 55; // 55 cm referans
-    const calfScale = latestMeasurements.calfCircumference / 35; // 35 cm referans
+    const thighScale = measurements.thighCircumference / 55; // 55 cm referans
+    const calfScale = measurements.calfCircumference / 35; // 35 cm referans
     
     // Sol bacak
     const leftLeg = new THREE.Group();
