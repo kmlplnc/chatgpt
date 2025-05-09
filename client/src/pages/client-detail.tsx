@@ -30,7 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import MeasurementChart from "@/components/clients/measurement-chart";
-import EnhancedMeasurementChart from "@/components/clients/enhanced-measurement-chart";
+import EnhancedMeasurementChart from "@/components/clients/enhanced-measurement-chart-fixed";
 import { queryClient } from "@/lib/queryClient";
 import { calculateBMI, formatDate } from "@/lib/utils";
 
