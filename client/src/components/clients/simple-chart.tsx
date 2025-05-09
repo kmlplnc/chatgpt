@@ -224,12 +224,14 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
             <TabsTrigger value="calf" className="text-xs py-1 hidden lg:flex">Baldır</TabsTrigger>
           </TabsList>
           
-          <div className="h-60">
+          <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
                 data={combinedData} 
                 margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                barCategoryGap={15}
+                barCategoryGap={30}
+                barGap={2}
+                barSize={12}
               >
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -245,7 +247,6 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
                   opacity={0.7}
                   radius={[2, 2, 0, 0]}
                 >
-                  <LabelList dataKey={`ideal_${activeMetric}`} position="top" content={renderCustomizedLabel} />
                 </Bar>
                 
                 {/* Gerçek Ölçüm Çubukları */}
@@ -260,7 +261,6 @@ export default function SimpleChart({ measurements, title = "Ölçüm Grafiği" 
                       fill={getBarColor(entry[activeMetric as keyof typeof entry] as number, activeMetric)} 
                     />
                   ))}
-                  <LabelList dataKey={activeMetric} position="top" content={renderCustomizedLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
