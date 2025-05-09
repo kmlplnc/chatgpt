@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
-import { ObjectLoader } from "three/examples/jsm/loaders/ObjectLoader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate, calculateBMI } from "@/lib/utils";
@@ -125,33 +124,181 @@ export default function EnhancedHumanModel({
     }
   };
   
-  // Modeli yükle ve döndür
-  const loadAndReturnModel = async (modelPath: string): Promise<THREE.Group | null> => {
-    try {
-      const loader = new ObjectLoader();
-      return new Promise((resolve, reject) => {
-        loader.load(
-          modelPath,
-          (obj) => {
-            if (obj instanceof THREE.Group) {
-              resolve(obj);
-            } else {
-              reject(new Error("Yüklenen model bir grup değil"));
-            }
-          },
-          (xhr) => {
-            console.log((xhr.loaded / xhr.total * 100) + '% yüklendi');
-          },
-          (error) => {
-            console.error('Model yüklenirken hata oluştu:', error);
-            reject(error);
-          }
-        );
-      });
-    } catch (error) {
-      console.error("Model yüklenirken beklenmeyen hata:", error);
-      return null;
-    }
+  // Manuel olarak model oluştur
+  const createCustomModel = (isMaleModel: boolean): THREE.Group => {
+    // Ana grup
+    const modelGroup = new THREE.Group();
+    modelGroup.name = isMaleModel ? "Erkek Modeli" : "Kadın Modeli";
+    
+    // Material (renk sonra değiştirilecek)
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: 0xAFAFAF,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    
+    // Kafa
+    const headGeometry = new THREE.SphereGeometry(
+      isMaleModel ? 0.25 : 0.23, 
+      32, 
+      32
+    );
+    const head = new THREE.Mesh(headGeometry, skinMaterial);
+    head.position.y = isMaleModel ? 1.5 : 1.45;
+    head.name = "head";
+    modelGroup.add(head);
+    
+    // Göğüs bölgesi
+    const torsoGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.3 : 0.28, 
+      isMaleModel ? 0.25 : 0.24, 
+      isMaleModel ? 0.8 : 0.75, 
+      32
+    );
+    const torso = new THREE.Mesh(torsoGeometry, skinMaterial);
+    torso.position.y = 0.8;
+    torso.name = "torso";
+    modelGroup.add(torso);
+    
+    // Kalça bölgesi
+    const hipGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.28 : 0.24, 
+      isMaleModel ? 0.26 : 0.3, 
+      0.25, 
+      32
+    );
+    const hip = new THREE.Mesh(hipGeometry, skinMaterial);
+    hip.position.y = 0.35;
+    hip.name = "hip";
+    modelGroup.add(hip);
+    
+    // Sol kol grubu
+    const leftArm = new THREE.Group();
+    leftArm.name = "leftArm";
+    leftArm.position.set(-(isMaleModel ? 0.4 : 0.37), 0.9, 0);
+    leftArm.rotation.z = -0.2;
+    
+    // Sol üst kol
+    const leftUpperArmGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.08 : 0.07, 
+      isMaleModel ? 0.06 : 0.055, 
+      isMaleModel ? 0.35 : 0.33, 
+      32
+    );
+    const leftUpperArm = new THREE.Mesh(leftUpperArmGeometry, skinMaterial);
+    leftUpperArm.position.y = -(isMaleModel ? 0.175 : 0.165);
+    leftUpperArm.name = "leftUpperArm";
+    leftArm.add(leftUpperArm);
+    
+    // Sol alt kol
+    const leftLowerArmGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.06 : 0.055, 
+      isMaleModel ? 0.05 : 0.045, 
+      isMaleModel ? 0.35 : 0.33, 
+      32
+    );
+    const leftLowerArm = new THREE.Mesh(leftLowerArmGeometry, skinMaterial);
+    leftLowerArm.position.y = -(isMaleModel ? 0.525 : 0.495);
+    leftLowerArm.name = "leftLowerArm";
+    leftArm.add(leftLowerArm);
+    
+    modelGroup.add(leftArm);
+    
+    // Sağ kol grubu
+    const rightArm = new THREE.Group();
+    rightArm.name = "rightArm";
+    rightArm.position.set((isMaleModel ? 0.4 : 0.37), 0.9, 0);
+    rightArm.rotation.z = 0.2;
+    
+    // Sağ üst kol
+    const rightUpperArmGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.08 : 0.07, 
+      isMaleModel ? 0.06 : 0.055, 
+      isMaleModel ? 0.35 : 0.33, 
+      32
+    );
+    const rightUpperArm = new THREE.Mesh(rightUpperArmGeometry, skinMaterial);
+    rightUpperArm.position.y = -(isMaleModel ? 0.175 : 0.165);
+    rightUpperArm.name = "rightUpperArm";
+    rightArm.add(rightUpperArm);
+    
+    // Sağ alt kol
+    const rightLowerArmGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.06 : 0.055, 
+      isMaleModel ? 0.05 : 0.045, 
+      isMaleModel ? 0.35 : 0.33, 
+      32
+    );
+    const rightLowerArm = new THREE.Mesh(rightLowerArmGeometry, skinMaterial);
+    rightLowerArm.position.y = -(isMaleModel ? 0.525 : 0.495);
+    rightLowerArm.name = "rightLowerArm";
+    rightArm.add(rightLowerArm);
+    
+    modelGroup.add(rightArm);
+    
+    // Sol bacak grubu
+    const leftLeg = new THREE.Group();
+    leftLeg.name = "leftLeg";
+    leftLeg.position.set(-(isMaleModel ? 0.15 : 0.14), 0.1, 0);
+    
+    // Sol üst bacak
+    const leftUpperLegGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.12 : 0.11, 
+      isMaleModel ? 0.09 : 0.085, 
+      0.45, 
+      32
+    );
+    const leftUpperLeg = new THREE.Mesh(leftUpperLegGeometry, skinMaterial);
+    leftUpperLeg.position.y = -0.225;
+    leftUpperLeg.name = "leftUpperLeg";
+    leftLeg.add(leftUpperLeg);
+    
+    // Sol alt bacak
+    const leftLowerLegGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.09 : 0.085, 
+      isMaleModel ? 0.06 : 0.055, 
+      0.45, 
+      32
+    );
+    const leftLowerLeg = new THREE.Mesh(leftLowerLegGeometry, skinMaterial);
+    leftLowerLeg.position.y = -0.675;
+    leftLowerLeg.name = "leftLowerLeg";
+    leftLeg.add(leftLowerLeg);
+    
+    modelGroup.add(leftLeg);
+    
+    // Sağ bacak grubu
+    const rightLeg = new THREE.Group();
+    rightLeg.name = "rightLeg";
+    rightLeg.position.set((isMaleModel ? 0.15 : 0.14), 0.1, 0);
+    
+    // Sağ üst bacak
+    const rightUpperLegGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.12 : 0.11, 
+      isMaleModel ? 0.09 : 0.085, 
+      0.45, 
+      32
+    );
+    const rightUpperLeg = new THREE.Mesh(rightUpperLegGeometry, skinMaterial);
+    rightUpperLeg.position.y = -0.225;
+    rightUpperLeg.name = "rightUpperLeg";
+    rightLeg.add(rightUpperLeg);
+    
+    // Sağ alt bacak
+    const rightLowerLegGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.09 : 0.085, 
+      isMaleModel ? 0.06 : 0.055, 
+      0.45, 
+      32
+    );
+    const rightLowerLeg = new THREE.Mesh(rightLowerLegGeometry, skinMaterial);
+    rightLowerLeg.position.y = -0.675;
+    rightLowerLeg.name = "rightLowerLeg";
+    rightLeg.add(rightLowerLeg);
+    
+    modelGroup.add(rightLeg);
+    
+    return modelGroup;
   };
   
   // 3D sahneyi kur
@@ -335,7 +482,7 @@ export default function EnhancedHumanModel({
   }, [measurements, showBothModels, showDifferences, gender]);
   
   // İnsan modellerini oluştur (güncel ve önceki)
-  const createHumanModels = async () => {
+  const createHumanModels = () => {
     if (!sceneRef.current) return;
     
     // Mevcut modelleri temizle
@@ -350,53 +497,46 @@ export default function EnhancedHumanModel({
     
     const latestMeasurements = getLatestMeasurements();
     const previousMeasurements = getPreviousMeasurements();
+    const isMale = gender === "male";
     
     // Güncel model
     try {
-      const modelPath = gender === "female" ? 
-        "/models/female_base.json" : 
-        "/models/male_base.json";
+      // Modeli oluştur
+      const modelGroup = createCustomModel(isMale);
       
-      // Modeli yükle
-      const modelGroup = await loadAndReturnModel(modelPath);
-      
-      if (modelGroup) {
-        // Model yüklendi, şimdi ölçeklendirme uygula
-        updateModelByMeasurements(modelGroup, latestMeasurements, true);
-        humanModelRef.current = modelGroup;
-        sceneRef.current.add(modelGroup);
-      } else {
-        console.error("Model yüklenemedi");
-      }
+      // Ölçeklendirme uygula
+      updateModelByMeasurements(modelGroup, latestMeasurements, true);
+      humanModelRef.current = modelGroup;
+      sceneRef.current.add(modelGroup);
       
       // Eğer karşılaştırma modundaysak ve önceki bir ölçüm varsa
       if (showBothModels && hasPreviousMeasurement && previousMeasurements) {
-        const prevModelGroup = await loadAndReturnModel(modelPath);
+        const prevModelGroup = createCustomModel(isMale);
         
-        if (prevModelGroup) {
-          updateModelByMeasurements(prevModelGroup, previousMeasurements, false);
-          prevHumanModelRef.current = prevModelGroup;
-          sceneRef.current.add(prevModelGroup);
-          
-          // Yan yana gösterme - önceki model solda
-          prevModelGroup.position.set(-1.5, 0, 0);
-          
-          // Eğer farklar gösteriliyorsa
-          if (showDifferences) {
-            // Önceki modeli yarı saydam ve gri yap
-            prevModelGroup.traverse((child: any) => {
-              if (child instanceof THREE.Mesh) {
-                const material = child.material.clone();
+        updateModelByMeasurements(prevModelGroup, previousMeasurements, false);
+        prevHumanModelRef.current = prevModelGroup;
+        sceneRef.current.add(prevModelGroup);
+        
+        // Yan yana gösterme - önceki model solda
+        prevModelGroup.position.set(-1.5, 0, 0);
+        
+        // Eğer farklar gösteriliyorsa
+        if (showDifferences) {
+          // Önceki modeli yarı saydam ve gri yap
+          prevModelGroup.traverse((child: THREE.Object3D) => {
+            if (child instanceof THREE.Mesh) {
+              const material = child.material.clone();
+              if (material instanceof THREE.Material) {
                 material.transparent = true;
                 material.opacity = 0.6;
                 material.color.set(0xaaaaaa); // Gri ton
                 child.material = material;
               }
-            });
-            
-            // Fark etiketlerini ekle
-            addDifferenceLabels(previousMeasurements);
-          }
+            }
+          });
+          
+          // Fark etiketlerini ekle
+          addDifferenceLabels(previousMeasurements);
         }
       }
     } catch (error) {
@@ -410,11 +550,21 @@ export default function EnhancedHumanModel({
     const healthColor = getHealthColor(measurements);
     
     // Modelin tüm parçaları için rengi güncelle
-    model.traverse((child: any) => {
+    model.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh) {
-        const material = child.material.clone();
-        material.color.set(healthColor);
-        child.material = material;
+        if (Array.isArray(child.material)) {
+          // Birden fazla materyal varsa
+          child.material.forEach(mat => {
+            if (mat.color) mat.color.set(healthColor);
+          });
+        } else if (child.material) {
+          // Tek materyal varsa
+          const material = child.material.clone();
+          if (material.color) {
+            material.color.set(healthColor);
+            child.material = material;
+          }
+        }
       }
     });
     
@@ -429,7 +579,7 @@ export default function EnhancedHumanModel({
     const calfScale = measurements.calfCircumference / 35; // 35 cm referans
     
     // Vücut parçalarını bul ve ölçeklendir
-    model.traverse((child: any) => {
+    model.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh) {
         // İsme göre vücut parçasını belirle ve ölçeklendir
         const name = child.name.toLowerCase();

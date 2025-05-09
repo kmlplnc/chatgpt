@@ -30,7 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import MeasurementChart from "@/components/clients/measurement-chart";
-import HumanModel from "@/components/clients/human-model";
+import EnhancedHumanModel from "@/components/clients/enhanced-human-model";
 import { queryClient } from "@/lib/queryClient";
 import { calculateBMI, formatDate } from "@/lib/utils";
 
@@ -1027,10 +1027,11 @@ export default function ClientDetail() {
                   <h2 className="text-xl font-semibold">3D Vücut Modeli</h2>
                 </div>
                 
-                <HumanModel 
+                <EnhancedHumanModel 
                   measurements={measurements} 
                   title="Vücut Yapısı Modeli"
                   height={500}
+                  gender={client?.gender === "female" ? "female" : "male"}
                 />
               </div>
               
