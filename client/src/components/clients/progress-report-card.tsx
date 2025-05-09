@@ -80,16 +80,21 @@ export default function ProgressReportCard({ measurements }: ProgressReportCardP
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Toplam kilo değişimi */}
           {changes.weight !== null && (
-            <div className="p-4 border rounded-lg bg-muted/20">
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Toplam Kilo Değişimi</h4>
-              <div className="flex items-center">
-                <span className={`text-3xl font-bold ${changes.weight < 0 ? "text-green-600" : changes.weight > 0 ? "text-red-600" : "text-muted"}`}>
-                  {changes.weight < 0 ? "" : "+"}{changes.weight.toFixed(1)}
+            <div className="p-4 border rounded-lg bg-slate-50">
+              <h4 className="text-sm font-medium text-center mb-1">Toplam Kilo Değişimi</h4>
+              <div className="flex justify-center mt-2">
+                <div className="text-center">
+                  <span className="block text-4xl font-bold text-slate-700">{lastMeasurement.weight}</span>
+                  <span className="text-xs text-muted-foreground">kg</span>
+                </div>
+              </div>
+              <div className="flex justify-center mt-3">
+                <span className={`text-base font-medium py-1 px-2 rounded ${changes.weight < 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  {changes.weight < 0 ? "-" : "+"}{Math.abs(changes.weight).toFixed(1)} kg
                 </span>
-                <span className="text-base ml-1">kg</span>
               </div>
               {daysDiff && daysDiff > 7 && (
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-center text-muted-foreground mt-2">
                   {daysDiff} günde {Math.abs(changes.weight / (daysDiff / 7)).toFixed(1)} kg/hafta
                 </p>
               )}
@@ -98,32 +103,37 @@ export default function ProgressReportCard({ measurements }: ProgressReportCardP
           
           {/* Toplam bel çevresi değişimi */}
           {changes.waist !== null && (
-            <div className="p-4 border rounded-lg bg-muted/20">
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Bel Çevresi Değişimi</h4>
-              <div className="flex items-center">
-                <span className={`text-3xl font-bold ${changes.waist < 0 ? "text-green-600" : changes.waist > 0 ? "text-red-600" : "text-muted"}`}>
-                  {changes.waist < 0 ? "" : "+"}{changes.waist.toFixed(1)}
+            <div className="p-4 border rounded-lg bg-slate-50">
+              <h4 className="text-sm font-medium text-center mb-1">Bel Çevresi Değişimi</h4>
+              <div className="flex justify-center mt-2">
+                <div className="text-center">
+                  <span className="block text-4xl font-bold text-slate-700">{lastMeasurement.waistCircumference}</span>
+                  <span className="text-xs text-muted-foreground">cm</span>
+                </div>
+              </div>
+              <div className="flex justify-center mt-3">
+                <span className={`text-base font-medium py-1 px-2 rounded ${changes.waist < 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  {changes.waist < 0 ? "-" : "+"}{Math.abs(changes.waist).toFixed(1)} cm
                 </span>
-                <span className="text-base ml-1">cm</span>
               </div>
             </div>
           )}
           
           {/* BMI değişimi */}
           {changes.bmi !== null && (
-            <div className="p-4 border rounded-lg bg-muted/20">
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">BMI Değişimi</h4>
-              <div className="flex items-center">
-                <span className={`text-3xl font-bold ${changes.bmi < 0 ? "text-green-600" : changes.bmi > 0 ? "text-red-600" : "text-muted"}`}>
-                  {changes.bmi < 0 ? "" : "+"}{changes.bmi.toFixed(1)}
-                </span>
-                <span className="text-base ml-1">puan</span>
+            <div className="p-4 border rounded-lg bg-slate-50">
+              <h4 className="text-sm font-medium text-center mb-1">BMI Değişimi</h4>
+              <div className="flex justify-center mt-2">
+                <div className="text-center">
+                  <span className="block text-4xl font-bold text-slate-700">{Number(lastMeasurement.bmi).toFixed(1)}</span>
+                  <span className="text-xs text-muted-foreground">puan</span>
+                </div>
               </div>
-              {lastMeasurement.bmi && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Mevcut BMI: {Number(lastMeasurement.bmi).toFixed(1)}
-                </p>
-              )}
+              <div className="flex justify-center mt-3">
+                <span className={`text-base font-medium py-1 px-2 rounded ${changes.bmi < 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  {changes.bmi < 0 ? "-" : "+"}{Math.abs(changes.bmi).toFixed(1)} puan
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -145,17 +155,23 @@ export default function ProgressReportCard({ measurements }: ProgressReportCardP
               if (change === null) return null;
               
               const isImproved = change < 0;
+              const currentValue = metric.key === 'hip' ? lastMeasurement.hipCircumference : 
+                                  metric.key === 'chest' ? lastMeasurement.chestCircumference :
+                                  metric.key === 'arm' ? lastMeasurement.armCircumference :
+                                  metric.key === 'thigh' ? lastMeasurement.thighCircumference :
+                                  metric.key === 'calf' ? lastMeasurement.calfCircumference : 0;
               
               return (
-                <div key={metric.key} className="border p-2 rounded-md text-center">
-                  <div className="text-sm mb-1">{metric.label}</div>
-                  <div className={`text-lg font-semibold ${isImproved ? "text-green-600" : change > 0 ? "text-red-600" : "text-muted"}`}>
-                    {change < 0 ? "" : "+"}{change.toFixed(1)} {metric.unit}
+                <div key={metric.key} className="border p-2 rounded-md">
+                  <div className="text-center font-medium mb-1">{metric.label}</div>
+                  <div className="text-center">
+                    <span className="text-xl block font-medium">{currentValue}</span>
+                    <span className="text-xs text-muted-foreground">cm</span>
                   </div>
-                  <div className="mt-1">
-                    <Badge variant="outline" className={`text-xs px-1 ${isImproved ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                      {Math.abs(change).toFixed(1)} {metric.unit}
-                    </Badge>
+                  <div className="flex justify-center mt-2">
+                    <span className={`text-xs font-medium py-1 px-2 rounded-sm ${isImproved ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                      {isImproved ? "-" : "+"}{Math.abs(change).toFixed(1)} cm
+                    </span>
                   </div>
                 </div>
               );
