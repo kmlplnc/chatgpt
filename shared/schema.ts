@@ -11,6 +11,11 @@ export const users = pgTable("users", {
   email: text("email"),
   name: text("name"),
   role: text("role").default("user"),
+  // Subscription fields
+  subscriptionStatus: text("subscription_status").default("free").notNull(), // "free", "trial", "active", "expired", "canceled"
+  subscriptionPlan: text("subscription_plan"), // "basic", "pro", "premium", null for free
+  subscriptionStartDate: timestamp("subscription_start_date"),
+  subscriptionEndDate: timestamp("subscription_end_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
