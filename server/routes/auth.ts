@@ -1,133 +1,143 @@
 import { Router, Request, Response } from "express";
-import { storage } from "../storage";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import { fromZodError } from "zod-validation-error";
+import { storage } from "../storage";
+import { insertUserSchema } from "@shared/schema";
 
+// Authentication router
 export const authRouter = Router();
 
-// Kullanıcı girişi
-authRouter.post("/login", async (req: Request, res: Response) => {
-  try {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ message: "Kullanıcı adı ve şifre gereklidir" });
-    }
-    
-    const user = await storage.getUserByUsername(username);
-    
-    if (!user) {
-      return res.status(401).json({ message: "Kullanıcı adı veya şifre hatalı" });
-    }
-    
-    // Demo için basit şifre kontrolü
-    if (password !== user.password) {
-      return res.status(401).json({ message: "Kullanıcı adı veya şifre hatalı" });
-    }
-    
-    // Gerçek sistemde passwordHash karşılaştırması yapılmalı:
-    // const match = await bcrypt.compare(password, user.passwordHash);
-    // if (!match) {
-    //   return res.status(401).json({ message: "Kullanıcı adı veya şifre hatalı" });
-    // }
-    
-    // Session'a kullanıcı bilgisini ekle
-    req.session.userId = user.id;
-    
-    // Hassas bilgileri çıkar
-    const { password: _, ...safeUser } = user;
-    
-    return res.status(200).json(safeUser);
-  } catch (error) {
-    console.error("Login error:", error);
-    return res.status(500).json({ message: "Giriş sırasında bir hata oluştu" });
-  }
+// Login schema
+const loginSchema = z.object({
+  username: z.string(),
+  password: z.string()
 });
 
-// Kullanıcı kaydı
-authRouter.post("/register", async (req: Request, res: Response) => {
+// Session extension to include user information
+declare module "express-session" {
+  interface SessionData {
+    user: {
+      id: number;
+      username: string;
+      role: string;
+    };
+  }
+}
+
+// Login route
+authRouter.post("/login", async (req: Request, res: Response) => {
   try {
-    const schema = z.object({
-      username: z.string().min(3, "Kullanıcı adı en az 3 karakter olmalıdır"),
-      password: z.string().min(6, "Şifre en az 6 karakter olmalıdır"),
-      email: z.string().email("Geçerli bir e-posta adresi giriniz"),
-      name: z.string().optional(),
-    });
+    // Validate request body
+    const { username, password } = loginSchema.parse(req.body);
     
-    const result = schema.safeParse(req.body);
+    // Find user by username
+    const user = await storage.getUserByUsername(username);
     
-    if (!result.success) {
+    // Check if user exists and password matches
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Geçersiz kullanıcı adı veya şifre" });
+    }
+    
+    // Set user in session
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      role: user.role || "user"
+    };
+    
+    // Return user data (excluding password)
+    const { password: _, ...userData } = user;
+    res.json(userData);
+  } catch (err) {
+    console.error(err);
+    
+    if (err instanceof z.ZodError) {
       return res.status(400).json({ 
-        message: "Geçersiz kullanıcı bilgileri", 
-        errors: result.error.format() 
+        message: "Validation error", 
+        errors: fromZodError(err) 
       });
     }
     
-    const { username, password, email, name } = result.data;
-    
-    // Kullanıcı adı kontrolü
-    const existingUser = await storage.getUserByUsername(username);
-    if (existingUser) {
-      return res.status(400).json({ message: "Bu kullanıcı adı zaten kullanımda" });
-    }
-    
-    // Gerçek sistemde şifre hashleme:
-    // const passwordHash = await bcrypt.hash(password, 10);
-    
-    const newUser = await storage.createUser({
-      username,
-      password, // Gerçek sistemde passwordHash kullanılmalı
-      email,
-      name,
-    });
-    
-    // Hassas bilgileri çıkar
-    const { password: _, ...safeUser } = newUser;
-    
-    // Otomatik giriş yap
-    req.session.userId = newUser.id;
-    
-    return res.status(201).json(safeUser);
-  } catch (error) {
-    console.error("Register error:", error);
-    return res.status(500).json({ message: "Kayıt sırasında bir hata oluştu" });
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
-// Oturum kapatma
+// Register route
+authRouter.post("/register", async (req: Request, res: Response) => {
+  try {
+    // Validate request body
+    const userData = insertUserSchema.parse(req.body);
+    
+    // Check if username already exists
+    const existingUser = await storage.getUserByUsername(userData.username);
+    if (existingUser) {
+      return res.status(409).json({ message: "Bu kullanıcı adı zaten kullanılıyor" });
+    }
+    
+    // Create user
+    const newUser = await storage.createUser(userData);
+    
+    // Set user in session
+    req.session.user = {
+      id: newUser.id,
+      username: newUser.username,
+      role: newUser.role || "user"
+    };
+    
+    // Return user data (excluding password)
+    const { password: _, ...newUserData } = newUser;
+    res.status(201).json(newUserData);
+  } catch (err) {
+    console.error("Register error:", err);
+    
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ 
+        message: "Validation error", 
+        errors: fromZodError(err) 
+      });
+    }
+    
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Logout route
 authRouter.post("/logout", (req: Request, res: Response) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ message: "Çıkış yapılırken bir hata oluştu" });
+      console.error("Logout error:", err);
+      return res.status(500).json({ message: "Çıkış yapılırken hata oluştu" });
     }
-    res.clearCookie("connect.sid");
-    return res.status(200).json({ message: "Başarıyla çıkış yapıldı" });
+    
+    res.json({ message: "Başarıyla çıkış yapıldı" });
   });
 });
 
-// Mevcut kullanıcıyı getir
+// Get current user route
 authRouter.get("/me", async (req: Request, res: Response) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Oturum açılmamış" });
+    // Check if user is logged in
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Authenticated değil" });
     }
     
-    const user = await storage.getUser(req.session.userId);
+    // Get user from database
+    const user = await storage.getUser(req.session.user.id);
     
     if (!user) {
-      // Session'da ID var ama kullanıcı bulunamadı, oturumu temizle
+      // Clear invalid session
       req.session.destroy((err) => {
         if (err) console.error("Session destroy error:", err);
       });
+      
       return res.status(401).json({ message: "Kullanıcı bulunamadı" });
     }
     
-    // Hassas bilgileri çıkar
-    const { password: _, ...safeUser } = user;
-    
-    return res.status(200).json(safeUser);
-  } catch (error) {
-    console.error("Get current user error:", error);
-    return res.status(500).json({ message: "Kullanıcı bilgileri alınırken bir hata oluştu" });
+    // Return user data (excluding password)
+    const { password: _, ...userData } = user;
+    res.json(userData);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 });

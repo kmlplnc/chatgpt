@@ -1,8 +1,10 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import session from "express-session";
+import cookieParser from "cookie-parser";
 import { 
   insertDietPlanSchema, 
   dietRequirementSchema,
@@ -11,8 +13,29 @@ import {
 import { openaiService } from "./services/openai-service";
 import { usdaService } from "./services/usda-service";
 import { clientsRouter } from './routes/clients';
+import { authRouter } from './routes/auth';
+import { subscriptionRouter } from './routes/subscription';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Session setup
+  app.use(cookieParser());
+  app.use(session({
+    secret: "dietkem-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 saat
+    }
+  }));
+  
+  // Add auth routes
+  app.use('/api/auth', authRouter);
+  
+  // Add subscription routes
+  app.use('/api/subscription', subscriptionRouter);
+  
   // Add clients routes
   app.use('/api/clients', clientsRouter);
   

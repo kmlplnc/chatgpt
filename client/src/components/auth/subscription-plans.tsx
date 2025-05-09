@@ -1,133 +1,103 @@
-import React from "react";
-import { Link } from "wouter";
-import { Check, X } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import React from 'react';
+import { Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { translateUI } from '@/lib/translations';
 
-export const SUBSCRIPTION_PLANS = [
-  {
-    id: "basic",
-    name: "Başlangıç",
-    price: "49.99",
-    interval: "monthly",
-    description: "Diyetisyenler için temel özellikler",
-    features: [
-      { name: "10 danışan yönetimi", included: true },
-      { name: "Temel ölçüm takibi", included: true },
-      { name: "Besin veritabanı erişimi", included: true },
-      { name: "Sağlık hesaplayıcı (BMH, VKİ)", included: true },
-      { name: "Diyet planları oluşturma", included: false },
-      { name: "Detaylı raporlama", included: false },
-    ],
-  },
-  {
-    id: "pro",
-    name: "Profesyonel",
-    price: "89.99",
-    interval: "monthly",
-    description: "Aktif çalışan diyetisyenler için",
-    features: [
-      { name: "Sınırsız danışan yönetimi", included: true },
-      { name: "Kapsamlı ölçüm takibi", included: true },
-      { name: "Besin veritabanı erişimi", included: true },
-      { name: "Sağlık hesaplayıcı (BMH, VKİ)", included: true },
-      { name: "Diyet planları oluşturma", included: true },
-      { name: "Detaylı raporlama", included: true },
-    ],
-    mostPopular: true,
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: "149.99",
-    interval: "monthly",
-    description: "Klinikler ve danışmanlık merkezleri için",
-    features: [
-      { name: "Sınırsız danışan yönetimi", included: true },
-      { name: "Kapsamlı ölçüm takibi", included: true },
-      { name: "Genişletilmiş besin veritabanı", included: true },
-      { name: "Tüm sağlık hesaplayıcılar", included: true },
-      { name: "Gelişmiş diyet planları", included: true },
-      { name: "Özelleştirilebilir raporlar", included: true },
-    ],
-  },
-];
-
-export interface SubscriptionPlansProps {
-  currentPlan?: string | null;
+interface SubscriptionPlanProps {
+  onSelectPlan: (plan: string) => void;
+  selectedPlan?: string;
 }
 
-export default function SubscriptionPlans({ currentPlan }: SubscriptionPlansProps) {
+export function SubscriptionPlans({ onSelectPlan, selectedPlan }: SubscriptionPlanProps) {
+  const plans = [
+    {
+      id: "basic",
+      name: "Temel",
+      price: "₺199",
+      priceLabel: "aylık",
+      description: "Diyet uzmanları için temel kullanım",
+      features: [
+        "Müşteri takip sistemi (5 müşteri)",
+        "Temel besin veritabanı erişimi",
+        "Beslenme hesaplayıcısı",
+        "Temel ölçüm grafikleri"
+      ]
+    },
+    {
+      id: "pro",
+      name: "Profesyonel",
+      price: "₺349",
+      priceLabel: "aylık",
+      description: "Aktif çalışan diyetisyenler için",
+      features: [
+        "Müşteri takip sistemi (20 müşteri)",
+        "Gelişmiş besin veritabanı erişimi",
+        "Gelişmiş beslenme hesaplayıcısı",
+        "Detaylı ölçüm grafikleri ve raporlar",
+        "Diyet planı oluşturma araçları"
+      ],
+      popular: true
+    },
+    {
+      id: "premium",
+      name: "Premium",
+      price: "₺599",
+      priceLabel: "aylık",
+      description: "Profesyonel klinikler için",
+      features: [
+        "Sınırsız müşteri takibi",
+        "Tam veritabanı erişimi",
+        "Tüm vitamin ve mineral hesaplamaları",
+        "Gelişmiş ilerleme raporları",
+        "Diyet planı şablonları",
+        "Öncelikli destek"
+      ]
+    }
+  ];
+
   return (
-    <div className="grid gap-8 md:grid-cols-3">
-      {SUBSCRIPTION_PLANS.map((plan) => (
-        <Card
-          key={plan.id}
-          className={`flex flex-col ${
-            plan.mostPopular
-              ? "border-primary/50 shadow-lg relative"
-              : "border-border"
-          }`}
+    <div className="grid gap-6 md:grid-cols-3 lg:gap-8 py-8">
+      {plans.map((plan) => (
+        <Card 
+          key={plan.id} 
+          className={`flex flex-col ${plan.popular ? 'border-primary shadow-md relative' : ''}`}
         >
-          {plan.mostPopular && (
-            <div className="absolute -top-4 left-0 right-0 flex justify-center">
-              <div className="bg-primary text-primary-foreground text-sm font-medium py-1 px-4 rounded-full">
-                En Popüler
-              </div>
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle>{plan.name}</CardTitle>
-            <CardDescription>{plan.description}</CardDescription>
-            <div className="mt-4">
-              <span className="text-3xl font-bold">₺{plan.price}</span>
-              <span className="text-muted-foreground ml-1">
-                / {plan.interval === "monthly" ? "ay" : "yıl"}
+          {plan.popular && (
+            <div className="absolute -top-5 left-0 right-0 text-center">
+              <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
+                {translateUI("Popular")}
               </span>
             </div>
+          )}
+          
+          <CardHeader>
+            <CardTitle>{plan.name}</CardTitle>
+            <div className="mt-4 flex items-baseline text-5xl font-extrabold">
+              {plan.price}
+              <span className="ml-1 text-2xl font-medium text-muted-foreground">/{plan.priceLabel}</span>
+            </div>
+            <CardDescription className="mt-4">{plan.description}</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1">
+          
+          <CardContent className="flex-grow">
             <ul className="space-y-3">
               {plan.features.map((feature, index) => (
-                <li key={index} className="flex items-start">
-                  {feature.included ? (
-                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                  ) : (
-                    <X className="h-5 w-5 text-muted-foreground mr-2 mt-0.5 flex-shrink-0" />
-                  )}
-                  <span className={feature.included ? "" : "text-muted-foreground"}>
-                    {feature.name}
-                  </span>
+                <li key={index} className="flex">
+                  <Check className="h-5 w-5 text-primary flex-shrink-0 mr-2" />
+                  <span>{feature}</span>
                 </li>
               ))}
             </ul>
           </CardContent>
+          
           <CardFooter>
-            <Button
-              asChild
-              className={`w-full ${
-                currentPlan === plan.id
-                  ? "bg-green-600 hover:bg-green-700"
-                  : plan.mostPopular
-                  ? ""
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/90"
-              }`}
-              disabled={currentPlan === plan.id}
+            <Button 
+              onClick={() => onSelectPlan(plan.id)}
+              className="w-full" 
+              variant={selectedPlan === plan.id ? "default" : "outline"}
             >
-              {currentPlan === plan.id ? (
-                <div>Aktif Plan</div>
-              ) : (
-                <Link href={`/subscription/checkout?plan=${plan.id}`}>
-                  Abone Ol
-                </Link>
-              )}
+              {selectedPlan === plan.id ? 'Seçildi' : 'Seç'}
             </Button>
           </CardFooter>
         </Card>

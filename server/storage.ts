@@ -125,9 +125,38 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
     const createdAt = new Date();
-    const user: User = { ...insertUser, id, createdAt, role: "user" };
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      createdAt, 
+      role: "user",
+      subscriptionStatus: "free",
+      subscriptionPlan: null,
+      subscriptionStartDate: null,
+      subscriptionEndDate: null
+    };
     this.users.set(id, user);
     return user;
+  }
+  
+  async updateUserSubscription(id: number, updates: {
+    subscriptionStatus?: string;
+    subscriptionPlan?: string;
+    subscriptionStartDate?: Date;
+    subscriptionEndDate?: Date;
+  }): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) {
+      throw new Error(`User with id ${id} not found`);
+    }
+    
+    const updatedUser = {
+      ...user,
+      ...updates
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   // Client methods

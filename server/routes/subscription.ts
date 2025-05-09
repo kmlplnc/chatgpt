@@ -1,79 +1,79 @@
 import { Router, Request, Response } from "express";
+import { z } from "zod";
 import { storage } from "../storage";
 
+// Subscription router
 export const subscriptionRouter = Router();
 
-// Demo abonelik oluşturma - gerçek ödeme olmadan
+// Create or upgrade subscription route
 subscriptionRouter.post("/create", async (req: Request, res: Response) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Oturum açılmamış" });
+    // Check if user is authenticated
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Kimlik doğrulama gerekli" });
     }
     
-    const { planId } = req.body;
+    // Get subscription details from request body
+    const { plan } = req.body;
     
-    if (!planId) {
-      return res.status(400).json({ message: "Abonelik planı belirtilmemiş" });
+    if (!plan || !["basic", "pro", "premium"].includes(plan)) {
+      return res.status(400).json({ message: "Geçersiz abonelik planı" });
     }
     
-    const user = await storage.getUser(req.session.userId);
+    // Get the user from database
+    const user = await storage.getUser(req.session.user.id);
     
     if (!user) {
       return res.status(404).json({ message: "Kullanıcı bulunamadı" });
     }
     
-    // Abonelik bilgilerini güncelle
-    const now = new Date();
+    // Set subscription start and end dates
+    const startDate = new Date();
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + 1); // 1 aylık abonelik
     
+    // Update user subscription status
     const updatedUser = await storage.updateUserSubscription(user.id, {
       subscriptionStatus: "active",
-      subscriptionPlan: planId,
-      subscriptionStartDate: now,
+      subscriptionPlan: plan,
+      subscriptionStartDate: startDate,
       subscriptionEndDate: endDate
     });
     
-    // Hassas bilgileri çıkar
-    const { password: _, ...safeUser } = updatedUser;
-    
-    return res.status(200).json({
-      user: safeUser,
-      message: "Abonelik başarıyla oluşturuldu"
-    });
-  } catch (error) {
-    console.error("Create subscription error:", error);
-    return res.status(500).json({ message: "Abonelik oluşturulurken bir hata oluştu" });
+    // Return updated user data (excluding password)
+    const { password: _, ...userData } = updatedUser;
+    res.json(userData);
+  } catch (err) {
+    console.error("Create subscription error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-// Abonelik iptal etme
+// Cancel subscription route
 subscriptionRouter.post("/cancel", async (req: Request, res: Response) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Oturum açılmamış" });
+    // Check if user is authenticated
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Kimlik doğrulama gerekli" });
     }
     
-    const user = await storage.getUser(req.session.userId);
+    // Get the user from database
+    const user = await storage.getUser(req.session.user.id);
     
     if (!user) {
       return res.status(404).json({ message: "Kullanıcı bulunamadı" });
     }
     
-    // Aboneliği iptal et, ancak bitiş tarihine kadar aktif kalsın
+    // Update user subscription status
     const updatedUser = await storage.updateUserSubscription(user.id, {
       subscriptionStatus: "canceled"
     });
     
-    // Hassas bilgileri çıkar
-    const { password: _, ...safeUser } = updatedUser;
-    
-    return res.status(200).json({
-      user: safeUser,
-      message: "Abonelik başarıyla iptal edildi"
-    });
-  } catch (error) {
-    console.error("Cancel subscription error:", error);
-    return res.status(500).json({ message: "Abonelik iptal edilirken bir hata oluştu" });
+    // Return updated user data (excluding password)
+    const { password: _, ...userData } = updatedUser;
+    res.json(userData);
+  } catch (err) {
+    console.error("Cancel subscription error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
