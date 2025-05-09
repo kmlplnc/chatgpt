@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,9 +45,16 @@ type RegisterFormValues = z.infer<typeof registerFormSchema>;
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [_, navigate] = useLocation();
+  const { register: registerUser, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  
+  // Kullanıcı zaten giriş yapmışsa ana sayfaya yönlendir
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Form
   const form = useForm<RegisterFormValues>({
@@ -63,36 +70,24 @@ export default function Register() {
 
   // Kayıt işlemi
   const onSubmit = async (data: RegisterFormValues) => {
-    setIsLoading(true);
-
+    // confirmPassword'ü API'ye göndermeyelim
+    const { confirmPassword, ...registerData } = data;
+    
     try {
-      // confirmPassword'ü API'ye göndermeyelim
-      const { confirmPassword, ...registerData } = data;
-
-      const response = await apiRequest('POST', '/api/auth/register', registerData);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Kayıt başarısız');
+      await registerUser(registerData);
+      // Kayıt başarılı olduysa ve otomatik giriş yapılmadıysa, giriş sayfasına yönlendir
+      // useAuth hook'umuz başarılı kayıt sonrası otomatik giriş yapabilir, bu durumda useEffect otomatik olarak ana sayfaya yönlendirecektir
+      // Eğer useAuth hook'umuz otomatik giriş yapmıyorsa, burada giriş sayfasına yönlendiriyoruz
+      if (!isAuthenticated) {
+        toast({
+          title: 'Kayıt başarılı',
+          description: 'Hesabınız oluşturuldu! Giriş yapabilirsiniz.',
+        });
+        navigate('/login');
       }
-
-      const userData = await response.json();
-
-      toast({
-        title: 'Kayıt başarılı',
-        description: 'Hesabınız oluşturuldu! Giriş yapabilirsiniz.',
-      });
-
-      // Giriş sayfasına yönlendir
-      navigate('/login');
-    } catch (error: any) {
-      toast({
-        title: 'Kayıt başarısız',
-        description: error.message || 'Lütfen bilgilerinizi kontrol edin',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      // Hata durumunda toast uyarısını useAuth hook içinde yönetiyoruz
+      // Burada ek bir işlem yapmaya gerek yok
     }
   };
 
