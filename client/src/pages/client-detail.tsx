@@ -30,7 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import MeasurementChart from "@/components/clients/measurement-chart";
-import BodyVisualization from "@/components/clients/body-visualization";
+import EnhancedMeasurementChart from "@/components/clients/enhanced-measurement-chart";
 import { queryClient } from "@/lib/queryClient";
 import { calculateBMI, formatDate } from "@/lib/utils";
 
@@ -1024,14 +1024,12 @@ export default function ClientDetail() {
             <div className="grid grid-cols-1 gap-6">
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-semibold">2D Vücut Modeli</h2>
+                  <h2 className="text-xl font-semibold">Gelişmiş Ölçüm Grafiği</h2>
                 </div>
                 
-                <BodyVisualization 
-                  measurements={measurements}
-                  gender={client?.gender === "female" ? "female" : "male"}
-                  title="Vücut Yapısı Görselleştirmesi"
-                  showComparison={true}
+                <EnhancedMeasurementChart 
+                  measurements={measurements || []}
+                  title="Vücut Ölçümleri Grafiği"
                 />
               </div>
               
