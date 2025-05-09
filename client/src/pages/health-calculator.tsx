@@ -3,6 +3,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import ProtectedFeature from "@/components/premium/protected-feature";
 import {
   Card,
   CardContent,
@@ -342,9 +343,9 @@ export default function HealthCalculator() {
     const fatGrams = Math.round((targetCalories * (data.fatPercentage / 100)) / 9); // 1g yağ = 9 kalori
     
     const macros = {
-      proteinGrams,
-      carbGrams,
-      fatGrams
+      protein: proteinGrams,
+      carbs: carbGrams,
+      fat: fatGrams
     };
     
     // Sonuçları ayarla
@@ -354,9 +355,9 @@ export default function HealthCalculator() {
       bmi,
       bmiCategory,
       macros: {
-        protein: macros.proteinGrams,
-        carbs: macros.carbGrams,
-        fat: macros.fatGrams
+        protein: macros.protein,
+        carbs: macros.carbs,
+        fat: macros.fat
       },
       targetCalories
     });
@@ -375,542 +376,456 @@ export default function HealthCalculator() {
   };
   
   return (
-    <div className="container max-w-4xl mx-auto py-6 space-y-8">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Sağlık Hesaplayıcısı</h1>
-        <p className="text-muted-foreground">
-          BMH (Bazal Metabolizma Hızı), BKİ (Beden Kitle İndeksi) ve besin gereksinimlerinizi hesaplayın
-        </p>
-      </div>
+    <ProtectedFeature featureName="Sağlık Hesaplayıcısı">
+      <div className="container max-w-4xl mx-auto py-6 space-y-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2">Sağlık Hesaplayıcısı</h1>
+          <p className="text-muted-foreground">
+            BMH (Bazal Metabolizma Hızı), BKİ (Beden Kitle İndeksi) ve besin gereksinimlerinizi hesaplayın
+          </p>
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 w-full">
-          <TabsTrigger value="bmr-calculator">Hesaplayıcı</TabsTrigger>
-          <TabsTrigger value="results" disabled={!calculationResult}>
-            Sonuçlar
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="bmr-calculator" className="p-4 border rounded-lg mt-4">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Kişisel Bilgiler</CardTitle>
-                  <CardDescription>
-                    Doğru sonuçlar için lütfen tüm bilgileri doğru şekilde girin
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="bmr-calculator">Hesaplayıcı</TabsTrigger>
+            <TabsTrigger value="results" disabled={!calculationResult}>
+              Sonuçlar
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="bmr-calculator" className="p-4 border rounded-lg mt-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Kişisel Bilgiler</CardTitle>
+                    <CardDescription>
+                      Doğru sonuçlar için lütfen tüm bilgileri doğru şekilde girin
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cinsiyet</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Cinsiyet seçin" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="male">Erkek</SelectItem>
+                                <SelectItem value="female">Kadın</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="age"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Yaş</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="height"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Boy (cm)</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="weight"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Kilo (kg)</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              Güncel BKİ: {calculateBMI(watchedValues.weight, watchedValues.height).toFixed(1)} - 
+                              {getBMICategory(calculateBMI(watchedValues.weight, watchedValues.height))}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
                     <FormField
                       control={form.control}
-                      name="gender"
+                      name="activityLevel"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Cinsiyet</FormLabel>
+                          <FormLabel>Aktivite Seviyesi</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Cinsiyet seçin" />
+                                <SelectValue placeholder="Aktivite seviyenizi seçin" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="male">Erkek</SelectItem>
-                              <SelectItem value="female">Kadın</SelectItem>
+                              <SelectItem value="sedentary">Hareketsiz</SelectItem>
+                              <SelectItem value="light">Hafif Aktivite</SelectItem>
+                              <SelectItem value="moderate">Orta Aktivite</SelectItem>
+                              <SelectItem value="active">Aktif</SelectItem>
+                              <SelectItem value="very_active">Çok Aktif</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            {activityLevelDescriptions[watchedValues.activityLevel]}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="goal"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hedef</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Hedefinizi seçin" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="lose">Kilo Vermek</SelectItem>
+                              <SelectItem value="maintain">Kilo Korumak</SelectItem>
+                              <SelectItem value="gain">Kilo Almak</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
-                    <FormField
-                      control={form.control}
-                      name="age"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Yaş</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Boy (cm)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="weight"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kilo (kg)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Güncel BKİ: {calculateBMI(watchedValues.weight, watchedValues.height).toFixed(1)} - 
-                            {getBMICategory(calculateBMI(watchedValues.weight, watchedValues.height))}
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="activityLevel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Aktivite Seviyesi</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Aktivite seviyenizi seçin" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="sedentary">Hareketsiz</SelectItem>
-                            <SelectItem value="light">Hafif Aktivite</SelectItem>
-                            <SelectItem value="moderate">Orta Aktivite</SelectItem>
-                            <SelectItem value="active">Aktif</SelectItem>
-                            <SelectItem value="very_active">Çok Aktif</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          {activityLevelDescriptions[watchedValues.activityLevel]}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="goal"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Hedef</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Hedefinizi seçin" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="lose">Kilo Vermek</SelectItem>
-                            <SelectItem value="maintain">Kiloyu Korumak</SelectItem>
-                            <SelectItem value="gain">Kilo Almak</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Makro Besin Dağılımı</CardTitle>
-                  <CardDescription>
-                    Protein, karbonhidrat ve yağ dağılımını ayarlayın (toplam %100 olmalıdır)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Toplam: {watchedValues.proteinPercentage + watchedValues.carbsPercentage + watchedValues.fatPercentage}%</span>
-                    {watchedValues.proteinPercentage + watchedValues.carbsPercentage + watchedValues.fatPercentage !== 100 && (
-                      <span className="text-destructive">Toplam %100 olmalıdır</span>
-                    )}
-                  </div>
+                  </CardContent>
+                </Card>
                 
-                  <FormField
-                    control={form.control}
-                    name="proteinPercentage"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <div className="flex justify-between">
-                          <FormLabel>Protein: {field.value}%</FormLabel>
-                        </div>
-                        <FormControl>
-                          <Slider
-                            value={[field.value]}
-                            min={10}
-                            max={60}
-                            step={1}
-                            onValueChange={(values) => field.onChange(values[0])}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="carbsPercentage"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <div className="flex justify-between">
-                          <FormLabel>Karbonhidrat: {field.value}%</FormLabel>
-                        </div>
-                        <FormControl>
-                          <Slider
-                            value={[field.value]}
-                            min={10}
-                            max={70}
-                            step={1}
-                            onValueChange={(values) => field.onChange(values[0])}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="fatPercentage"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <div className="flex justify-between">
-                          <FormLabel>Yağ: {field.value}%</FormLabel>
-                        </div>
-                        <FormControl>
-                          <Slider
-                            value={[field.value]}
-                            min={10}
-                            max={70}
-                            step={1}
-                            disabled={true}
-                            onValueChange={(values) => field.onChange(values[0])}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Yağ değeri otomatik olarak hesaplanır (Protein + Karbonhidrat toplamının %100'e tamamlayıcısı)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-              
-              <div className="flex justify-end">
-                <Button type="submit" size="lg">
-                  Hesapla
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </TabsContent>
-        
-        <TabsContent value="results" className="mt-4">
-          {calculationResult && (
-            <div className="space-y-8">
-              {/* Danışan seçme alanı */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Danışan Seçimi</CardTitle>
-                  <CardDescription>
-                    Bu sonuçları kaydetmek istediğiniz danışanı seçin
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="client-select" className="text-sm font-medium">
-                        Danışan
-                      </label>
-                      <Select
-                        value={selectedClientId?.toString() || ""}
-                        onValueChange={(value) => setSelectedClientId(Number(value))}
-                      >
-                        <SelectTrigger id="client-select" className="w-full">
-                          <SelectValue placeholder="Danışan seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clients.length === 0 ? (
-                            <SelectItem value="empty" disabled>
-                              Kayıtlı danışan bulunamadı
-                            </SelectItem>
-                          ) : (
-                            clients.map((client: any) => (
-                              <SelectItem key={client.id} value={client.id.toString()}>
-                                {client.firstName} {client.lastName}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Makro Besin Oranları</CardTitle>
+                    <CardDescription>
+                      Protein, karbonhidrat ve yağ oranlarınızı ayarlayın (toplam 100% olmalıdır)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <FormLabel>Protein (%{watchedValues.proteinPercentage})</FormLabel>
+                        <span className="text-sm text-muted-foreground">{watchedValues.proteinPercentage}%</span>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="proteinPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Slider
+                                min={10}
+                                max={60}
+                                step={1}
+                                value={[field.value]}
+                                onValueChange={([value]) => field.onChange(value)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     
-                    <Button 
-                      onClick={saveMeasurementToClient}
-                      disabled={!selectedClientId || saveMeasurementMutation.isPending}
-                      className="w-full"
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <FormLabel>Karbonhidrat (%{watchedValues.carbsPercentage})</FormLabel>
+                        <span className="text-sm text-muted-foreground">{watchedValues.carbsPercentage}%</span>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="carbsPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Slider
+                                min={10}
+                                max={70}
+                                step={1}
+                                value={[field.value]}
+                                onValueChange={([value]) => field.onChange(value)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <FormLabel>Yağ (%{watchedValues.fatPercentage})</FormLabel>
+                        <span className="text-sm text-muted-foreground">{watchedValues.fatPercentage}%</span>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="fatPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Slider
+                                min={10}
+                                max={70}
+                                step={1}
+                                disabled
+                                value={[field.value]}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Yağ oranı otomatik olarak hesaplanır (Protein + Karbonhidrat + Yağ = 100%)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    {watchedValues.proteinPercentage + watchedValues.carbsPercentage + watchedValues.fatPercentage !== 100 && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Dikkat!</AlertTitle>
+                        <AlertDescription>
+                          Makro besin oranları toplamı 100% olmalıdır. Şu anki toplam: {watchedValues.proteinPercentage + watchedValues.carbsPercentage + watchedValues.fatPercentage}%
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Danışan Seçimi (Opsiyonel)</CardTitle>
+                    <CardDescription>
+                      Sonuçları kaydetmek için bir danışan seçebilirsiniz
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Select
+                      value={selectedClientId?.toString() || ""}
+                      onValueChange={(value) => setSelectedClientId(parseInt(value))}
                     >
-                      {saveMeasurementMutation.isPending ? (
-                        "Kaydediliyor..."
-                      ) : (
-                        "Sonuçları Danışana Kaydet"
-                      )}
+                      <SelectTrigger>
+                        <SelectValue placeholder="Danışan seçin (opsiyonel)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isClientsLoading ? (
+                          <SelectItem value="loading" disabled>Yükleniyor...</SelectItem>
+                        ) : clients.length === 0 ? (
+                          <SelectItem value="empty" disabled>Danışan bulunamadı</SelectItem>
+                        ) : (
+                          clients.map((client: any) => (
+                            <SelectItem key={client.id} value={client.id.toString()}>
+                              {client.firstName} {client.lastName}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button type="button" variant="outline">Sıfırla</Button>
+                    <Button type="submit">Hesapla</Button>
+                  </CardFooter>
+                </Card>
+              </form>
+            </Form>
+          </TabsContent>
+          
+          <TabsContent value="results" className="mt-4">
+            {calculationResult && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Genel Metabolik Değerler</CardTitle>
+                    <CardDescription>
+                      Hesaplanan metabolik değerleriniz ve günlük enerji ihtiyacınız
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Bazal Metabolizma Hızı (BMH)</h3>
+                        <div className="text-3xl font-bold">{calculationResult.bmr} kcal</div>
+                        <p className="text-xs text-muted-foreground">
+                          Hiçbir aktivite yapmadan günlük yakılan kalori miktarı
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Toplam Günlük Enerji Tüketimi</h3>
+                        <div className="text-3xl font-bold">{calculationResult.tdee} kcal</div>
+                        <p className="text-xs text-muted-foreground">
+                          Aktivite seviyenize göre günlük yakılan kalori
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Beden Kitle İndeksi (BKİ)</h3>
+                        <div className="text-3xl font-bold">{calculationResult.bmi.toFixed(1)}</div>
+                        <p className={`text-xs ${getBMIColorClass(calculationResult.bmi)}`}>
+                          {calculationResult.bmiCategory}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Hedef Günlük Kalori</h3>
+                      <div className="text-4xl font-bold">{calculationResult.targetCalories} kcal</div>
+                      <p className="text-sm text-muted-foreground">
+                        {form.getValues().goal === "lose" && "Kilo vermek için günlük kalori hedefiniz"}
+                        {form.getValues().goal === "maintain" && "Kilonuzu korumak için günlük kalori hedefiniz"}
+                        {form.getValues().goal === "gain" && "Kilo almak için günlük kalori hedefiniz"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Makro Besin Dağılımı</CardTitle>
+                    <CardDescription>
+                      Günlük protein, karbonhidrat ve yağ miktarları
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Protein</h3>
+                        <div className="text-3xl font-bold">{calculationResult.macros.protein}g</div>
+                        <p className="text-xs text-muted-foreground">
+                          Günlük protein ihtiyacınız (toplam kalorilerin %{form.getValues().proteinPercentage}'i)
+                        </p>
+                        <Progress value={form.getValues().proteinPercentage} className="h-2 bg-secondary" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Karbonhidrat</h3>
+                        <div className="text-3xl font-bold">{calculationResult.macros.carbs}g</div>
+                        <p className="text-xs text-muted-foreground">
+                          Günlük karbonhidrat ihtiyacınız (toplam kalorilerin %{form.getValues().carbsPercentage}'i)
+                        </p>
+                        <Progress value={form.getValues().carbsPercentage} className="h-2 bg-secondary" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Yağ</h3>
+                        <div className="text-3xl font-bold">{calculationResult.macros.fat}g</div>
+                        <p className="text-xs text-muted-foreground">
+                          Günlük yağ ihtiyacınız (toplam kalorilerin %{form.getValues().fatPercentage}'i)
+                        </p>
+                        <Progress value={form.getValues().fatPercentage} className="h-2 bg-secondary" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vitamin ve Mineral Gereksinimleri</CardTitle>
+                    <CardDescription>
+                      Cinsiyetinize göre günlük vitamin ve mineral gereksinimleri
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">Vitaminler</h3>
+                        <div className="space-y-3">
+                          {nutrientRequirements[form.getValues().gender]
+                            .filter(nutrient => nutrient.group === "vitamin")
+                            .map((nutrient, index) => (
+                              <div key={index} className="flex justify-between items-center">
+                                <div>
+                                  <span className="font-medium">{nutrient.name}</span>
+                                  <p className="text-xs text-muted-foreground">{nutrient.description}</p>
+                                </div>
+                                <span className="text-sm font-semibold">
+                                  {nutrient.amount} {nutrient.unit}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">Mineraller</h3>
+                        <div className="space-y-3">
+                          {nutrientRequirements[form.getValues().gender]
+                            .filter(nutrient => nutrient.group === "mineral")
+                            .map((nutrient, index) => (
+                              <div key={index} className="flex justify-between items-center">
+                                <div>
+                                  <span className="font-medium">{nutrient.name}</span>
+                                  <p className="text-xs text-muted-foreground">{nutrient.description}</p>
+                                </div>
+                                <span className="text-sm font-semibold">
+                                  {nutrient.amount} {nutrient.unit}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {selectedClientId && (
+                  <div className="flex justify-end mt-6">
+                    <Button onClick={saveMeasurementToClient} disabled={saveMeasurementMutation.isPending}>
+                      {saveMeasurementMutation.isPending ? "Kaydediliyor..." : "Danışana Kaydet"}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Metabolizma ve Kalori Sonuçları</CardTitle>
-                  <CardDescription>
-                    Hesaplamalarınıza göre metabolizma ve kalori ihtiyacınız
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold">BMH (Bazal Metabolizma Hızı)</h3>
-                      <div className="text-3xl font-bold text-primary">
-                        {calculationResult.bmr} kcal
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        İstirahat halinde vücudunuzun harcadığı enerji miktarı
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold">TDEE (Toplam Enerji Harcaması)</h3>
-                      <div className="text-3xl font-bold text-primary">
-                        {calculationResult.tdee} kcal
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Günlük aktiviteleriniz dahil toplam harcadığınız enerji
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold">Hedef Kalori</h3>
-                      <div className="text-3xl font-bold text-primary">
-                        {calculationResult.targetCalories} kcal
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Seçtiğiniz hedefe göre günlük almanız gereken kalori
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">BKİ (Beden Kitle İndeksi)</h3>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-3xl font-bold w-24">
-                        {calculationResult.bmi.toFixed(1)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="relative w-full h-3 bg-gray-200 rounded-full">
-                          <div 
-                            className="absolute h-3 bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded-full"
-                            style={{ width: "100%" }}
-                          />
-                          <div 
-                            className="absolute w-4 h-4 bg-primary rounded-full -top-0.5 border-2 border-white"
-                            style={{ 
-                              left: `${Math.min(Math.max(calculationResult.bmi / 40 * 100, 0), 90)}%`,
-                              transform: "translateX(-50%)" 
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-xs mt-1">
-                          <span>18.5</span>
-                          <span>25</span>
-                          <span>30</span>
-                          <span>40</span>
-                        </div>
-                      </div>
-                      <div className="w-32 text-right">
-                        <span className={`font-semibold px-2 py-1 rounded-full text-white
-                          ${calculationResult.bmi < 18.5 ? 'bg-blue-500' : ''}
-                          ${calculationResult.bmi >= 18.5 && calculationResult.bmi < 25 ? 'bg-green-500' : ''}
-                          ${calculationResult.bmi >= 25 && calculationResult.bmi < 30 ? 'bg-yellow-500' : ''}
-                          ${calculationResult.bmi >= 30 ? 'bg-red-500' : ''}
-                        `}>
-                          {calculationResult.bmiCategory}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      BKİ, boy ve kilonuza göre vücut durumunuzu kategorize eder. Bu değer sadece genel bir göstergedir ve vücut kompozisyonunuzdaki kas, yağ dağılımını dikkate almaz.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Makro Besin Gereksinimi</CardTitle>
-                  <CardDescription>
-                    Günlük makro besin gereksinimleriniz
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex flex-col items-center p-4 bg-green-50 rounded-lg border border-green-100">
-                      <div className="text-xl font-bold text-green-600 mb-1">Protein</div>
-                      <div className="text-3xl font-bold">{calculationResult.macros.protein}g</div>
-                      <div className="text-sm text-muted-foreground">
-                        {Math.round(calculationResult.macros.protein * 4)} kcal
-                      </div>
-                      <Progress 
-                        value={watchedValues.proteinPercentage} 
-                        className="h-2 mt-2 bg-green-100" 
-                      />
-                      <div className="text-sm mt-1">{watchedValues.proteinPercentage}%</div>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg border border-blue-100">
-                      <div className="text-xl font-bold text-blue-600 mb-1">Karbonhidrat</div>
-                      <div className="text-3xl font-bold">{calculationResult.macros.carbs}g</div>
-                      <div className="text-sm text-muted-foreground">
-                        {Math.round(calculationResult.macros.carbs * 4)} kcal
-                      </div>
-                      <Progress 
-                        value={watchedValues.carbsPercentage} 
-                        className="h-2 mt-2 bg-blue-100" 
-                      />
-                      <div className="text-sm mt-1">{watchedValues.carbsPercentage}%</div>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 bg-amber-50 rounded-lg border border-amber-100">
-                      <div className="text-xl font-bold text-amber-600 mb-1">Yağ</div>
-                      <div className="text-3xl font-bold">{calculationResult.macros.fat}g</div>
-                      <div className="text-sm text-muted-foreground">
-                        {Math.round(calculationResult.macros.fat * 9)} kcal
-                      </div>
-                      <Progress 
-                        value={watchedValues.fatPercentage} 
-                        className="h-2 mt-2 bg-amber-100" 
-                      />
-                      <div className="text-sm mt-1">{watchedValues.fatPercentage}%</div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 text-sm text-muted-foreground">
-                    <p>
-                      <strong>Protein:</strong> Kas onarımı ve büyümesi için önemlidir. Her kilogram vücut ağırlığı için 1.6-2.2g protein önerilir.
-                    </p>
-                    <p className="mt-2">
-                      <strong>Karbonhidrat:</strong> Birincil enerji kaynağınızdır. Aktivite seviyenize göre toplam kalorinin %40-60'ı karbonhidratlardan gelmelidir.
-                    </p>
-                    <p className="mt-2">
-                      <strong>Yağ:</strong> Hormonal fonksiyonlar için gereklidir. Toplam kalorinin en az %20'si yağlardan gelmelidir.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vitamin ve Mineral Gereksinimleri</CardTitle>
-                  <CardDescription>
-                    Günlük vitamin ve mineral ihtiyaçlarınız
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="vitamins" className="w-full">
-                    <TabsList className="grid grid-cols-2 w-full">
-                      <TabsTrigger value="vitamins">Vitaminler</TabsTrigger>
-                      <TabsTrigger value="minerals">Mineraller</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="vitamins" className="pt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {nutrientRequirements[watchedValues.gender]
-                          .filter(nutrient => nutrient.group === "vitamin")
-                          .map((vitamin, index) => (
-                            <div key={index} className="flex justify-between p-3 border rounded-lg">
-                              <div>
-                                <div className="font-medium">{vitamin.name}</div>
-                                <div className="text-xs text-muted-foreground">{vitamin.description}</div>
-                              </div>
-                              <div className="font-semibold text-right">
-                                {vitamin.amount} {vitamin.unit}
-                              </div>
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="minerals" className="pt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {nutrientRequirements[watchedValues.gender]
-                          .filter(nutrient => nutrient.group === "mineral")
-                          .map((mineral, index) => (
-                            <div key={index} className="flex justify-between p-3 border rounded-lg">
-                              <div>
-                                <div className="font-medium">{mineral.name}</div>
-                                <div className="text-xs text-muted-foreground">{mineral.description}</div>
-                              </div>
-                              <div className="font-semibold text-right">
-                                {mineral.amount} {mineral.unit}
-                              </div>
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                  
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm">
-                    <p className="font-medium text-blue-800">Not:</p>
-                    <p className="text-blue-700">
-                      Bu değerler yetişkinler için genel referans değerlerdir. Bireysel ihtiyaçlarınız yaş, cinsiyet, sağlık durumu ve özel koşullarınıza göre değişebilir. Detaylı bilgi için diyetisyen veya sağlık uzmanına danışınız.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <div className="flex justify-end space-x-4">
-                <Button variant="outline" onClick={() => setActiveTab("bmr-calculator")}>
-                  Düzenle
-                </Button>
-                <Button>
-                  Sonuçları Kaydet
-                </Button>
+                )}
               </div>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </ProtectedFeature>
   );
 }
