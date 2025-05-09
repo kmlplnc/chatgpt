@@ -124,179 +124,378 @@ export default function EnhancedHumanModel({
     }
   };
   
-  // Manuel olarak model oluştur
+  // Manuel olarak daha gelişmiş insan modeli oluştur
   const createCustomModel = (isMaleModel: boolean): THREE.Group => {
     // Ana grup
     const modelGroup = new THREE.Group();
     modelGroup.name = isMaleModel ? "Erkek Modeli" : "Kadın Modeli";
     
     // Material (renk sonra değiştirilecek)
-    const skinMaterial = new THREE.MeshStandardMaterial({
+    const skinMaterial = new THREE.MeshPhongMaterial({
       color: 0xAFAFAF,
-      roughness: 0.8,
-      metalness: 0.1
+      shininess: 10,
+      specular: 0x111111,
+      flatShading: false
     });
     
-    // Kafa
+    // KAFA GRUBU
+    const headGroup = new THREE.Group();
+    headGroup.name = "headGroup";
+    headGroup.position.y = isMaleModel ? 1.65 : 1.6;
+    
+    // Kafa ana kısmı
     const headGeometry = new THREE.SphereGeometry(
-      isMaleModel ? 0.25 : 0.23, 
+      isMaleModel ? 0.18 : 0.17, 
       32, 
       32
     );
-    const head = new THREE.Mesh(headGeometry, skinMaterial);
-    head.position.y = isMaleModel ? 1.5 : 1.45;
+    const head = new THREE.Mesh(headGeometry, skinMaterial.clone());
     head.name = "head";
-    modelGroup.add(head);
+    headGroup.add(head);
     
-    // Göğüs bölgesi
-    const torsoGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.3 : 0.28, 
-      isMaleModel ? 0.25 : 0.24, 
-      isMaleModel ? 0.8 : 0.75, 
-      32
+    // Çene kısmı
+    const jawGeometry = new THREE.SphereGeometry(
+      isMaleModel ? 0.15 : 0.14,
+      32, 
+      16, 
+      0, 
+      Math.PI * 2, 
+      Math.PI / 2, 
+      Math.PI / 4
     );
-    const torso = new THREE.Mesh(torsoGeometry, skinMaterial);
-    torso.position.y = 0.8;
-    torso.name = "torso";
-    modelGroup.add(torso);
+    const jaw = new THREE.Mesh(jawGeometry, skinMaterial.clone());
+    jaw.position.y = -0.1;
+    jaw.position.z = 0.02;
+    jaw.name = "jaw";
+    headGroup.add(jaw);
+    
+    // Boyun
+    const neckGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.08 : 0.07,
+      isMaleModel ? 0.1 : 0.08,
+      0.15,
+      16
+    );
+    const neck = new THREE.Mesh(neckGeometry, skinMaterial.clone());
+    neck.position.y = -0.18;
+    neck.name = "neck";
+    headGroup.add(neck);
+    
+    modelGroup.add(headGroup);
+    
+    // VÜCUT GRUBU
+    const bodyGroup = new THREE.Group();
+    bodyGroup.name = "bodyGroup";
+    
+    // Omuzlar
+    const shouldersGeometry = new THREE.BoxGeometry(
+      isMaleModel ? 0.6 : 0.55,
+      0.12,
+      0.2
+    );
+    shouldersGeometry.translate(0, 1.35, 0);
+    const shoulders = new THREE.Mesh(shouldersGeometry, skinMaterial.clone());
+    shoulders.name = "shoulders";
+    bodyGroup.add(shoulders);
+    
+    // Göğüs üst kısmı - daha anatomik
+    const chestGeometry = new THREE.SphereGeometry(
+      isMaleModel ? 0.28 : 0.26,
+      32,
+      32,
+      0,
+      Math.PI * 2,
+      0,
+      Math.PI / 2
+    );
+    chestGeometry.scale(1, 0.8, 0.6);
+    chestGeometry.translate(0, 1.25, 0.05);
+    const chest = new THREE.Mesh(chestGeometry, skinMaterial.clone());
+    chest.name = "chest";
+    bodyGroup.add(chest);
+    
+    // Cinsiyet bazlı göğüs detayları
+    if (!isMaleModel) {
+      // Kadın göğsü
+      const leftBreastGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+      const leftBreast = new THREE.Mesh(leftBreastGeometry, skinMaterial.clone());
+      leftBreast.position.set(0.1, 1.2, 0.12);
+      leftBreast.name = "leftBreast";
+      bodyGroup.add(leftBreast);
+      
+      const rightBreastGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+      const rightBreast = new THREE.Mesh(rightBreastGeometry, skinMaterial.clone());
+      rightBreast.position.set(-0.1, 1.2, 0.12);
+      rightBreast.name = "rightBreast";
+      bodyGroup.add(rightBreast);
+    } else {
+      // Erkek göğüs kasları
+      const pectoralsGeometry = new THREE.BoxGeometry(0.4, 0.15, 0.05);
+      pectoralsGeometry.translate(0, 1.2, 0.12);
+      const pectorals = new THREE.Mesh(pectoralsGeometry, skinMaterial.clone());
+      pectorals.name = "pectorals";
+      bodyGroup.add(pectorals);
+    }
+    
+    // Karın bölgesi
+    const abdomenGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.22 : 0.20,
+      isMaleModel ? 0.25 : 0.24,
+      0.3,
+      16
+    );
+    abdomenGeometry.translate(0, 1.0, 0);
+    const abdomen = new THREE.Mesh(abdomenGeometry, skinMaterial.clone());
+    abdomen.name = "abdomen";
+    bodyGroup.add(abdomen);
+    
+    // Alt karın (göbek bölgesi)
+    const lowerAbdomenGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.25 : 0.24,
+      isMaleModel ? 0.28 : 0.32, // Kadında hafif genişleme
+      0.25,
+      16
+    );
+    lowerAbdomenGeometry.translate(0, 0.75, 0);
+    const lowerAbdomen = new THREE.Mesh(lowerAbdomenGeometry, skinMaterial.clone());
+    lowerAbdomen.name = "lowerAbdomen";
+    bodyGroup.add(lowerAbdomen);
     
     // Kalça bölgesi
+    const hipWidth = isMaleModel ? 0.27 : 0.33; // Kadında daha geniş kalça
     const hipGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.28 : 0.24, 
-      isMaleModel ? 0.26 : 0.3, 
-      0.25, 
-      32
+      hipWidth,
+      hipWidth * 0.95,
+      0.2,
+      16
     );
-    const hip = new THREE.Mesh(hipGeometry, skinMaterial);
-    hip.position.y = 0.35;
+    hipGeometry.translate(0, 0.55, 0);
+    const hip = new THREE.Mesh(hipGeometry, skinMaterial.clone());
     hip.name = "hip";
-    modelGroup.add(hip);
+    bodyGroup.add(hip);
     
-    // Sol kol grubu
-    const leftArm = new THREE.Group();
-    leftArm.name = "leftArm";
-    leftArm.position.set(-(isMaleModel ? 0.4 : 0.37), 0.9, 0);
-    leftArm.rotation.z = -0.2;
+    modelGroup.add(bodyGroup);
+    
+    // SOL KOL GRUBU (daha anatomik)
+    const leftArmGroup = new THREE.Group();
+    leftArmGroup.name = "leftArmGroup";
+    leftArmGroup.position.set(-(isMaleModel ? 0.34 : 0.3), 1.32, 0);
+    leftArmGroup.rotation.z = -0.1;
+    
+    // Omuz eklemi
+    const leftShoulderJointGeometry = new THREE.SphereGeometry(0.06, 16, 16);
+    const leftShoulderJoint = new THREE.Mesh(leftShoulderJointGeometry, skinMaterial.clone());
+    leftShoulderJoint.name = "leftShoulderJoint";
+    leftArmGroup.add(leftShoulderJoint);
     
     // Sol üst kol
     const leftUpperArmGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.08 : 0.07, 
-      isMaleModel ? 0.06 : 0.055, 
-      isMaleModel ? 0.35 : 0.33, 
-      32
+      isMaleModel ? 0.06 : 0.05, 
+      isMaleModel ? 0.05 : 0.045, 
+      0.28, 
+      16
     );
-    const leftUpperArm = new THREE.Mesh(leftUpperArmGeometry, skinMaterial);
-    leftUpperArm.position.y = -(isMaleModel ? 0.175 : 0.165);
+    leftUpperArmGeometry.translate(0, -0.15, 0);
+    const leftUpperArm = new THREE.Mesh(leftUpperArmGeometry, skinMaterial.clone());
     leftUpperArm.name = "leftUpperArm";
-    leftArm.add(leftUpperArm);
+    leftUpperArm.rotation.z = -0.1;
+    leftArmGroup.add(leftUpperArm);
+    
+    // Sol dirsek eklemi
+    const leftElbowJointGeometry = new THREE.SphereGeometry(0.045, 16, 16);
+    const leftElbowJoint = new THREE.Mesh(leftElbowJointGeometry, skinMaterial.clone());
+    leftElbowJoint.position.y = -0.3;
+    leftElbowJoint.name = "leftElbowJoint";
+    leftArmGroup.add(leftElbowJoint);
     
     // Sol alt kol
     const leftLowerArmGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.06 : 0.055, 
-      isMaleModel ? 0.05 : 0.045, 
-      isMaleModel ? 0.35 : 0.33, 
-      32
+      isMaleModel ? 0.045 : 0.04, 
+      isMaleModel ? 0.04 : 0.035, 
+      0.26, 
+      16
     );
-    const leftLowerArm = new THREE.Mesh(leftLowerArmGeometry, skinMaterial);
-    leftLowerArm.position.y = -(isMaleModel ? 0.525 : 0.495);
+    leftLowerArmGeometry.translate(0, -0.43, 0);
+    const leftLowerArm = new THREE.Mesh(leftLowerArmGeometry, skinMaterial.clone());
     leftLowerArm.name = "leftLowerArm";
-    leftArm.add(leftLowerArm);
+    leftLowerArm.rotation.z = -0.1;
+    leftArmGroup.add(leftLowerArm);
     
-    modelGroup.add(leftArm);
+    // Sol el
+    const leftHandGeometry = new THREE.SphereGeometry(0.035, 16, 16);
+    leftHandGeometry.scale(1, 1.1, 0.8);
+    const leftHand = new THREE.Mesh(leftHandGeometry, skinMaterial.clone());
+    leftHand.position.y = -0.57;
+    leftHand.name = "leftHand";
+    leftArmGroup.add(leftHand);
     
-    // Sağ kol grubu
-    const rightArm = new THREE.Group();
-    rightArm.name = "rightArm";
-    rightArm.position.set((isMaleModel ? 0.4 : 0.37), 0.9, 0);
-    rightArm.rotation.z = 0.2;
+    modelGroup.add(leftArmGroup);
+    
+    // SAĞ KOL GRUBU
+    const rightArmGroup = new THREE.Group();
+    rightArmGroup.name = "rightArmGroup";
+    rightArmGroup.position.set((isMaleModel ? 0.34 : 0.3), 1.32, 0);
+    rightArmGroup.rotation.z = 0.1;
+    
+    // Omuz eklemi
+    const rightShoulderJointGeometry = new THREE.SphereGeometry(0.06, 16, 16);
+    const rightShoulderJoint = new THREE.Mesh(rightShoulderJointGeometry, skinMaterial.clone());
+    rightShoulderJoint.name = "rightShoulderJoint";
+    rightArmGroup.add(rightShoulderJoint);
     
     // Sağ üst kol
     const rightUpperArmGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.08 : 0.07, 
-      isMaleModel ? 0.06 : 0.055, 
-      isMaleModel ? 0.35 : 0.33, 
-      32
+      isMaleModel ? 0.06 : 0.05, 
+      isMaleModel ? 0.05 : 0.045, 
+      0.28, 
+      16
     );
-    const rightUpperArm = new THREE.Mesh(rightUpperArmGeometry, skinMaterial);
-    rightUpperArm.position.y = -(isMaleModel ? 0.175 : 0.165);
+    rightUpperArmGeometry.translate(0, -0.15, 0);
+    const rightUpperArm = new THREE.Mesh(rightUpperArmGeometry, skinMaterial.clone());
     rightUpperArm.name = "rightUpperArm";
-    rightArm.add(rightUpperArm);
+    rightUpperArm.rotation.z = 0.1;
+    rightArmGroup.add(rightUpperArm);
+    
+    // Sağ dirsek eklemi
+    const rightElbowJointGeometry = new THREE.SphereGeometry(0.045, 16, 16);
+    const rightElbowJoint = new THREE.Mesh(rightElbowJointGeometry, skinMaterial.clone());
+    rightElbowJoint.position.y = -0.3;
+    rightElbowJoint.name = "rightElbowJoint";
+    rightArmGroup.add(rightElbowJoint);
     
     // Sağ alt kol
     const rightLowerArmGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.06 : 0.055, 
-      isMaleModel ? 0.05 : 0.045, 
-      isMaleModel ? 0.35 : 0.33, 
-      32
+      isMaleModel ? 0.045 : 0.04, 
+      isMaleModel ? 0.04 : 0.035, 
+      0.26, 
+      16
     );
-    const rightLowerArm = new THREE.Mesh(rightLowerArmGeometry, skinMaterial);
-    rightLowerArm.position.y = -(isMaleModel ? 0.525 : 0.495);
+    rightLowerArmGeometry.translate(0, -0.43, 0);
+    const rightLowerArm = new THREE.Mesh(rightLowerArmGeometry, skinMaterial.clone());
     rightLowerArm.name = "rightLowerArm";
-    rightArm.add(rightLowerArm);
+    rightLowerArm.rotation.z = 0.1;
+    rightArmGroup.add(rightLowerArm);
     
-    modelGroup.add(rightArm);
+    // Sağ el
+    const rightHandGeometry = new THREE.SphereGeometry(0.035, 16, 16);
+    rightHandGeometry.scale(1, 1.1, 0.8);
+    const rightHand = new THREE.Mesh(rightHandGeometry, skinMaterial.clone());
+    rightHand.position.y = -0.57;
+    rightHand.name = "rightHand";
+    rightArmGroup.add(rightHand);
     
-    // Sol bacak grubu
-    const leftLeg = new THREE.Group();
-    leftLeg.name = "leftLeg";
-    leftLeg.position.set(-(isMaleModel ? 0.15 : 0.14), 0.1, 0);
+    modelGroup.add(rightArmGroup);
+    
+    // SOL BACAK GRUBU
+    const leftLegGroup = new THREE.Group();
+    leftLegGroup.name = "leftLegGroup";
+    leftLegGroup.position.set(-(isMaleModel ? 0.12 : 0.14), 0.45, 0);
+    
+    // Kalça eklemi
+    const leftHipJointGeometry = new THREE.SphereGeometry(0.07, 16, 16);
+    const leftHipJoint = new THREE.Mesh(leftHipJointGeometry, skinMaterial.clone());
+    leftHipJoint.name = "leftHipJoint";
+    leftLegGroup.add(leftHipJoint);
     
     // Sol üst bacak
-    const leftUpperLegGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.12 : 0.11, 
-      isMaleModel ? 0.09 : 0.085, 
-      0.45, 
-      32
+    const leftThighGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.11 : 0.12, 
+      isMaleModel ? 0.08 : 0.09, 
+      0.4, 
+      16
     );
-    const leftUpperLeg = new THREE.Mesh(leftUpperLegGeometry, skinMaterial);
-    leftUpperLeg.position.y = -0.225;
-    leftUpperLeg.name = "leftUpperLeg";
-    leftLeg.add(leftUpperLeg);
+    leftThighGeometry.translate(0, -0.23, 0);
+    const leftThigh = new THREE.Mesh(leftThighGeometry, skinMaterial.clone());
+    leftThigh.name = "leftThigh";
+    leftThigh.rotation.z = -0.05;
+    leftLegGroup.add(leftThigh);
     
-    // Sol alt bacak
-    const leftLowerLegGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.09 : 0.085, 
-      isMaleModel ? 0.06 : 0.055, 
-      0.45, 
-      32
+    // Sol diz eklemi
+    const leftKneeJointGeometry = new THREE.SphereGeometry(0.06, 16, 16);
+    const leftKneeJoint = new THREE.Mesh(leftKneeJointGeometry, skinMaterial.clone());
+    leftKneeJoint.position.y = -0.45;
+    leftKneeJoint.name = "leftKneeJoint";
+    leftLegGroup.add(leftKneeJoint);
+    
+    // Sol baldır
+    const leftCalfGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.08 : 0.09, 
+      isMaleModel ? 0.05 : 0.055, 
+      0.4, 
+      16
     );
-    const leftLowerLeg = new THREE.Mesh(leftLowerLegGeometry, skinMaterial);
-    leftLowerLeg.position.y = -0.675;
-    leftLowerLeg.name = "leftLowerLeg";
-    leftLeg.add(leftLowerLeg);
+    leftCalfGeometry.translate(0, -0.68, 0);
+    const leftCalf = new THREE.Mesh(leftCalfGeometry, skinMaterial.clone());
+    leftCalf.name = "leftCalf";
+    leftCalf.rotation.z = 0.05;
+    leftLegGroup.add(leftCalf);
     
-    modelGroup.add(leftLeg);
+    // Sol ayak
+    const leftFootGeometry = new THREE.BoxGeometry(0.07, 0.05, 0.15);
+    leftFootGeometry.translate(0, -0.9, 0.04);
+    const leftFoot = new THREE.Mesh(leftFootGeometry, skinMaterial.clone());
+    leftFoot.name = "leftFoot";
+    leftLegGroup.add(leftFoot);
     
-    // Sağ bacak grubu
-    const rightLeg = new THREE.Group();
-    rightLeg.name = "rightLeg";
-    rightLeg.position.set((isMaleModel ? 0.15 : 0.14), 0.1, 0);
+    modelGroup.add(leftLegGroup);
+    
+    // SAĞ BACAK GRUBU
+    const rightLegGroup = new THREE.Group();
+    rightLegGroup.name = "rightLegGroup";
+    rightLegGroup.position.set((isMaleModel ? 0.12 : 0.14), 0.45, 0);
+    
+    // Kalça eklemi
+    const rightHipJointGeometry = new THREE.SphereGeometry(0.07, 16, 16);
+    const rightHipJoint = new THREE.Mesh(rightHipJointGeometry, skinMaterial.clone());
+    rightHipJoint.name = "rightHipJoint";
+    rightLegGroup.add(rightHipJoint);
     
     // Sağ üst bacak
-    const rightUpperLegGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.12 : 0.11, 
-      isMaleModel ? 0.09 : 0.085, 
-      0.45, 
-      32
+    const rightThighGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.11 : 0.12, 
+      isMaleModel ? 0.08 : 0.09, 
+      0.4, 
+      16
     );
-    const rightUpperLeg = new THREE.Mesh(rightUpperLegGeometry, skinMaterial);
-    rightUpperLeg.position.y = -0.225;
-    rightUpperLeg.name = "rightUpperLeg";
-    rightLeg.add(rightUpperLeg);
+    rightThighGeometry.translate(0, -0.23, 0);
+    const rightThigh = new THREE.Mesh(rightThighGeometry, skinMaterial.clone());
+    rightThigh.name = "rightThigh";
+    rightThigh.rotation.z = 0.05;
+    rightLegGroup.add(rightThigh);
     
-    // Sağ alt bacak
-    const rightLowerLegGeometry = new THREE.CylinderGeometry(
-      isMaleModel ? 0.09 : 0.085, 
-      isMaleModel ? 0.06 : 0.055, 
-      0.45, 
-      32
+    // Sağ diz eklemi
+    const rightKneeJointGeometry = new THREE.SphereGeometry(0.06, 16, 16);
+    const rightKneeJoint = new THREE.Mesh(rightKneeJointGeometry, skinMaterial.clone());
+    rightKneeJoint.position.y = -0.45;
+    rightKneeJoint.name = "rightKneeJoint";
+    rightLegGroup.add(rightKneeJoint);
+    
+    // Sağ baldır
+    const rightCalfGeometry = new THREE.CylinderGeometry(
+      isMaleModel ? 0.08 : 0.09, 
+      isMaleModel ? 0.05 : 0.055, 
+      0.4, 
+      16
     );
-    const rightLowerLeg = new THREE.Mesh(rightLowerLegGeometry, skinMaterial);
-    rightLowerLeg.position.y = -0.675;
-    rightLowerLeg.name = "rightLowerLeg";
-    rightLeg.add(rightLowerLeg);
+    rightCalfGeometry.translate(0, -0.68, 0);
+    const rightCalf = new THREE.Mesh(rightCalfGeometry, skinMaterial.clone());
+    rightCalf.name = "rightCalf";
+    rightCalf.rotation.z = -0.05;
+    rightLegGroup.add(rightCalf);
     
-    modelGroup.add(rightLeg);
+    // Sağ ayak
+    const rightFootGeometry = new THREE.BoxGeometry(0.07, 0.05, 0.15);
+    rightFootGeometry.translate(0, -0.9, 0.04);
+    const rightFoot = new THREE.Mesh(rightFootGeometry, skinMaterial.clone());
+    rightFoot.name = "rightFoot";
+    rightLegGroup.add(rightFoot);
+    
+    modelGroup.add(rightLegGroup);
+    
+    // Modeli ölçeklendir ve pozisyonla
+    modelGroup.scale.set(1.3, 1.3, 1.3);
+    modelGroup.position.set(0, -0.75, 0);
+    modelGroup.rotation.x = 0.1; // Hafif öne eğim
     
     return modelGroup;
   };
