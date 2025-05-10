@@ -2,7 +2,26 @@ import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Calendar, MessageSquare, AlertTriangle, Info, ArrowRight } from "lucide-react";
+import { 
+  Calendar, 
+  MessageSquare, 
+  AlertTriangle, 
+  Info, 
+  ArrowRight, 
+  Pencil, 
+  Trash2, 
+  Plus, 
+  Edit, 
+  ChevronLeft, 
+  Activity, 
+  Ruler, 
+  LineChart, 
+  Link, 
+  KeyRound, 
+  Copy,
+  Loader2
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -65,7 +84,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Loader2, Plus, Edit, Trash2, ChevronLeft, Activity, Ruler, LineChart, Link, KeyRound, Copy } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -251,6 +269,75 @@ export default function ClientDetail() {
     const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
     if (!response.ok) {
       throw new Error("Ölçüm silinemedi");
+    }
+    return response.json();
+  }
+  
+  // Randevu API fonksiyonları
+  async function getAppointments() {
+    const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}: ${await response.text()}`);
+    }
+    return response.json();
+  }
+  
+  async function createAppointment(data: any) {
+    const appointmentData = {
+      ...data,
+      clientId: Number(id),
+      userId: client.userId
+    };
+    const response = await apiRequest("POST", "/api/appointments", appointmentData);
+    if (!response.ok) {
+      throw new Error("Randevu oluşturulamadı");
+    }
+    return response.json();
+  }
+  
+  async function updateAppointment(appointmentId: number, data: any) {
+    const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}`, data);
+    if (!response.ok) {
+      throw new Error("Randevu güncellenemedi");
+    }
+    return response.json();
+  }
+  
+  async function deleteAppointment(appointmentId: number) {
+    const response = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
+    if (!response.ok) {
+      throw new Error("Randevu silinemedi");
+    }
+    return response.json();
+  }
+  
+  // Mesaj API fonksiyonları
+  async function getMessages() {
+    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}: ${await response.text()}`);
+    }
+    return response.json();
+  }
+  
+  async function sendMessage(content: string) {
+    const messageData = {
+      clientId: Number(id),
+      userId: client.userId,
+      content,
+      fromClient: false
+    };
+    const response = await apiRequest("POST", "/api/messages", messageData);
+    if (!response.ok) {
+      throw new Error("Mesaj gönderilemedi");
+    }
+    return response.json();
+  }
+  
+  async function markMessagesAsRead(messageIds: number[]) {
+    const response = await apiRequest("PATCH", "/api/messages/mark-read", { messageIds });
+    if (!response.ok) {
+      throw new Error("Mesajlar okundu olarak işaretlenemedi");
     }
     return response.json();
   }

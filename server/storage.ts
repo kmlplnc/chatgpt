@@ -1209,7 +1209,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(appointments.userId, userId));
     }
     
-    return await query.orderBy(appointments.appointmentDate);
+    return await query.orderBy(appointments.date);
   }
   
   async getAppointmentById(id: number): Promise<Appointment | undefined> {
