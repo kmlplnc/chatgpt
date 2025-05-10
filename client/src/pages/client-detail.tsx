@@ -340,6 +340,27 @@ export default function ClientDetail() {
     queryFn: getMeasurements,
     retry: 1,
   });
+  
+  // Randevu ve mesaj sorguları
+  const {
+    data: appointments,
+    isLoading: isAppointmentsLoading,
+    error: appointmentsError
+  } = useQuery({
+    queryKey: [`/api/appointments`, id],
+    queryFn: getAppointments,
+    retry: 1,
+  });
+  
+  const {
+    data: messages,
+    isLoading: isMessagesLoading,
+    error: messagesError
+  } = useQuery({
+    queryKey: [`/api/messages`, id],
+    queryFn: getMessages,
+    retry: 1,
+  });
 
   // Mutasyonlar
   const createMeasurementMutation = useMutation({
@@ -402,6 +423,93 @@ export default function ClientDetail() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+  
+  // Randevular için mutasyonlar
+  const createAppointmentMutation = useMutation({
+    mutationFn: createAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Yeni randevu oluşturuldu",
+      });
+      setOpenNewAppointmentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const updateAppointmentMutation = useMutation({
+    mutationFn: (data: any) => updateAppointment(selectedAppointment.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu güncellendi",
+      });
+      setOpenEditAppointmentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: (appointmentId: number) => deleteAppointment(appointmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu silindi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mesajlar için mutasyonlar
+  const sendMessageMutation = useMutation({
+    mutationFn: sendMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/messages`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Mesaj gönderildi",
+      });
+      setNewMessage("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const markMessagesAsReadMutation = useMutation({
+    mutationFn: markMessagesAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/messages`, id] });
+    },
+    onError: (error: any) => {
+      console.error("Mesajlar okundu olarak işaretlenemedi:", error);
     },
   });
 
@@ -990,6 +1098,201 @@ export default function ClientDetail() {
                   Notları Kaydet
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="appointments">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Randevular</CardTitle>
+                <CardDescription>Danışan ile planlanan tüm randevular</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setOpenNewAppointmentDialog(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Yeni Randevu
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {isAppointmentsLoading ? (
+                <div className="flex items-center justify-center p-4">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin size-5 border-2 border-primary border-t-transparent rounded-full"></div>
+                    <span>Randevular yükleniyor...</span>
+                  </div>
+                </div>
+              ) : appointmentsError ? (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Hata</AlertTitle>
+                  <AlertDescription>
+                    Randevular yüklenirken bir hata oluştu: {appointmentsError.message}
+                  </AlertDescription>
+                </Alert>
+              ) : appointments && appointments.length > 0 ? (
+                <div className="space-y-4">
+                  {appointments.map((appointment: any) => (
+                    <Card key={appointment.id} className="overflow-hidden">
+                      <CardHeader className="p-4 pb-2 bg-slate-50">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-base">{appointment.title}</CardTitle>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedAppointment(appointment);
+                                setOpenEditAppointmentDialog(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (window.confirm('Bu randevuyu silmek istediğinize emin misiniz?')) {
+                                  deleteAppointmentMutation.mutate(appointment.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-2">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Tarih</Label>
+                            <p>{new Date(appointment.date).toLocaleDateString('tr-TR')}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Saat</Label>
+                            <p>{new Date(appointment.startTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} - {new Date(appointment.endTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <Label className="text-xs text-muted-foreground">Durum</Label>
+                            <p>
+                              <Badge 
+                                className={
+                                  appointment.status === 'pending' ? 'bg-yellow-500' :
+                                  appointment.status === 'confirmed' ? 'bg-green-500' :
+                                  appointment.status === 'cancelled' ? 'bg-red-500' :
+                                  appointment.status === 'completed' ? 'bg-blue-500' : 'bg-slate-500'
+                                }
+                              >
+                                {appointment.status === 'pending' ? 'Beklemede' :
+                                 appointment.status === 'confirmed' ? 'Onaylandı' :
+                                 appointment.status === 'cancelled' ? 'İptal Edildi' :
+                                 appointment.status === 'completed' ? 'Tamamlandı' : 'Bilinmiyor'}
+                              </Badge>
+                            </p>
+                          </div>
+                          {appointment.notes && (
+                            <div className="col-span-2 mt-2">
+                              <Label className="text-xs text-muted-foreground">Notlar</Label>
+                              <p className="text-sm">{appointment.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-4 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-2 text-muted-foreground/60" />
+                  <p>Henüz randevu bulunmuyor</p>
+                  <p className="text-sm mt-1">Yeni randevu eklemek için "Yeni Randevu" butonuna tıklayın</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="messages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mesajlaşma</CardTitle>
+              <CardDescription>Danışan ile yapılan mesajlaşmalar</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isMessagesLoading ? (
+                <div className="flex items-center justify-center p-4">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin size-5 border-2 border-primary border-t-transparent rounded-full"></div>
+                    <span>Mesajlar yükleniyor...</span>
+                  </div>
+                </div>
+              ) : messagesError ? (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Hata</AlertTitle>
+                  <AlertDescription>
+                    Mesajlar yüklenirken bir hata oluştu: {messagesError.message}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="flex flex-col h-[400px]">
+                  <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 border rounded-lg">
+                    {messages && messages.length > 0 ? (
+                      messages.map((message: any) => (
+                        <div 
+                          key={message.id} 
+                          className={`flex ${message.fromClient ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div 
+                            className={`max-w-[80%] rounded-lg p-3 ${
+                              message.fromClient 
+                                ? 'bg-slate-100 text-slate-900' 
+                                : 'bg-primary text-primary-foreground'
+                            }`}
+                          >
+                            <p>{message.content}</p>
+                            <p className="text-xs mt-1 opacity-70">
+                              {new Date(message.createdAt).toLocaleString('tr-TR')}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                        <MessageSquare className="h-12 w-12 mb-2" />
+                        <p>Henüz mesaj bulunmuyor</p>
+                        <p className="text-sm">Danışanınıza mesaj göndermek için aşağıdaki formu kullanabilirsiniz</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Textarea 
+                      placeholder="Mesajınızı yazın..." 
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={() => {
+                        if (newMessage.trim()) {
+                          sendMessageMutation.mutate(newMessage);
+                        }
+                      }}
+                      disabled={sendMessageMutation.isPending || !newMessage.trim()}
+                    >
+                      {sendMessageMutation.isPending ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin size-4 border-2 border-current border-t-transparent rounded-full"></div>
+                          <span>Gönderiliyor</span>
+                        </div>
+                      ) : (
+                        <span>Gönder</span>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
