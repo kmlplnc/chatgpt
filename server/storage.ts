@@ -47,6 +47,14 @@ export interface IStorage {
     subscriptionEndDate?: Date;
   }): Promise<User>;
   
+  // Notification methods
+  getNotificationsByUserId(userId: number): Promise<Notification[]>;
+  getNotificationById(id: number): Promise<Notification | undefined>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<boolean>;
+  markAllNotificationsAsRead(userId: number): Promise<boolean>;
+  getUnreadNotificationCount(userId: number): Promise<number>;
+  
   // Admin - User Management methods
   getAllUsers(limit?: number, offset?: number): Promise<User[]>;
   countUsers(): Promise<number>;

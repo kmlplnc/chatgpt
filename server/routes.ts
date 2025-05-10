@@ -19,6 +19,7 @@ import { adminRouter } from './routes/admin';
 import clientPortalRouter from './routes/client-portal';
 import appointmentsRouter from './routes/appointments';
 import messagesRouter from './routes/messages';
+import notificationsRouter from './routes/notifications';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session setup
@@ -54,6 +55,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add messages routes
   app.use('/api/messages', messagesRouter);
+  
+  // Add notifications routes
+  app.use('/api/notifications', notificationsRouter);
   
   // Error handler middleware
   const handleError = (err: any, res: Response) => {

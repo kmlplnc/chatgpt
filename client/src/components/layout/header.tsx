@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useLocation } from "wouter";
-import { Bell, HelpCircle, User, Search, LogOut, Settings, UserIcon } from "lucide-react";
+import { HelpCircle, User, Search, LogOut, Settings, UserIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,9 +118,7 @@ export default function Header() {
         </div>
         
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Bell className="h-5 w-5" />
-          </Button>
+          <NotificationBell />
           
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <HelpCircle className="h-5 w-5" />
