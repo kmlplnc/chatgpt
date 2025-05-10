@@ -399,7 +399,7 @@ export default function UserManagement() {
                                       <SelectValue placeholder="Plan" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">Yok</SelectItem>
+                                      <SelectItem value="none">Yok</SelectItem>
                                       <SelectItem value="basic">Temel</SelectItem>
                                       <SelectItem value="premium">Premium</SelectItem>
                                       <SelectItem value="pro">Pro</SelectItem>
@@ -609,14 +609,14 @@ export default function UserManagement() {
                 Plan
               </Label>
               <Select
-                value={createForm.subscriptionPlan || ""}
+                value={createForm.subscriptionPlan || "none"}
                 onValueChange={(value) => updateCreateFormField('subscriptionPlan', value)}
               >
                 <SelectTrigger id="plan" className="col-span-3">
                   <SelectValue placeholder="Plan seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Yok</SelectItem>
+                  <SelectItem value="none">Yok</SelectItem>
                   <SelectItem value="basic">Temel</SelectItem>
                   <SelectItem value="premium">Premium</SelectItem>
                   <SelectItem value="pro">Pro</SelectItem>
