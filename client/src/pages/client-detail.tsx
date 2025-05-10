@@ -796,12 +796,12 @@ export default function ClientDetail() {
                     <div className="flex justify-between items-center">
                       <div>
                         <div>
-                          <p className="text-lg font-semibold">{lastMeasurement?.basalMetabolicRate || "-"}</p>
-                          <p className="text-sm text-muted-foreground">kcal/gün (BMH)</p>
+                          <p className="text-lg font-semibold">{Math.round(lastMeasurement?.basalMetabolicRate || 0)} kcal</p>
+                          <p className="text-sm text-muted-foreground">Bazal Metabolizma Hızı (BMH)</p>
                         </div>
                         <div className="mt-2">
-                          <p className="text-2xl font-bold">{lastMeasurement?.totalDailyEnergyExpenditure || "-"}</p>
-                          <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
+                          <p className="text-2xl font-bold">{Math.round(lastMeasurement?.totalDailyEnergyExpenditure || 0)} kcal</p>
+                          <p className="text-sm text-muted-foreground">Toplam Günlük Enerji Tüketimi (TDEE)</p>
                         </div>
                       </div>
                       <Activity className="h-8 w-8 text-primary" />
@@ -821,11 +821,11 @@ export default function ClientDetail() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Bazal Metabolizma Hızı (BMH)</Label>
-                        <p className="text-xl font-bold">{lastMeasurement.basalMetabolicRate} kcal</p>
+                        <p className="text-xl font-bold">{Math.round(lastMeasurement.basalMetabolicRate)} kcal</p>
                       </div>
                       <div>
                         <Label>Toplam Günlük Enerji Tüketimi (TDEE)</Label>
-                        <p className="text-xl font-bold">{lastMeasurement.totalDailyEnergyExpenditure} kcal</p>
+                        <p className="text-xl font-bold">{Math.round(lastMeasurement.totalDailyEnergyExpenditure)} kcal</p>
                       </div>
                     </div>
 
