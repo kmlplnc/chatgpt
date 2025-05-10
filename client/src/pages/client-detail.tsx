@@ -62,6 +62,7 @@ import { tr } from "date-fns/locale";
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, Activity, Ruler, LineChart } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 // Recharts bileşenleri
 import {
@@ -864,6 +865,8 @@ export default function ClientDetail() {
                         </div>
                       </div>
                     </div>
+
+                    <Separator />
 
                     <Alert>
                       <AlertTitle>Aktivite Seviyesi</AlertTitle>
