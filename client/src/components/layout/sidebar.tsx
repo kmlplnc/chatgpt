@@ -118,29 +118,17 @@ export default function Sidebar() {
       </nav>
       
       <div className="absolute bottom-8 w-full px-4">
-        <div className="p-4 bg-accent rounded-lg">
-          <h3 className="font-medium text-sm mb-2">Yardıma Mı İhtiyacınız Var?</h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Destek ekibimiz her türlü sorunuzda size yardımcı olmaya hazır.
-          </p>
-          <button 
-            onClick={() => navigate("/support")} 
-            className="text-xs text-primary font-medium hover:underline cursor-pointer"
-          >
-            Destek Hattı
-          </button>
-        </div>
         
         {isAuthenticated ? (
           <button 
             onClick={handleLogout}
-            className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full mt-4"
+            className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full"
           >
             <LogOut className="h-5 w-5 mr-2" />
             Çıkış Yap
           </button>
         ) : (
-          <div className="mt-4 space-y-2">
+          <div className="space-y-2">
             <button 
               onClick={() => navigate('/login')}
               className="flex items-center px-4 py-3 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground w-full text-left"

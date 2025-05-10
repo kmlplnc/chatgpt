@@ -86,7 +86,7 @@ export default function CheckoutPage() {
         description: "Abonelik planı seçilmedi. Abonelik sayfasına yönlendiriliyorsunuz.",
         variant: "destructive",
       });
-      setTimeout(() => navigate('/subscription'), 1500);
+      setTimeout(() => window.location.href = '/subscription', 1500);
       return;
     }
 
