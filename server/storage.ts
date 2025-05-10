@@ -595,5 +595,307 @@ export class MemStorage implements IStorage {
   }
 }
 
+// DatabaseStorage implementation
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+  
+  async updateUserSubscription(id: number, updates: {
+    subscriptionStatus?: string;
+    subscriptionPlan?: string;
+    subscriptionStartDate?: Date;
+    subscriptionEndDate?: Date;
+  }): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+  
+  async getAllUsers(limit: number = 100, offset: number = 0): Promise<User[]> {
+    return db.select().from(users).limit(limit).offset(offset);
+  }
+  
+  async countUsers(): Promise<number> {
+    const result = await db.select({ count: count() }).from(users);
+    return result[0]?.count || 0;
+  }
+  
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db
+      .delete(users)
+      .where(eq(users.id, id));
+    return result.count > 0;
+  }
+  
+  // Client methods (simple implementation for now)
+  async getClients(userId?: number, limit?: number): Promise<Client[]> {
+    let query = db.select().from(clients);
+    if (userId) {
+      query = query.where(eq(clients.userId, userId));
+    }
+    if (limit) {
+      query = query.limit(limit);
+    }
+    return query;
+  }
+  
+  async getClient(id: number): Promise<Client | undefined> {
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client || undefined;
+  }
+  
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const [client] = await db
+      .insert(clients)
+      .values(insertClient)
+      .returning();
+    return client;
+  }
+  
+  async updateClient(id: number, updates: Partial<Client>): Promise<Client | undefined> {
+    const [client] = await db
+      .update(clients)
+      .set(updates)
+      .where(eq(clients.id, id))
+      .returning();
+    return client;
+  }
+  
+  async deleteClient(id: number): Promise<boolean> {
+    const result = await db
+      .delete(clients)
+      .where(eq(clients.id, id));
+    return result.count > 0;
+  }
+  
+  // Measurement methods
+  async getMeasurements(clientId: number): Promise<Measurement[]> {
+    return db.select().from(measurements).where(eq(measurements.clientId, clientId));
+  }
+  
+  async getMeasurement(id: number): Promise<Measurement | undefined> {
+    const [measurement] = await db.select().from(measurements).where(eq(measurements.id, id));
+    return measurement || undefined;
+  }
+  
+  async createMeasurement(insertMeasurement: InsertMeasurement): Promise<Measurement> {
+    const [measurement] = await db
+      .insert(measurements)
+      .values(insertMeasurement)
+      .returning();
+    return measurement;
+  }
+  
+  async updateMeasurement(id: number, updates: Partial<Measurement>): Promise<Measurement | undefined> {
+    const [measurement] = await db
+      .update(measurements)
+      .set(updates)
+      .where(eq(measurements.id, id))
+      .returning();
+    return measurement;
+  }
+  
+  async deleteMeasurement(id: number): Promise<boolean> {
+    const result = await db
+      .delete(measurements)
+      .where(eq(measurements.id, id));
+    return result.count > 0;
+  }
+  
+  // Diet Plan methods
+  async getDietPlans(userId?: number, limit?: number): Promise<DietPlan[]> {
+    let query = db.select().from(dietPlans);
+    if (userId) {
+      query = query.where(eq(dietPlans.userId, userId));
+    }
+    if (limit) {
+      query = query.limit(limit);
+    }
+    return query;
+  }
+  
+  async getDietPlan(id: number): Promise<DietPlan | undefined> {
+    const [dietPlan] = await db.select().from(dietPlans).where(eq(dietPlans.id, id));
+    return dietPlan || undefined;
+  }
+  
+  async createDietPlan(insertDietPlan: InsertDietPlan): Promise<DietPlan> {
+    const [dietPlan] = await db
+      .insert(dietPlans)
+      .values(insertDietPlan)
+      .returning();
+    return dietPlan;
+  }
+  
+  async updateDietPlan(id: number, updates: Partial<DietPlan>): Promise<DietPlan | undefined> {
+    const [dietPlan] = await db
+      .update(dietPlans)
+      .set(updates)
+      .where(eq(dietPlans.id, id))
+      .returning();
+    return dietPlan;
+  }
+  
+  async deleteDietPlan(id: number): Promise<boolean> {
+    const result = await db
+      .delete(dietPlans)
+      .where(eq(dietPlans.id, id));
+    return result.count > 0;
+  }
+  
+  // Food methods - implementing basic methods for now
+  async getFoods(limit: number = 20, offset: number = 0): Promise<Food[]> {
+    return db.select().from(foods).limit(limit).offset(offset);
+  }
+  
+  async getFoodById(fdcId: string): Promise<Food | undefined> {
+    const [food] = await db.select().from(foods).where(eq(foods.fdcId, fdcId));
+    return food || undefined;
+  }
+  
+  async createFood(insertFood: InsertFood): Promise<Food> {
+    const [food] = await db
+      .insert(foods)
+      .values(insertFood)
+      .returning();
+    return food;
+  }
+  
+  async searchFoods(query: string, page: number = 1, pageSize: number = 20): Promise<{ foods: Food[], totalHits: number }> {
+    const offset = (page - 1) * pageSize;
+    
+    // Basic text search - in a real app we'd use full-text search capabilities
+    const foods = await db
+      .select()
+      .from(foods)
+      .where(like(foods.description, `%${query}%`))
+      .limit(pageSize)
+      .offset(offset);
+    
+    const countResult = await db
+      .select({ count: count() })
+      .from(foods)
+      .where(like(foods.description, `%${query}%`));
+    
+    const totalHits = countResult[0]?.count || 0;
+    
+    return {
+      foods,
+      totalHits,
+      currentPage: page,
+      totalPages: Math.ceil(totalHits / pageSize)
+    };
+  }
+  
+  async getRecentFoods(limit: number = 5): Promise<Food[]> {
+    return db
+      .select()
+      .from(foods)
+      .orderBy(desc(foods.createdAt))
+      .limit(limit);
+  }
+  
+  // Saved Foods methods
+  async getSavedFoods(userId?: number): Promise<Food[]> {
+    if (!userId) return [];
+    
+    const savedFoodsData = await db
+      .select({
+        food: foods
+      })
+      .from(savedFoods)
+      .leftJoin(foods, eq(savedFoods.fdcId, foods.fdcId))
+      .where(eq(savedFoods.userId, userId));
+    
+    return savedFoodsData.map(item => item.food).filter(Boolean);
+  }
+  
+  async saveFood(data: InsertSavedFood): Promise<SavedFood> {
+    const [savedFood] = await db
+      .insert(savedFoods)
+      .values(data)
+      .returning();
+    return savedFood;
+  }
+  
+  async removeSavedFood(userId: number, fdcId: string): Promise<boolean> {
+    const result = await db
+      .delete(savedFoods)
+      .where(and(
+        eq(savedFoods.userId, userId),
+        eq(savedFoods.fdcId, fdcId)
+      ));
+    return result.count > 0;
+  }
+  
+  async isFoodSaved(userId: number, fdcId: string): Promise<boolean> {
+    const [saved] = await db
+      .select()
+      .from(savedFoods)
+      .where(and(
+        eq(savedFoods.userId, userId),
+        eq(savedFoods.fdcId, fdcId)
+      ));
+    return !!saved;
+  }
+  
+  // Food Nutrients methods
+  async getFoodNutrients(fdcId: string): Promise<FoodNutrient[]> {
+    return db
+      .select()
+      .from(foodNutrients)
+      .where(eq(foodNutrients.fdcId, fdcId));
+  }
+  
+  async createFoodNutrient(nutrient: InsertFoodNutrient): Promise<FoodNutrient> {
+    const [foodNutrient] = await db
+      .insert(foodNutrients)
+      .values(nutrient)
+      .returning();
+    return foodNutrient;
+  }
+  
+  async createFoodNutrients(nutrients: InsertFoodNutrient[]): Promise<FoodNutrient[]> {
+    if (nutrients.length === 0) return [];
+    
+    const foodNutrients = await db
+      .insert(foodNutrients)
+      .values(nutrients)
+      .returning();
+    return foodNutrients;
+  }
+}
+
+// Import needed database functions
+import { db } from "./db";
+import { eq, like, and, desc, count } from "drizzle-orm";
+
 // Create and export a singleton instance
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
