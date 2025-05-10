@@ -87,12 +87,30 @@ export default function ClientPortalMessages() {
     }
   };
 
-  // Otomatik scroll
+  // Otomatik scroll ve mesajları okundu olarak işaretle
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
+    
+    // Mesajlar yüklendiğinde okundu olarak işaretle
+    if (messages && messages.length > 0) {
+      markMessagesAsRead();
+    }
   }, [messages]);
+  
+  // Mesajları okundu olarak işaretle
+  const markMessagesAsRead = async () => {
+    try {
+      await fetch('/api/client-portal/messages/mark-as-read', {
+        method: 'POST',
+      });
+      // Okunmamış mesaj sayısını güncelle
+      queryClient.invalidateQueries({ queryKey: ['/api/client-portal/messages/unread/count'] });
+    } catch (error) {
+      console.error('Mesajlar okundu olarak işaretlenemedi:', error);
+    }
+  };
 
   return (
     <Card className="w-full">

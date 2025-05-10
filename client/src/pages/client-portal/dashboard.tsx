@@ -351,8 +351,17 @@ export default function ClientPortalDashboard() {
               <ClipboardList className="h-4 w-4 mr-2" />
               Tavsiyeler
             </TabsTrigger>
-            <TabsTrigger value="messages">
-              <MessageSquare className="h-4 w-4 mr-2" />
+            <TabsTrigger value="messages" className="relative">
+              <div className="relative">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                {unreadMessages > 0 && (
+                  <Badge 
+                    className="absolute -top-2 -right-2 px-1 py-0 min-w-[1rem] h-4 rounded-full flex items-center justify-center bg-red-500 border-none text-white text-[10px]"
+                  >
+                    {unreadMessages > 99 ? "99+" : unreadMessages}
+                  </Badge>
+                )}
+              </div>
               Mesajlar
             </TabsTrigger>
           </TabsList>
