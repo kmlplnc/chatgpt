@@ -191,7 +191,7 @@ export default function ClientDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet">('measurements');
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes">('measurements');
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
@@ -832,7 +832,41 @@ export default function ClientDetail() {
           <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
           <TabsTrigger value="measurements">Ölçümler</TabsTrigger>
           <TabsTrigger value="analytics">Analiz</TabsTrigger>
+          <TabsTrigger value="notes">Notlar</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="notes">
+          <Card>
+            <CardHeader>
+              <CardTitle>Danışan Notları</CardTitle>
+              <CardDescription>Bu alanı danışan hakkında genel notlar eklemek için kullanabilirsiniz.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea 
+                placeholder="Danışan hakkında notlarınızı buraya yazın..."
+                className="min-h-[200px]"
+                value={client.notes || ""}
+                onChange={async (e) => {
+                  const updatedNotes = e.target.value;
+                  try {
+                    await apiRequest("PATCH", `/api/clients/${id}`, { notes: updatedNotes });
+                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                    toast({
+                      title: "Notlar kaydedildi",
+                      description: "Danışan notları başarıyla güncellendi.",
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "Hata",
+                      description: "Notlar kaydedilirken bir hata oluştu.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
