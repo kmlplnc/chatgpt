@@ -124,7 +124,7 @@ export default function CheckoutPage() {
     form.setValue("expiryDate", formatted);
   };
   
-  // Başarılı ödeme durumu
+  // Ödeme başarı durumunu gösterip ana sayfaya yönlendiriyoruz
   if (isSuccess) {
     return (
       <Layout>
@@ -147,7 +147,7 @@ export default function CheckoutPage() {
               </p>
             </CardContent>
             <CardFooter className="flex justify-center">
-              <Button onClick={() => navigate("/dashboard")}>
+              <Button onClick={() => navigate("/")}>
                 Ana Sayfaya Dön
               </Button>
             </CardFooter>
