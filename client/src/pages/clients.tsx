@@ -739,7 +739,7 @@ export default function ClientsPage() {
                   <TableHead>Cinsiyet</TableHead>
                   <TableHead>Başlangıç Tarihi</TableHead>
                   <TableHead>BKİ</TableHead>
-                  <TableHead>BMH</TableHead>
+                  <TableHead>BMH (kcal)</TableHead>
                   <TableHead>Son Ölçüm</TableHead>
                   <TableHead>İşlemler</TableHead>
                 </TableRow>
@@ -778,7 +778,7 @@ export default function ClientsPage() {
                         client.gender === 'male' ? 'Erkek' : 'Diğer'}
                       </TableCell>
                       <TableCell>{client.createdAt ? formatDate(client.createdAt) : '-'}</TableCell>
-                      <TableCell>{client.lastMeasurement?.bmi ? parseFloat(client.lastMeasurement.bmi).toFixed(1) : '-'}</TableCell>
+                      <TableCell>{client.lastMeasurement?.bmi ? parseFloat(client.lastMeasurement.bmi).toFixed(1) : '-'}</TableCell> {/* BKI değeri */}
                       <TableCell>{client.lastMeasurement?.basalMetabolicRate ? Math.round(client.lastMeasurement.basalMetabolicRate) : '-'}</TableCell>
                       <TableCell>{client.lastMeasurement?.date ? formatDate(client.lastMeasurement.date) : '-'}</TableCell>
                       <TableCell>

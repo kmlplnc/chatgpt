@@ -576,7 +576,7 @@ export default function ClientDetail() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => setLocation("/clients")}
+          onClick={() => window.location.href = "/clients"}
           className="mr-4"
         >
           <ChevronLeft className="mr-2 h-4 w-4" />
@@ -1055,7 +1055,7 @@ export default function ClientDetail() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-72">
+                    <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" />
