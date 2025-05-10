@@ -192,6 +192,7 @@ export default function ClientDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes">('measurements');
+  const [clientNotes, setClientNotes] = useState<string>();
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
@@ -842,28 +843,36 @@ export default function ClientDetail() {
               <CardDescription>Bu alanı danışan hakkında genel notlar eklemek için kullanabilirsiniz.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Textarea 
-                placeholder="Danışan hakkında notlarınızı buraya yazın..."
-                className="min-h-[200px]"
-                value={client.notes || ""}
-                onChange={async (e) => {
-                  const updatedNotes = e.target.value;
-                  try {
-                    await apiRequest("PATCH", `/api/clients/${id}`, { notes: updatedNotes });
-                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                    toast({
-                      title: "Notlar kaydedildi",
-                      description: "Danışan notları başarıyla güncellendi.",
-                    });
-                  } catch (error) {
-                    toast({
-                      title: "Hata",
-                      description: "Notlar kaydedilirken bir hata oluştu.",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-              />
+              <div className="space-y-4">
+                <Textarea 
+                  placeholder="Danışan hakkında notlarınızı buraya yazın..."
+                  className="min-h-[200px]"
+                  value={clientNotes === undefined ? client.notes || "" : clientNotes}
+                  onChange={(e) => {
+                    setClientNotes(e.target.value);
+                  }}
+                />
+                <Button 
+                  onClick={async () => {
+                    try {
+                      await apiRequest("PATCH", `/api/clients/${id}`, { notes: clientNotes });
+                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                      toast({
+                        title: "Notlar kaydedildi",
+                        description: "Danışan notları başarıyla güncellendi.",
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Hata",
+                        description: "Notlar kaydedilirken bir hata oluştu.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Notları Kaydet
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
