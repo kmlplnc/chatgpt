@@ -1,7 +1,7 @@
-// scripts/clean-test-clients.js
+// scripts/clean-test-clients.cjs
 // Bu script, sistem üzerindeki test danışanlarını temizlemek için kullanılır
 // Özellikle kullanıcı ID'si 2 olan ve belli bir sayının üzerindeki danışanları siler
-// Kullanım: node scripts/clean-test-clients.js
+// Kullanım: node scripts/clean-test-clients.cjs
 
 const { Client } = require('pg');
 
