@@ -187,7 +187,7 @@ const getBodyFatColor = (bodyFat: number, gender: string) => {
 };
 
 export default function ClientDetail() {
-  const [setLocation] = useLocation();
+  const [_, setLocation] = useLocation();
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
