@@ -367,19 +367,7 @@ export default function ClientPortalDashboard() {
               <ClipboardList className="h-4 w-4 mr-2" />
               Tavsiyeler
             </TabsTrigger>
-            <TabsTrigger value="messages" className="relative">
-              <div className="relative">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                {unreadMessages > 0 && (
-                  <Badge 
-                    className="absolute -top-2 -right-2 px-1 py-0 min-w-[1rem] h-4 rounded-full flex items-center justify-center bg-red-500 border-none text-white text-[10px]"
-                  >
-                    {unreadMessages > 99 ? "99+" : unreadMessages}
-                  </Badge>
-                )}
-              </div>
-              Mesajlar
-            </TabsTrigger>
+
           </TabsList>
 
           <TabsContent value="summary" className="space-y-6">
@@ -689,39 +677,7 @@ export default function ClientPortalDashboard() {
             </Card>
           </TabsContent>
           
-          <TabsContent value="messages" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mesajlar</CardTitle>
-                <CardDescription>
-                  Diyetisyeninizle olan mesajlarınızı görüntüleyin
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center space-y-4 py-8">
-                  <MessageSquare className="h-16 w-16 text-muted-foreground" />
-                  <h3 className="text-xl font-semibold">Mesajlaşma Sayfası</h3>
-                  <p className="text-center text-muted-foreground max-w-md">
-                    Diyetisyeninizle özel mesajlaşma sayfanıza gitmek için aşağıdaki butona tıklayın.
-                  </p>
-                  <Button 
-                    className="mt-4"
-                    onClick={() => navigate('/client-portal/messages')}
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Mesajları Görüntüle
-                    {unreadMessages > 0 && (
-                      <Badge 
-                        className="ml-2 px-1 min-w-[1.25rem] h-5 rounded-full flex items-center justify-center bg-red-500 border-none text-white text-xs"
-                      >
-                        {unreadMessages}
-                      </Badge>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
         </Tabs>
       </main>
 
