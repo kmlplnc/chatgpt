@@ -46,7 +46,7 @@ function Router() {
         <Route path="/food/:id" component={FoodDetail} />
         <Route path="/health-calculator" component={HealthCalculator} />
         <Route path="/clients" component={ClientsPage} />
-        <Route path="/clients/:id" component={ClientDetail} />
+        <Route path="/client/:id" component={ClientDetail} />
         <Route path="/subscription" component={SubscriptionPage} />
         <Route path="/subscription/checkout" component={CheckoutPage} />
         <Route path="/admin" component={AdminDashboard} />

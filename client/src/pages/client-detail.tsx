@@ -1,9 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -16,1337 +23,1325 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { z } from "zod";
-import MeasurementChart from "@/components/clients/measurement-chart";
-import SimpleChart from "@/components/clients/simple-chart";
-import ProgressReportCard from "@/components/clients/progress-report-card";
-import { queryClient } from "@/lib/queryClient";
-import { calculateBMI, formatDate } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { format, parseISO } from "date-fns";
+import { tr } from "date-fns/locale";
+import { Loader2, Plus, Edit, Trash2, ChevronLeft, Activity, Ruler, LineChart } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
 
-// Measurement schema for the form
+// Recharts bileşenleri
+import {
+  LineChart as ReLineChart,
+  Line,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+// Ölçüm şeması
 const measurementSchema = z.object({
-  date: z.string().default(() => new Date().toISOString().split('T')[0]),
-  weight: z.coerce.number().min(20, "En az 20 kg olmalıdır").max(300, "En fazla 300 kg olabilir"),
-  height: z.coerce.number().min(50, "En az 50 cm olmalıdır").max(250, "En fazla 250 cm olabilir"),
-  bodyFatPercentage: z.coerce.number().min(1, "En az %1 olmalıdır").max(70, "En fazla %70 olabilir").optional(),
-  waistCircumference: z.coerce.number().min(30, "En az 30 cm olmalıdır").max(200, "En fazla 200 cm olabilir").optional(),
-  hipCircumference: z.coerce.number().min(30, "En az 30 cm olmalıdır").max(200, "En fazla 200 cm olabilir").optional(),
-  chestCircumference: z.coerce.number().min(30, "En az 30 cm olmalıdır").max(200, "En fazla 200 cm olabilir").optional(),
-  armCircumference: z.coerce.number().min(10, "En az 10 cm olmalıdır").max(100, "En fazla 100 cm olabilir").optional(),
-  thighCircumference: z.coerce.number().min(20, "En az 20 cm olmalıdır").max(120, "En fazla 120 cm olabilir").optional(),
-  calfCircumference: z.coerce.number().min(10, "En az 10 cm olmalıdır").max(80, "En fazla 80 cm olabilir").optional(),
-  activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]).optional(),
-  notes: z.string().optional(),
+  date: z.string().nonempty("Tarih gereklidir"),
+  weight: z.string().nonempty("Kilo gereklidir"),
+  height: z.string().nonempty("Boy gereklidir"),
+  waistCircumference: z.string().optional().nullable(),
+  hipCircumference: z.string().optional().nullable(),
+  chestCircumference: z.string().optional().nullable(),
+  armCircumference: z.string().optional().nullable(),
+  thighCircumference: z.string().optional().nullable(),
+  calfCircumference: z.string().optional().nullable(),
+  bodyFatPercentage: z.string().optional().nullable(),
+  activityLevel: z.string().min(1, "Aktivite seviyesi seçilmelidir"),
+  notes: z.string().optional().nullable(),
 });
 
-type MeasurementFormValues = z.infer<typeof measurementSchema>;
+const formatDate = (date: string | Date) => {
+  if (!date) return "-";
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return format(dateObj, "dd MMMM yyyy", { locale: tr });
+};
 
-// API istekleri
-async function getClient(id: string) {
-  const response = await fetch(`/api/clients/${id}`);
-  if (!response.ok) {
-    throw new Error("Danışan bilgisi yüklenemedi");
-  }
-  return response.json();
+function calculateBMI(weight: string, height: string): string {
+  const w = parseFloat(weight);
+  const h = parseFloat(height) / 100; // cm to m conversion
+  if (isNaN(w) || isNaN(h) || h === 0) return "0.00";
+  const bmi = w / (h * h);
+  return bmi.toFixed(2);
 }
 
-async function getClientMeasurements(id: string) {
-  const response = await fetch(`/api/clients/${id}/measurements`);
-  if (!response.ok) {
-    throw new Error("Ölçüm bilgileri yüklenemedi");
-  }
-  return response.json();
-}
-
-async function addMeasurement(clientId: string, data: MeasurementFormValues) {
-  try {
-    console.log("Gönderilen veri:", JSON.stringify(data));
-    
-    const response = await fetch(`/api/clients/${clientId}/measurements`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Sunucu yanıtı:", errorText);
-      throw new Error(`Ölçüm eklenemedi: ${errorText}`);
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error("Ölçüm ekleme hatası:", error);
-    throw error;
+function calculateBMR(weight: string, height: string, age: number, gender: string): number {
+  const w = parseFloat(weight);
+  const h = parseFloat(height);
+  
+  if (isNaN(w) || isNaN(h) || isNaN(age)) return 0;
+  
+  // Harris-Benedict denklemi
+  if (gender === "male") {
+    return Math.round(88.362 + (13.397 * w) + (4.799 * h) - (5.677 * age));
+  } else {
+    return Math.round(447.593 + (9.247 * w) + (3.098 * h) - (4.330 * age));
   }
 }
 
-// Ölçüm düzenleme
-async function updateMeasurement(clientId: string, measurementId: number, data: MeasurementFormValues) {
-  try {
-    console.log("Düzenlenen veri:", JSON.stringify(data));
-    
-    // PATCH isteği için sadece değişen alanları gönder
-    // NaN, undefined, null değerleri temizle
-    const cleanedData = Object.fromEntries(
-      Object.entries(data).filter(([_, v]) => v !== undefined && v !== null && !isNaN(Number(v)))
-    );
-    
-    console.log("Temizlenmiş veri:", JSON.stringify(cleanedData));
-    
-    const response = await fetch(`/api/clients/${clientId}/measurements/${measurementId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(cleanedData),
-    });
-    
-    if (!response.ok) {
-      let errorMessage = "Ölçüm düzenlenemedi";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        // JSON parse hatası durumunda text olarak al
-        errorMessage = await response.text();
-      }
-      throw new Error(errorMessage);
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error("Ölçüm düzenleme hatası:", error);
-    throw error;
+function calculateTDEE(bmr: number, activityLevel: string): number {
+  const activityMultipliers: { [key: string]: number } = {
+    sedentary: 1.2,    // Hareketsiz (ofis işi)
+    light: 1.375,      // Hafif aktivite (haftada 1-3 gün egzersiz)
+    moderate: 1.55,    // Orta aktivite (haftada 3-5 gün egzersiz)
+    active: 1.725,     // Aktif (haftada 6-7 gün egzersiz)
+    veryActive: 1.9    // Çok aktif (günde çift antrenman)
+  };
+  
+  return Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
+}
+
+function getHealthStatus(bmi: number): { status: string; color: string } {
+  if (bmi < 18.5) {
+    return { status: "Zayıf", color: "text-amber-500" };
+  } else if (bmi >= 18.5 && bmi < 25) {
+    return { status: "Normal", color: "text-green-500" };
+  } else if (bmi >= 25 && bmi < 30) {
+    return { status: "Fazla Kilolu", color: "text-amber-500" };
+  } else if (bmi >= 30 && bmi < 35) {
+    return { status: "Obez (Sınıf I)", color: "text-red-500" };
+  } else if (bmi >= 35 && bmi < 40) {
+    return { status: "Obez (Sınıf II)", color: "text-red-600" };
+  } else {
+    return { status: "Aşırı Obez (Sınıf III)", color: "text-red-700" };
   }
 }
 
-// Ölçüm silme
-async function deleteMeasurement(clientId: string, measurementId: number) {
-  try {
-    const response = await fetch(`/api/clients/${clientId}/measurements/${measurementId}`, {
-      method: "DELETE",
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Sunucu yanıtı:", errorText);
-      throw new Error(`Ölçüm silinemedi: ${errorText}`);
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error("Ölçüm silme hatası:", error);
-    throw error;
+const getStatusColor = (value: number, bounds: { min: number; max: number; }): string => {
+  if (value < bounds.min) return "text-amber-500";
+  if (value > bounds.max) return "text-red-500";
+  return "text-green-500";
+};
+
+const getBMIColor = (bmi: number) => {
+  if (bmi < 18.5 || (bmi >= 25 && bmi < 30)) return "orange";
+  if (bmi >= 30) return "red";
+  return "green";
+};
+
+const getBodyFatColor = (bodyFat: number, gender: string) => {
+  if (gender === "male") {
+    if (bodyFat < 6) return "orange"; // Çok düşük
+    if (bodyFat >= 6 && bodyFat < 14) return "green"; // Atletik
+    if (bodyFat >= 14 && bodyFat < 18) return "green"; // Fit
+    if (bodyFat >= 18 && bodyFat < 25) return "orange"; // Ortalama
+    return "red"; // Obez
+  } else {
+    if (bodyFat < 16) return "orange"; // Çok düşük
+    if (bodyFat >= 16 && bodyFat < 24) return "green"; // Atletik
+    if (bodyFat >= 24 && bodyFat < 30) return "green"; // Fit
+    if (bodyFat >= 30 && bodyFat < 35) return "orange"; // Ortalama
+    return "red"; // Obez
   }
-}
+};
 
 export default function ClientDetail() {
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [setLocation] = useLocation();
   const { id } = useParams();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("overview");
   
-  // Client verilerini getir
+  // API İstekleri
+  async function getClient() {
+    const response = await apiRequest("GET", `/api/clients/${id}`);
+    if (!response.ok) {
+      throw new Error("Danışan bilgileri yüklenemedi");
+    }
+    return response.json();
+  }
+  
+  async function getMeasurements() {
+    const response = await apiRequest("GET", `/api/clients/${id}/measurements`);
+    if (!response.ok) {
+      throw new Error("Ölçüm verileri yüklenemedi");
+    }
+    return response.json();
+  }
+  
+  async function createMeasurement(data: any) {
+    const response = await apiRequest("POST", `/api/clients/${id}/measurements`, data);
+    if (!response.ok) {
+      throw new Error("Ölçüm kaydedilemedi");
+    }
+    return response.json();
+  }
+  
+  async function updateMeasurement(measurementId: number, data: any) {
+    const response = await apiRequest("PATCH", `/api/clients/${id}/measurements/${measurementId}`, data);
+    if (!response.ok) {
+      throw new Error("Ölçüm güncellenemedi");
+    }
+    return response.json();
+  }
+  
+  async function deleteMeasurement(measurementId: number) {
+    const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
+    if (!response.ok) {
+      throw new Error("Ölçüm silinemedi");
+    }
+    return response.json();
+  }
+  
+  // Veri Sorgulama
   const { 
     data: client, 
     isLoading: isClientLoading, 
     error: clientError 
   } = useQuery({
     queryKey: [`/api/clients/${id}`],
-    queryFn: () => getClient(id),
+    queryFn: getClient,
+    retry: 1,
   });
   
-  // Ölçüm verilerini getir
   const { 
     data: measurements, 
     isLoading: isMeasurementsLoading, 
     error: measurementsError 
   } = useQuery({
     queryKey: [`/api/clients/${id}/measurements`],
-    queryFn: () => getClientMeasurements(id),
+    queryFn: getMeasurements,
+    retry: 1,
   });
   
-  // Yeni ölçüm form tanımı
-  const form = useForm<MeasurementFormValues>({
-    resolver: zodResolver(measurementSchema),
-    defaultValues: {
-      date: new Date().toISOString().split('T')[0],
-      weight: 0,
-      height: 0,
-      bodyFatPercentage: undefined,
-      waistCircumference: undefined,
-      hipCircumference: undefined,
-      chestCircumference: undefined,
-      armCircumference: undefined,
-      thighCircumference: undefined,
-      calfCircumference: undefined,
-      activityLevel: "moderate",
-      notes: "",
-    },
-  });
-  
-  // Düzenleme form tanımı
-  const editForm = useForm<MeasurementFormValues>({
-    resolver: zodResolver(measurementSchema),
-    defaultValues: {
-      date: new Date().toISOString().split('T')[0],
-      weight: 0,
-      height: 0,
-      bodyFatPercentage: undefined,
-      waistCircumference: undefined,
-      hipCircumference: undefined,
-      chestCircumference: undefined,
-      armCircumference: undefined,
-      thighCircumference: undefined,
-      calfCircumference: undefined,
-      activityLevel: "moderate",
-      notes: "",
-    },
-  });
-  
-  // Ölçüm ekleme mutation
-  const addMeasurementMutation = useMutation({
-    mutationFn: (data: MeasurementFormValues) => addMeasurement(id, data),
+  // Mutasyonlar
+  const createMeasurementMutation = useMutation({
+    mutationFn: createMeasurement,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
       toast({
         title: "Başarılı",
-        description: "Ölçüm başarıyla kaydedildi",
+        description: "Yeni ölçüm kaydedildi",
       });
-      form.reset();
       setOpenNewMeasurementDialog(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      form.reset({
+        date: new Date().toISOString().split('T')[0],
+        weight: "",
+        height: "",
+        activityLevel: "light",
+      });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Hata",
-        description: `Ölçüm kaydedilirken bir hata oluştu: ${error.message}`,
+        description: error.message,
         variant: "destructive",
       });
     },
   });
   
-  // Ölçüm düzenleme mutation
   const updateMeasurementMutation = useMutation({
-    mutationFn: ({ measurementId, data }: { measurementId: number, data: MeasurementFormValues }) => 
-      updateMeasurement(id, measurementId, data),
+    mutationFn: (data: any) => updateMeasurement(selectedMeasurement.id, data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
       toast({
         title: "Başarılı",
-        description: "Ölçüm başarıyla güncellendi",
+        description: "Ölçüm güncellendi",
       });
-      editForm.reset();
       setOpenEditMeasurementDialog(false);
-      setSelectedMeasurement(null);
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Hata",
-        description: `Ölçüm güncellenirken bir hata oluştu: ${error.message}`,
+        description: error.message,
         variant: "destructive",
       });
     },
   });
   
-  // Ölçüm silme mutation
   const deleteMeasurementMutation = useMutation({
-    mutationFn: ({ measurementId }: { measurementId: number }) => 
-      deleteMeasurement(id, measurementId),
+    mutationFn: (measurementId: number) => deleteMeasurement(measurementId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
       toast({
         title: "Başarılı",
-        description: "Ölçüm başarıyla silindi",
+        description: "Ölçüm silindi",
       });
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Hata",
-        description: `Ölçüm silinirken bir hata oluştu: ${error.message}`,
+        description: error.message,
         variant: "destructive",
       });
     },
   });
   
-  // Yeni ölçüm ekleme - geliştirilmiş veri validasyonu
-  function onSubmit(data: MeasurementFormValues) {
-    // Sayısal değerler için güvenli dönüşüm fonksiyonu
-    const safeNumericValue = (value: any): number | null => {
-      if (value === "" || value === null || value === undefined) return null;
-      const numValue = Number(value);
-      return isNaN(numValue) ? null : numValue;
-    };
-    
-    // Temel gerekli verileri ayarla - sayısal değerlerin güvenli olduğundan emin ol
-    const weight = safeNumericValue(data.weight) || 0; // Ağırlık gerekli, bu yüzden 0 kullan
-    const height = safeNumericValue(data.height) || 0; // Boy gerekli, bu yüzden 0 kullan
-    
-    // BMI'ı otomatik hesapla
-    const bmi = calculateBMI(weight, height);
-    
-    // İsteğe bağlı alanları güvenli bir şekilde işle
-    const optionalMeasurements = {
-      bodyFatPercentage: safeNumericValue(data.bodyFatPercentage),
-      waistCircumference: safeNumericValue(data.waistCircumference),
-      hipCircumference: safeNumericValue(data.hipCircumference),
-      chestCircumference: safeNumericValue(data.chestCircumference),
-      armCircumference: safeNumericValue(data.armCircumference),
-      thighCircumference: safeNumericValue(data.thighCircumference),
-      calfCircumference: safeNumericValue(data.calfCircumference)
-    };
-    
-    // Diğer alanları ekle
-    const measurementData = {
-      date: data.date || new Date().toISOString().split("T")[0], // Tarih gereklidir
-      weight,
-      height,
-      bmi: bmi.toString(),
-      clientId: Number(id),
-      activityLevel: data.activityLevel || "moderate",
-      notes: data.notes || "",
-      ...optionalMeasurements
-    };
-    
-    console.log("Yeni ölçüm için hazırlanan veri:", JSON.stringify(measurementData, null, 2));
-    
-    // Yeni ölçüm ekle
-    addMeasurementMutation.mutate(measurementData);
-  }
+  // Formlar
+  const form = useForm<z.infer<typeof measurementSchema>>({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      weight: "",
+      height: "",
+      waistCircumference: "",
+      hipCircumference: "",
+      bodyFatPercentage: "",
+      activityLevel: "light",
+      notes: "",
+    },
+  });
   
-  // Ölçüm düzenleme - geliştirilmiş veri doğrulama ve temizleme
-  function onEditSubmit(data: MeasurementFormValues) {
-    if (!selectedMeasurement) return;
+  const editForm = useForm<z.infer<typeof measurementSchema>>({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: {
+      date: "",
+      weight: "",
+      height: "",
+      waistCircumference: "",
+      hipCircumference: "",
+      bodyFatPercentage: "",
+      activityLevel: "light",
+      notes: "",
+    },
+  });
+  
+  // Form İşlemleri
+  const onSubmit = (data: z.infer<typeof measurementSchema>) => {
+    const bmi = calculateBMI(data.weight, data.height);
     
-    // Sayısal değerler için güvenli dönüşüm fonksiyonu
-    const safeNumericValue = (value: any): number | null => {
-      if (value === "" || value === null || value === undefined) return null;
-      const numValue = Number(value);
-      return isNaN(numValue) ? null : numValue;
-    };
+    // Client yaşı hesaplama
+    let age = 30; // Varsayılan
+    if (client && client.birthDate) {
+      const birthDate = new Date(client.birthDate);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+    }
     
-    // Temel gerekli verileri ayarla - sayısal değerlerin güvenli olduğundan emin ol
-    const weight = safeNumericValue(data.weight) || 0; // Ağırlık gerekli, bu yüzden 0 kullan
-    const height = safeNumericValue(data.height) || 0; // Boy gerekli, bu yüzden 0 kullan
+    // BMR ve TDEE hesaplama
+    const bmr = calculateBMR(data.weight, data.height, age, client?.gender || "female");
+    const tdee = calculateTDEE(bmr, data.activityLevel);
     
-    // BMI'ı otomatik hesapla
-    const bmi = calculateBMI(weight, height);
-    
-    // İsteğe bağlı alanları güvenli bir şekilde işle
-    const optionalMeasurements = {
-      bodyFatPercentage: safeNumericValue(data.bodyFatPercentage),
-      waistCircumference: safeNumericValue(data.waistCircumference),
-      hipCircumference: safeNumericValue(data.hipCircumference),
-      chestCircumference: safeNumericValue(data.chestCircumference),
-      armCircumference: safeNumericValue(data.armCircumference),
-      thighCircumference: safeNumericValue(data.thighCircumference),
-      calfCircumference: safeNumericValue(data.calfCircumference)
-    };
-    
-    // Diğer alanları ekle
+    // Verileri hazırlama
     const measurementData = {
-      date: data.date || new Date().toISOString().split("T")[0], // Tarih gereklidir
-      weight,
-      height,
-      bmi: bmi.toString(),
-      clientId: Number(id),
-      activityLevel: data.activityLevel || "moderate",
-      notes: data.notes || "",
-      ...optionalMeasurements
+      ...data,
+      bmi,
+      basalMetabolicRate: bmr,
+      totalDailyEnergyExpenditure: tdee,
     };
     
-    console.log("Güncelleme için hazırlanan veri:", JSON.stringify(measurementData, null, 2));
+    createMeasurementMutation.mutate(measurementData);
+  };
+  
+  const onEditSubmit = (data: z.infer<typeof measurementSchema>) => {
+    const bmi = calculateBMI(data.weight, data.height);
     
-    // Ölçümü güncelle
-    updateMeasurementMutation.mutate({ 
-      measurementId: selectedMeasurement.id, 
-      data: measurementData 
+    // Client yaşı hesaplama
+    let age = 30; // Varsayılan
+    if (client && client.birthDate) {
+      const birthDate = new Date(client.birthDate);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+    }
+    
+    // BMR ve TDEE hesaplama
+    const bmr = calculateBMR(data.weight, data.height, age, client?.gender || "female");
+    const tdee = calculateTDEE(bmr, data.activityLevel);
+    
+    // Verileri hazırlama
+    const measurementData = {
+      ...data,
+      bmi,
+      basalMetabolicRate: bmr,
+      totalDailyEnergyExpenditure: tdee,
+    };
+    
+    updateMeasurementMutation.mutate(measurementData);
+  };
+  
+  const handleEditMeasurement = (measurement: any) => {
+    setSelectedMeasurement(measurement);
+    editForm.reset({
+      date: measurement.date,
+      weight: measurement.weight,
+      height: measurement.height,
+      waistCircumference: measurement.waistCircumference || "",
+      hipCircumference: measurement.hipCircumference || "",
+      bodyFatPercentage: measurement.bodyFatPercentage || "",
+      activityLevel: measurement.activityLevel || "light",
+      notes: measurement.notes || "",
     });
-  }
+    setOpenEditMeasurementDialog(true);
+  };
   
-  // Son ölçümü bul
+  const handleDeleteMeasurement = (measurementId: number) => {
+    if (window.confirm("Bu ölçümü silmek istediğinizden emin misiniz?")) {
+      deleteMeasurementMutation.mutate(measurementId);
+    }
+  };
+  
+  // Grafik Verileri
+  const chartData = measurements?.map((measurement: any) => ({
+    date: format(new Date(measurement.date), "dd/MM/yy"),
+    weight: parseFloat(measurement.weight),
+    bmi: parseFloat(measurement.bmi),
+    bodyFat: measurement.bodyFatPercentage ? parseFloat(measurement.bodyFatPercentage) : null,
+    waist: measurement.waistCircumference ? parseFloat(measurement.waistCircumference) : null,
+    hip: measurement.hipCircumference ? parseFloat(measurement.hipCircumference) : null,
+    tdee: measurement.totalDailyEnergyExpenditure,
+    bmr: measurement.basalMetabolicRate
+  })).sort((a: any, b: any) => {
+    const dateA = new Date(a.date.split('/').reverse().join('/'));
+    const dateB = new Date(b.date.split('/').reverse().join('/'));
+    return dateA.getTime() - dateB.getTime();
+  });
+  
+  // Son ölçüm
   const lastMeasurement = measurements && measurements.length > 0 
-    ? measurements[0] 
+    ? measurements.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] 
     : null;
   
-  // Yükleme durumu
+  // İlk ölçüm
+  const firstMeasurement = measurements && measurements.length > 0
+    ? measurements.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+    : null;
+  
+  // Değişim hesaplama
+  const calculateChange = (current: number, initial: number) => {
+    if (!initial) return { value: 0, percentage: 0 };
+    const change = current - initial;
+    const percentage = (change / initial) * 100;
+    return {
+      value: change.toFixed(2),
+      percentage: percentage.toFixed(2)
+    };
+  };
+  
+  // Kilo değişimi
+  const weightChange = lastMeasurement && firstMeasurement
+    ? calculateChange(parseFloat(lastMeasurement.weight), parseFloat(firstMeasurement.weight))
+    : { value: 0, percentage: 0 };
+  
+  // BMI değişimi
+  const bmiChange = lastMeasurement && firstMeasurement
+    ? calculateChange(parseFloat(lastMeasurement.bmi), parseFloat(firstMeasurement.bmi))
+    : { value: 0, percentage: 0 };
+  
+  // Yaş hesaplama
+  const calculateAge = (birthDate?: string) => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+  
+  const clientAge = calculateAge(client?.birthDate);
+  
+  // Bel-Kalça Oranı hesaplama
+  const calculateWHR = (waist?: string, hip?: string) => {
+    if (!waist || !hip) return null;
+    const w = parseFloat(waist);
+    const h = parseFloat(hip);
+    if (isNaN(w) || isNaN(h) || h === 0) return null;
+    return (w / h).toFixed(2);
+  };
+  
+  const getWHRStatus = (whr: number, gender: string) => {
+    if (gender === "male") {
+      if (whr <= 0.9) return { status: "Sağlıklı", color: "text-green-500" };
+      if (whr <= 0.99) return { status: "Orta Risk", color: "text-amber-500" };
+      return { status: "Yüksek Risk", color: "text-red-500" };
+    } else {
+      if (whr <= 0.8) return { status: "Sağlıklı", color: "text-green-500" };
+      if (whr <= 0.89) return { status: "Orta Risk", color: "text-amber-500" };
+      return { status: "Yüksek Risk", color: "text-red-500" };
+    }
+  };
+  
+  const whr = lastMeasurement ? calculateWHR(lastMeasurement.waistCircumference, lastMeasurement.hipCircumference) : null;
+  const whrStatus = whr && client ? getWHRStatus(parseFloat(whr), client.gender) : null;
+  
+  // Vücut Yağ Oranı Durumu
+  const getBodyFatStatus = (bf: number, gender: string) => {
+    if (gender === "male") {
+      if (bf < 6) return { status: "Çok Düşük", color: "text-amber-500" };
+      if (bf >= 6 && bf < 14) return { status: "Atletik", color: "text-green-500" };
+      if (bf >= 14 && bf < 18) return { status: "Fit", color: "text-green-500" };
+      if (bf >= 18 && bf < 25) return { status: "Normal", color: "text-green-500" };
+      return { status: "Yüksek", color: "text-red-500" };
+    } else {
+      if (bf < 16) return { status: "Çok Düşük", color: "text-amber-500" };
+      if (bf >= 16 && bf < 24) return { status: "Atletik", color: "text-green-500" };
+      if (bf >= 24 && bf < 30) return { status: "Fit", color: "text-green-500" };
+      if (bf >= 30 && bf < 32) return { status: "Normal", color: "text-green-500" };
+      return { status: "Yüksek", color: "text-red-500" };
+    }
+  };
+  
+  const bodyFatStatus = lastMeasurement && lastMeasurement.bodyFatPercentage && client
+    ? getBodyFatStatus(parseFloat(lastMeasurement.bodyFatPercentage), client.gender)
+    : null;
+  
   if (isClientLoading) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-center items-center h-64">
-          <p>Danışan bilgileri yükleniyor...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
   
-  // Hata durumu
   if (clientError) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-center items-center h-64">
-          <p className="text-red-500">Hata: Danışan bilgileri yüklenemedi.</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-destructive text-lg">Hata: {(clientError as Error).message}</p>
+        <Button onClick={() => setLocation("/clients")} className="mt-4">
+          <ChevronLeft className="mr-2 h-4 w-4" /> Danışanlara Dön
+        </Button>
+      </div>
+    );
+  }
+  
+  if (!client) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-lg">Danışan bulunamadı</p>
+        <Button onClick={() => setLocation("/clients")} className="mt-4">
+          <ChevronLeft className="mr-2 h-4 w-4" /> Danışanlara Dön
+        </Button>
       </div>
     );
   }
   
   return (
-    <div className="container mx-auto py-6 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => setLocation("/clients")}
-            className="mb-4"
-          >
-            &larr; Danışanlara Dön
-          </Button>
-          <h1 className="text-3xl font-bold">{client.firstName} {client.lastName}</h1>
-          <p className="text-muted-foreground">{client.email} | {client.phone || "Telefon yok"}</p>
-        </div>
-        
-        {/* Yeni ölçüm ekleme diyaloğu */}
-        <Dialog open={openNewMeasurementDialog} onOpenChange={setOpenNewMeasurementDialog}>
-          <DialogTrigger asChild>
-            <Button>Yeni Ölçüm Ekle</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Yeni Ölçüm Ekle</DialogTitle>
-              <DialogDescription>
-                {client.firstName} {client.lastName} için yeni ölçüm bilgilerini girin.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ölçüm Tarihi*</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="weight"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ağırlık (kg)*</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="height"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Boy (cm)*</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="bodyFatPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="waistCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bel Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="hipCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kalça Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="chestCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Göğüs Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="armCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kol Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="thighCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Uyluk Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="calfCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Baldır Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setOpenNewMeasurementDialog(false)}>
-                    İptal
-                  </Button>
-                  <Button type="submit" disabled={addMeasurementMutation.isPending}>
-                    {addMeasurementMutation.isPending ? "Kaydediliyor..." : "Ölçümü Kaydet"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Ölçüm düzenleme diyaloğu */}
-        <Dialog open={openEditMeasurementDialog} onOpenChange={setOpenEditMeasurementDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Ölçüm Düzenle</DialogTitle>
-              <DialogDescription>
-                {client.firstName} {client.lastName} için ölçüm bilgilerini düzenleyin.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
-                <FormField
-                  control={editForm.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ölçüm Tarihi*</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="weight"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ağırlık (kg)*</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={editForm.control}
-                    name="height"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Boy (cm)*</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="bodyFatPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={editForm.control}
-                    name="waistCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bel Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="hipCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kalça Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={editForm.control}
-                    name="chestCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Göğüs Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={editForm.control}
-                    name="armCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kol Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="thighCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Uyluk Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={editForm.control}
-                    name="calfCircumference"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Baldır Çevresi (cm)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => {
-                    setOpenEditMeasurementDialog(false);
-                    setSelectedMeasurement(null);
-                  }}>
-                    İptal
-                  </Button>
-                  <Button type="submit" disabled={updateMeasurementMutation.isPending}>
-                    {updateMeasurementMutation.isPending ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="flex items-center mb-6">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setLocation("/clients")}
+          className="mr-4"
+        >
+          <ChevronLeft className="mr-2 h-4 w-4" />
+          Danışanlara Dön
+        </Button>
+        <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
       </div>
       
-      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Genel Bilgiler</TabsTrigger>
-          <TabsTrigger value="progress">Gelişim Takibi</TabsTrigger>
-          <TabsTrigger value="measurements">Tüm Ölçümler</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Kişisel Bilgiler</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Doğum Tarihi</Label>
-                  <p>{client.birthDate ? formatDate(client.birthDate) : "Belirtilmemiş"}</p>
-                </div>
-                <div>
-                  <Label>Cinsiyet</Label>
-                  <p>{client.gender === "male" ? "Erkek" : client.gender === "female" ? "Kadın" : "Diğer"}</p>
-                </div>
-                <div>
-                  <Label>Meslek</Label>
-                  <p>{client.occupation || "Belirtilmemiş"}</p>
-                </div>
-                <div>
-                  <Label>Durum</Label>
-                  <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    client.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                  }`}>
-                    {client.status === "active" ? "Aktif" : "Pasif"}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Sağlık Bilgileri</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Sağlık Durumu</Label>
-                  <p>{client.medicalConditions || "Belirtilmemiş"}</p>
-                </div>
-                <div>
-                  <Label>Alerjiler</Label>
-                  <p>{client.allergies || "Belirtilmemiş"}</p>
-                </div>
-                <Separator className="my-4" />
-                <div>
-                  <Label>Güncel BMI</Label>
-                  <p className="text-2xl font-bold">{lastMeasurement?.bmi ? lastMeasurement.bmi : "Ölçüm yok"}</p>
-                </div>
-                <div>
-                  <Label>Güncel Kilo</Label>
-                  <p>{lastMeasurement?.weight ? `${lastMeasurement.weight} kg` : "Ölçüm yok"}</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {measurements && measurements.length >= 2 && (
-              <ProgressReportCard measurements={measurements} />
-            )}
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Notlar ve Detaylar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div>
-                  <Label>Danışan Notları</Label>
-                  <p className="mt-2">{client.notes || "Not bulunmamaktadır."}</p>
-                </div>
-                <Separator className="my-4" />
-                <div>
-                  <Label>Başlangıç Tarihi</Label>
-                  <p>{formatDate(client.startDate)}</p>
-                </div>
-                {client.endDate && (
-                  <div className="mt-2">
-                    <Label>Bitiş Tarihi</Label>
-                    <p>{formatDate(client.endDate)}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="progress" className="space-y-6">
-          {isMeasurementsLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <p>Ölçüm verileri yükleniyor...</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Kişisel Bilgiler</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Ad Soyad</Label>
+                <p className="font-medium">{client.firstName} {client.lastName}</p>
+              </div>
+              <div>
+                <Label>Cinsiyet</Label>
+                <p className="font-medium">
+                  {client.gender === 'female' ? 'Kadın' : 
+                  client.gender === 'male' ? 'Erkek' : 'Diğer'}
+                </p>
+              </div>
             </div>
-          ) : measurementsError ? (
-            <div className="flex justify-center items-center h-64">
-              <p className="text-red-500">Hata: Ölçüm verileri yüklenemedi.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>E-posta</Label>
+                <p className="font-medium">{client.email}</p>
+              </div>
+              <div>
+                <Label>Telefon</Label>
+                <p className="font-medium">{client.phone || "-"}</p>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6">
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-semibold">Gelişmiş Ölçüm Grafiği</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Yaş</Label>
+                <p className="font-medium">{clientAge || "-"}</p>
+              </div>
+              <div>
+                <Label>Meslek</Label>
+                <p className="font-medium">{client.occupation || "-"}</p>
+              </div>
+            </div>
+            <div>
+              <Label>Kayıt Tarihi</Label>
+              <p className="font-medium">{formatDate(client.createdAt)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Sağlık Bilgileri</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div>
+              <Label>Sağlık Durumu</Label>
+              <p className="font-medium">{client.medicalConditions || "-"}</p>
+            </div>
+            <div>
+              <Label>Alerjiler</Label>
+              <p className="font-medium">{client.allergies || "-"}</p>
+            </div>
+            <div>
+              <Label>Notlar</Label>
+              <p className="font-medium">{client.notes || "-"}</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {lastMeasurement && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Son Ölçüm</CardTitle>
+              <CardDescription>{formatDate(lastMeasurement.date)}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Kilo</Label>
+                  <p className="text-lg font-semibold">{lastMeasurement.weight} kg</p>
                 </div>
-                
-                <SimpleChart 
-                  measurements={measurements || []}
-                  title="Vücut Ölçümleri Grafiği"
+                <div>
+                  <Label>Boy</Label>
+                  <p className="text-lg font-semibold">{lastMeasurement.height} cm</p>
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between mb-1">
+                  <Label>VKİ (BMI)</Label>
+                  <span className={getHealthStatus(parseFloat(lastMeasurement.bmi)).color}>
+                    {lastMeasurement.bmi} - {getHealthStatus(parseFloat(lastMeasurement.bmi)).status}
+                  </span>
+                </div>
+                <Progress 
+                  value={Math.min(parseFloat(lastMeasurement.bmi) * 2, 100)} 
+                  className="h-2" 
+                  indicatorClassName={`${parseFloat(lastMeasurement.bmi) < 18.5 ? "bg-amber-500" : 
+                    parseFloat(lastMeasurement.bmi) >= 18.5 && parseFloat(lastMeasurement.bmi) < 25 ? "bg-green-500" :
+                    parseFloat(lastMeasurement.bmi) >= 25 && parseFloat(lastMeasurement.bmi) < 30 ? "bg-amber-500" :
+                    "bg-red-500"}`}
                 />
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>BMI ve Kilogram Özeti</CardTitle>
-                    <CardDescription>Son ölçümlerden değişim verileri</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {measurements.length >= 2 ? (
-                      <div className="space-y-4">
-                        <div className="py-2 border-b">
-                          <Label>Son Ölçüm</Label>
-                          <div className="flex items-center mt-1 space-x-2">
-                            <span className="text-lg font-semibold">{measurements[0].weight} kg</span>
-                            <span className="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded">BMI: {parseFloat(measurements[0].bmi).toFixed(1)}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">{formatDate(measurements[0].date)}</p>
-                        </div>
-                        
-                        <div className="py-2 border-b">
-                          <Label>Önceki Ölçüm</Label>
-                          <div className="flex items-center mt-1 space-x-2">
-                            <span className="text-base font-medium">{measurements[1].weight} kg</span> 
-                            <span className="px-2 py-0.5 text-sm bg-blue-50 text-blue-600 rounded">BMI: {parseFloat(measurements[1].bmi).toFixed(1)}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">{formatDate(measurements[1].date)}</p>
-                        </div>
-                        
-                        <div className="py-2">
-                          <Label>Değişim</Label>
-                          {(() => {
-                            const weightChange = Number(measurements[0].weight) - Number(measurements[1].weight);
-                            const bmiChange = Number(measurements[0].bmi) - Number(measurements[1].bmi);
-                            
-                            const isWeightReduced = weightChange < 0;
-                            const isBmiReduced = bmiChange < 0;
-                            const weightChangeAbs = Math.abs(weightChange);
-                            const bmiChangeAbs = Math.abs(bmiChange);
-                            
-                            const daysDiff = Math.round((new Date(measurements[0].date).getTime() - new Date(measurements[1].date).getTime()) / (1000 * 60 * 60 * 24));
-                            
-                            return (
-                              <div className="mt-1 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium">Kilo:</span>
-                                  <span className={`${isWeightReduced ? "text-green-600" : "text-red-600"} font-medium px-2 py-1 rounded-md ${isWeightReduced ? "bg-green-100" : "bg-red-100"}`}>
-                                    {isWeightReduced ? "-" : "+"}{weightChangeAbs.toFixed(1)} kg
-                                  </span>
-                                </div>
-                                
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium">BMI:</span>
-                                  <span className={`${isBmiReduced ? "text-green-600" : "text-red-600"} font-medium px-2 py-1 rounded-md ${isBmiReduced ? "bg-green-100" : "bg-red-100"}`}>
-                                    {isBmiReduced ? "-" : "+"}{bmiChangeAbs.toFixed(1)} birim
-                                  </span>
-                                </div>
-                                
-                                {daysDiff > 0 && (
-                                  <div className="flex items-center justify-between mt-2 pt-2 border-t">
-                                    <span className="text-sm font-medium">Süre:</span>
-                                    <span className="text-sm text-muted-foreground">{daysDiff} gün</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">Karşılaştırma için en az 2 ölçüm gereklidir.</p>
-                    )}
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Çevre Ölçümleri Değişim</CardTitle>
-                    <CardDescription>Son ölçümlerden vücut çevresi değişimleri</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {measurements.length >= 2 ? (
-                      <div className="space-y-4">
-                        {(() => {
-                          const circMetrics = [
-                            { name: "Bel Çevresi", key: "waistCircumference" },
-                            { name: "Kalça Çevresi", key: "hipCircumference" },
-                            { name: "Göğüs Çevresi", key: "chestCircumference" },
-                            { name: "Kol Çevresi", key: "armCircumference" },
-                            { name: "Uyluk Çevresi", key: "thighCircumference" },
-                            { name: "Baldır Çevresi", key: "calfCircumference" },
-                          ];
-                          
-                          return circMetrics.map((metric) => {
-                            const current = measurements[0][metric.key];
-                            const previous = measurements[1][metric.key];
-                            
-                            if (!current || !previous) return null;
-                            
-                            const change = Number(current) - Number(previous);
-                            const isReduced = change < 0;
-                            
-                            return (
-                              <div key={metric.key} className="py-2 border-b last:border-0">
-                                <Label>{metric.name}</Label>
-                                <div className="flex justify-between items-center mt-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium">{previous} cm</span>
-                                    <span className="text-muted-foreground">→</span>
-                                    <span className="text-base font-semibold">{current} cm</span>
-                                  </div>
-                                  <span className={`${isReduced ? "text-green-600" : "text-red-600"} font-medium px-2 py-1 rounded-md bg-opacity-10 ${isReduced ? "bg-green-100" : "bg-red-100"}`}>
-                                    {isReduced ? "" : "+"}{change.toFixed ? change.toFixed(1) : change} cm
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          });
-                        })()}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">Karşılaştırma için en az 2 ölçüm gereklidir.</p>
-                    )}
-                  </CardContent>
-                </Card>
+              {lastMeasurement.bodyFatPercentage && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <Label>Vücut Yağ Oranı</Label>
+                    <span className={bodyFatStatus?.color}>
+                      %{lastMeasurement.bodyFatPercentage} - {bodyFatStatus?.status}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={Math.min(parseFloat(lastMeasurement.bodyFatPercentage) * 2, 100)} 
+                    className="h-2"
+                    indicatorClassName={`${bodyFatStatus?.color.replace('text-', 'bg-').replace('-500', '-500')}`}
+                  />
+                </div>
+              )}
+              
+              {whr && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <Label>Bel/Kalça Oranı</Label>
+                    <span className={whrStatus?.color}>
+                      {whr} - {whrStatus?.status}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div>
+                  <Label>BMR</Label>
+                  <p className="font-medium">{lastMeasurement.basalMetabolicRate || "-"} kcal</p>
+                </div>
+                <div>
+                  <Label>TDEE</Label>
+                  <p className="font-medium">{lastMeasurement.totalDailyEnergyExpenditure || "-"} kcal</p>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+      
+      <Tabs defaultValue="overview" className="mb-6">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
+          <TabsTrigger value="measurements">Ölçümler</TabsTrigger>
+          <TabsTrigger value="analytics">Analiz</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Kilo Değişimi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {weightChange.value > 0 ? "+" : ""}{weightChange.value} kg
+                    </p>
+                    <p className={`text-sm ${parseFloat(weightChange.percentage) > 0 ? "text-red-500" : parseFloat(weightChange.percentage) < 0 ? "text-green-500" : "text-muted-foreground"}`}>
+                      {weightChange.percentage}%
+                    </p>
+                  </div>
+                  <Activity className={`h-8 w-8 ${parseFloat(weightChange.percentage) > 0 ? "text-red-500" : parseFloat(weightChange.percentage) < 0 ? "text-green-500" : "text-muted-foreground"}`} />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">VKİ Değişimi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {bmiChange.value > 0 ? "+" : ""}{bmiChange.value}
+                    </p>
+                    <p className={`text-sm ${parseFloat(bmiChange.percentage) > 0 ? "text-red-500" : parseFloat(bmiChange.percentage) < 0 ? "text-green-500" : "text-muted-foreground"}`}>
+                      {bmiChange.percentage}%
+                    </p>
+                  </div>
+                  <Ruler className={`h-8 w-8 ${parseFloat(bmiChange.percentage) > 0 ? "text-red-500" : parseFloat(bmiChange.percentage) < 0 ? "text-green-500" : "text-muted-foreground"}`} />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Aktif Veri</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {measurements?.length || 0}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Toplam ölçüm sayısı</p>
+                  </div>
+                  <LineChart className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Günlük Kalori İhtiyacı</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {lastMeasurement?.totalDailyEnergyExpenditure || "-"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
+                  </div>
+                  <Activity className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {measurements && measurements.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Kilo Değişimi</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="weight" stroke="#3b82f6" name="Kilo (kg)" strokeWidth={2} />
+                      </ReLineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>VKİ (BMI) Değişimi</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis domain={[15, 40]} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar 
+                          dataKey="bmi" 
+                          name="VKİ (BMI)" 
+                          barSize={20}
+                          fill="#3b82f6"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={getBMIColor(entry.bmi)} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </TabsContent>
         
         <TabsContent value="measurements">
-          {isMeasurementsLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <p>Ölçüm verileri yükleniyor...</p>
-            </div>
-          ) : measurementsError ? (
-            <div className="flex justify-center items-center h-64">
-              <p className="text-red-500">Hata: Ölçüm verileri yüklenemedi.</p>
-            </div>
-          ) : measurements.length === 0 ? (
-            <div className="flex justify-center items-center h-64">
-              <p className="text-muted-foreground">Henüz ölçüm kaydı bulunmamaktadır.</p>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Ölçüm Kayıtları</h2>
+            <Button onClick={() => setOpenNewMeasurementDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Yeni Ölçüm
+            </Button>
+          </div>
+          
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tarih</TableHead>
+                  <TableHead>Kilo (kg)</TableHead>
+                  <TableHead>Boy (cm)</TableHead>
+                  <TableHead>VKİ</TableHead>
+                  <TableHead>Vücut Yağ %</TableHead>
+                  <TableHead>Bel (cm)</TableHead>
+                  <TableHead>Kalça (cm)</TableHead>
+                  <TableHead>BMR (kcal)</TableHead>
+                  <TableHead>TDEE (kcal)</TableHead>
+                  <TableHead>İşlemler</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isMeasurementsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : measurements && measurements.length > 0 ? (
+                  measurements
+                    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((measurement: any) => (
+                      <TableRow key={measurement.id}>
+                        <TableCell>{formatDate(measurement.date)}</TableCell>
+                        <TableCell>{measurement.weight}</TableCell>
+                        <TableCell>{measurement.height}</TableCell>
+                        <TableCell className={getHealthStatus(parseFloat(measurement.bmi)).color}>
+                          {measurement.bmi}
+                        </TableCell>
+                        <TableCell>
+                          {measurement.bodyFatPercentage ? `%${measurement.bodyFatPercentage}` : "-"}
+                        </TableCell>
+                        <TableCell>{measurement.waistCircumference || "-"}</TableCell>
+                        <TableCell>{measurement.hipCircumference || "-"}</TableCell>
+                        <TableCell>{measurement.basalMetabolicRate || "-"}</TableCell>
+                        <TableCell>{measurement.totalDailyEnergyExpenditure || "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => handleEditMeasurement(measurement)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => handleDeleteMeasurement(measurement.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center">
+                      Henüz ölçüm kaydı bulunmuyor
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="analytics">
+          {measurements && measurements.length > 0 ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {chartData.some(d => d.bodyFat !== null) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Vücut Yağ Oranı Değişimi</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData.filter(d => d.bodyFat !== null)} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar 
+                              dataKey="bodyFat" 
+                              name="Vücut Yağ Oranı (%)" 
+                              barSize={20}
+                              fill="#10b981"
+                              radius={[4, 4, 0, 0]}
+                            >
+                              {chartData
+                                .filter(d => d.bodyFat !== null)
+                                .map((entry, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={getBodyFatColor(entry.bodyFat, client.gender)} 
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {chartData.some(d => d.waist !== null) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Bel Çevresi Değişimi</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ReLineChart data={chartData.filter(d => d.waist !== null)} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Line type="monotone" dataKey="waist" stroke="#f59e0b" name="Bel (cm)" strokeWidth={2} />
+                          </ReLineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bazal Metabolizma Hızı (BMR)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="bmr" stroke="#8b5cf6" name="BMR (kcal)" strokeWidth={2} />
+                        </ReLineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Toplam Günlük Enerji İhtiyacı (TDEE)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="tdee" stroke="#ec4899" name="TDEE (kcal)" strokeWidth={2} />
+                        </ReLineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tüm Ölçümler</CardTitle>
-                <CardDescription>Tüm kaydedilen ölçüm bilgileri</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Görüntüleme seçenekleri" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tüm metrikler</SelectItem>
-                        <SelectItem value="basic">Temel metrikler</SelectItem>
-                        <SelectItem value="body">Vücut ölçümleri</SelectItem>
-                        <SelectItem value="circumference">Çevre ölçümleri</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="overflow-x-auto border rounded-lg">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-muted/50">
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm sticky left-0 bg-muted/50 z-10">Tarih</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Kilo (kg)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">BMI</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Vücut Yağı (%)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Bel (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Kalça (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Göğüs (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Kol (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Uyluk (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Baldır (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">Boy (cm)</th>
-                          <th className="py-3 px-4 text-left font-medium text-xs md:text-sm">İşlemler</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {measurements.map((measurement, index) => {
-                          // Bir önceki değer ile karşılaştırma için
-                          const prevMeasurement = index < measurements.length - 1 ? measurements[index + 1] : null;
-                          
-                          // Değişim yönünü belirleyen fonksiyon
-                          const getChangeDirection = (current: any, previous: any, isLowerBetter = true) => {
-                            if (!current || !previous) return null;
-                            const change = Number(current) - Number(previous);
-                            const isReduced = change < 0;
-                            
-                            return {
-                              improved: isLowerBetter ? isReduced : !isReduced,
-                              change: Math.abs(change).toFixed(1)
-                            };
-                          };
-                          
-                          return (
-                            <tr key={measurement.id} className="border-t hover:bg-muted/30 transition-colors">
-                              <td className="py-3 px-4 text-sm font-medium sticky left-0 bg-white z-10">
-                                {formatDate(measurement.date)}
-                              </td>
-                              
-                              {/* Kilo */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.weight}</span>
-                                  {prevMeasurement && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.weight, prevMeasurement.weight);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* BMI */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.bmi || "-"}</span>
-                                  {prevMeasurement && measurement.bmi && prevMeasurement.bmi && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.bmi, prevMeasurement.bmi);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Vücut Yağı */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.bodyFatPercentage || "-"}</span>
-                                  {prevMeasurement && measurement.bodyFatPercentage && prevMeasurement.bodyFatPercentage && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.bodyFatPercentage, prevMeasurement.bodyFatPercentage);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Bel */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.waistCircumference || "-"}</span>
-                                  {prevMeasurement && measurement.waistCircumference && prevMeasurement.waistCircumference && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.waistCircumference, prevMeasurement.waistCircumference);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Kalça */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.hipCircumference || "-"}</span>
-                                  {prevMeasurement && measurement.hipCircumference && prevMeasurement.hipCircumference && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.hipCircumference, prevMeasurement.hipCircumference);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Göğüs */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.chestCircumference || "-"}</span>
-                                  {prevMeasurement && measurement.chestCircumference && prevMeasurement.chestCircumference && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.chestCircumference, prevMeasurement.chestCircumference);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Kol */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.armCircumference || "-"}</span>
-                                  {prevMeasurement && measurement.armCircumference && prevMeasurement.armCircumference && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.armCircumference, prevMeasurement.armCircumference);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Uyluk */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.thighCircumference || "-"}</span>
-                                  {prevMeasurement && measurement.thighCircumference && prevMeasurement.thighCircumference && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.thighCircumference, prevMeasurement.thighCircumference);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Baldır */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  <span>{measurement.calfCircumference || "-"}</span>
-                                  {prevMeasurement && measurement.calfCircumference && prevMeasurement.calfCircumference && (
-                                    <>
-                                      {(() => {
-                                        const change = getChangeDirection(measurement.calfCircumference, prevMeasurement.calfCircumference);
-                                        if (!change) return null;
-                                        
-                                        return (
-                                          <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${change.improved ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                                            {change.improved ? "-" : "+"}{change.change}
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Boy */}
-                              <td className="py-3 px-4 text-sm">{measurement.height || "-"}</td>
-                              
-                              {/* İşlemler */}
-                              <td className="py-3 px-4 text-sm">
-                                <div className="flex gap-2">
-                                  <button 
-                                    className="text-xs text-blue-600 hover:text-blue-800"
-                                    title="Ölçümü düzenle"
-                                    onClick={() => {
-                                      // Düzenleme için ölçümü seç
-                                      setSelectedMeasurement(measurement);
-                                      // Form değerlerini güvenli bir şekilde ayarla
-                                      const safeNumericConversion = (value: any) => {
-                                        if (value === null || value === undefined || value === "") return undefined;
-                                        const parsed = Number(value);
-                                        return isNaN(parsed) ? undefined : parsed;
-                                      };
-                                      
-                                      // Edit formunu ayarla - güvenli dönüşümlerle
-                                      editForm.reset({
-                                        date: measurement.date || new Date().toISOString().split("T")[0],
-                                        weight: safeNumericConversion(measurement.weight) || 0,
-                                        height: safeNumericConversion(measurement.height) || 0,
-                                        bodyFatPercentage: safeNumericConversion(measurement.bodyFatPercentage),
-                                        waistCircumference: safeNumericConversion(measurement.waistCircumference),
-                                        hipCircumference: safeNumericConversion(measurement.hipCircumference),
-                                        chestCircumference: safeNumericConversion(measurement.chestCircumference),
-                                        armCircumference: safeNumericConversion(measurement.armCircumference),
-                                        thighCircumference: safeNumericConversion(measurement.thighCircumference),
-                                        calfCircumference: safeNumericConversion(measurement.calfCircumference),
-                                        activityLevel: measurement.activityLevel || "moderate",
-                                        notes: measurement.notes || "",
-                                      });
-                                      // Dialogu aç
-                                      setOpenEditMeasurementDialog(true);
-                                    }}
-                                  >
-                                    Düzenle
-                                  </button>
-                                  <button 
-                                    className="text-xs text-red-600 hover:text-red-800"
-                                    title="Ölçümü sil"
-                                    onClick={() => {
-                                      if (confirm("Bu ölçümü silmek istediğinizden emin misiniz?")) {
-                                        deleteMeasurementMutation.mutate({ measurementId: measurement.id });
-                                      }
-                                    }}
-                                  >
-                                    Sil
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="text-center p-12">
+              <p className="text-lg text-muted-foreground">Grafik gösterimi için en az bir ölçüm kaydı gerekiyor</p>
+              <Button onClick={() => setOpenNewMeasurementDialog(true)} className="mt-4">
+                <Plus className="mr-2 h-4 w-4" /> Yeni Ölçüm Ekle
+              </Button>
+            </div>
           )}
         </TabsContent>
       </Tabs>
+      
+      {/* Yeni Ölçüm Modal */}
+      <Dialog open={openNewMeasurementDialog} onOpenChange={setOpenNewMeasurementDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Yeni Ölçüm Ekle</DialogTitle>
+            <DialogDescription>
+              Danışanın yeni ölçüm verilerini girin. Tarih, kilo, boy ve aktivite seviyesi zorunludur.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tarih</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kilo (kg)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 70.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="height"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Boy (cm)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 175" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="bodyFatPercentage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 20.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="waistCircumference"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bel Çevresi (cm)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 85" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="hipCircumference"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kalça Çevresi (cm)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 95" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="activityLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aktivite Seviyesi</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Aktivite seviyesi seçin" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="sedentary">Hareketsiz (ofis işi, az/hiç egzersiz yok)</SelectItem>
+                        <SelectItem value="light">Hafif Aktivite (haftada 1-3 gün egzersiz)</SelectItem>
+                        <SelectItem value="moderate">Orta Aktivite (haftada 3-5 gün orta şiddette egzersiz)</SelectItem>
+                        <SelectItem value="active">Aktif (haftada 6-7 gün egzersiz)</SelectItem>
+                        <SelectItem value="veryActive">Çok Aktif (günde 2 kez antrenman, fiziksel iş)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notlar</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Ekstra notlar veya yorumlar..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpenNewMeasurementDialog(false)}>
+                  İptal
+                </Button>
+                <Button type="submit" disabled={createMeasurementMutation.isPending}>
+                  {createMeasurementMutation.isPending ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Ölçüm Düzenleme Modal */}
+      <Dialog open={openEditMeasurementDialog} onOpenChange={setOpenEditMeasurementDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Ölçüm Düzenle</DialogTitle>
+            <DialogDescription>
+              Ölçüm verilerini güncelleyin. Tarih, kilo, boy ve aktivite seviyesi zorunludur.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tarih</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kilo (kg)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 70.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="height"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Boy (cm)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 175" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="bodyFatPercentage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 20.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="waistCircumference"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bel Çevresi (cm)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 85" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="hipCircumference"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kalça Çevresi (cm)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Örn: 95" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={editForm.control}
+                name="activityLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aktivite Seviyesi</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Aktivite seviyesi seçin" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="sedentary">Hareketsiz (ofis işi, az/hiç egzersiz yok)</SelectItem>
+                        <SelectItem value="light">Hafif Aktivite (haftada 1-3 gün egzersiz)</SelectItem>
+                        <SelectItem value="moderate">Orta Aktivite (haftada 3-5 gün orta şiddette egzersiz)</SelectItem>
+                        <SelectItem value="active">Aktif (haftada 6-7 gün egzersiz)</SelectItem>
+                        <SelectItem value="veryActive">Çok Aktif (günde 2 kez antrenman, fiziksel iş)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notlar</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Ekstra notlar veya yorumlar..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpenEditMeasurementDialog(false)}>
+                  İptal
+                </Button>
+                <Button type="submit" disabled={updateMeasurementMutation.isPending}>
+                  {updateMeasurementMutation.isPending ? "Güncelleniyor..." : "Güncelle"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
