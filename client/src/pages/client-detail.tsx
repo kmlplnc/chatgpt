@@ -64,7 +64,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Loader2, Plus, Edit, Trash2, ChevronLeft, Activity, Ruler, LineChart } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, ChevronLeft, Activity, Ruler, LineChart, Link, KeyRound, Copy } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
