@@ -116,7 +116,7 @@ function calculateBMI(weight: string, height: string): string {
   return bmi.toFixed(2);
 }
 
-function calculateBMR(weight: string, height: string, age: number, gender: string): number {
+function calculateBMH(weight: string, height: string, age: number, gender: string): number {
   const w = parseFloat(weight);
   const h = parseFloat(height);
 
@@ -130,7 +130,7 @@ function calculateBMR(weight: string, height: string, age: number, gender: strin
   }
 }
 
-function calculateTDEE(bmr: number, activityLevel: string): number {
+function calculateTDEE(bmh: number, activityLevel: string): number {
   const activityMultipliers: { [key: string]: number } = {
     sedentary: 1.2,    // Hareketsiz (ofis işi)
     light: 1.375,      // Hafif aktivite (haftada 1-3 gün egzersiz)
@@ -139,7 +139,7 @@ function calculateTDEE(bmr: number, activityLevel: string): number {
     veryActive: 1.9    // Çok aktif (günde çift antrenman)
   };
 
-  return Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
+  return Math.round(bmh * (activityMultipliers[activityLevel] || 1.2));
 }
 
 function getHealthStatus(bmi: number): { status: string; color: string } {
@@ -451,7 +451,7 @@ export default function ClientDetail() {
 
   // Değişim hesaplama
   const calculateChange = (current: number, initial: number) => {
-    if (!initial) return { value: 0, percentage: 0 };
+    if (!initial || current === initial) return { value: 0, percentage: 0 };
     const change = current - initial;
     const percentage = (change / initial) * 100;
     return {
