@@ -140,13 +140,21 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
           </div>
         </div>
         
-        {dietPlan.tags && dietPlan.tags.length > 0 && (
+        {dietPlan.tags && Array.isArray(dietPlan.tags) && dietPlan.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {dietPlan.tags.map((tag, index) => (
               <Badge key={index} variant="outline" className="text-xs">
                 {tag}
               </Badge>
             ))}
+          </div>
+        )}
+        
+        {dietPlan.tags && typeof dietPlan.tags === 'string' && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            <Badge variant="outline" className="text-xs">
+              {dietPlan.tags}
+            </Badge>
           </div>
         )}
       </CardContent>
