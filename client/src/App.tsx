@@ -20,6 +20,7 @@ import Register from "@/pages/auth/register";
 import AdminDashboard from "@/pages/admin";
 import ClientPortalLogin from "@/pages/client-portal";
 import ClientPortalDashboard from "@/pages/client-portal/dashboard";
+import ClientPortalMessages from "@/pages/client-portal/messages";
 import { AuthProvider } from "@/hooks/use-auth";
 
 function Router() {
@@ -46,6 +47,7 @@ function Router() {
       <Switch>
         <Route path="/client-portal" component={ClientPortalLogin} />
         <Route path="/client-portal/dashboard" component={ClientPortalDashboard} />
+        <Route path="/client-portal/messages" component={ClientPortalMessages} />
         <Route component={NotFound} />
       </Switch>
     );
