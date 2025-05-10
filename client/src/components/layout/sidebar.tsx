@@ -16,7 +16,8 @@ import {
   UserPlus,
   CreditCard,
   Lock,
-  ShieldCheck
+  ShieldCheck,
+  Users
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -29,6 +30,7 @@ export default function Sidebar() {
     { name: "Diyet Planları", href: "/diet-plans", icon: Utensils, requireAuth: true, requirePremium: true },
     { name: "Besin Veritabanı", href: "/food-database", icon: Apple, requirePremium: true },
     { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: true },
+    { name: "Danışan Portalı", href: "/client-portal", icon: Users },
     { name: "Abonelik", href: "/subscription", icon: CreditCard },
     { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true, requirePremium: false, noLock: true },
     { name: "Yönetim Paneli", href: "/admin", icon: ShieldCheck, requireAuth: true, requireAdmin: true },

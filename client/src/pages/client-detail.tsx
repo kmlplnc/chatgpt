@@ -650,24 +650,36 @@ export default function ClientDetail() {
                     <p className={`font-medium ${client.accessCode ? "" : "text-muted-foreground italic"}`}>
                       {client.accessCode || "Oluşturulmadı"}
                     </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await generateAccessCode();
-                          queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                        } catch (error: any) {
-                          toast({
-                            title: "Hata",
-                            description: error.message || "Erişim kodu oluşturulamadı",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                    >
-                      {client.accessCode ? "Yenile" : "Oluştur"}
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await generateAccessCode();
+                            queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                          } catch (error: any) {
+                            toast({
+                              title: "Hata",
+                              description: error.message || "Erişim kodu oluşturulamadı",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        {client.accessCode ? "Yenile" : "Oluştur"}
+                      </Button>
+                      
+                      {client.accessCode && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open('/client-portal', '_blank')}
+                        >
+                          Portalı Aç
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
