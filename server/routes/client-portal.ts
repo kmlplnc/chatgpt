@@ -5,6 +5,18 @@ import { eq } from 'drizzle-orm';
 
 export const clientPortalRouter = Router();
 
+// Danışan portalı için özel Request tipi tanımlama
+declare global {
+  namespace Express {
+    interface Request {
+      clientSession?: {
+        client: any;
+        session: any;
+      };
+    }
+  }
+}
+
 // Danışan girişi için endpoint
 clientPortalRouter.post('/login', async (req: Request, res: Response) => {
   try {
@@ -47,7 +59,6 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
       firstName: client.firstName,
       lastName: client.lastName,
       email: client.email,
-      // diğer gerekli bilgiler...
     });
     
   } catch (error) {
@@ -97,7 +108,7 @@ export const verifyClientSession = async (req: Request, res: Response, next: Fun
     if (new Date() > session.expiresAt) {
       await storage.deleteClientSession(sessionToken);
       res.clearCookie('client_session');
-      return res.status(401).json({ message: 'Oturumunuz sona ermiş' });
+      return res.status(401).json({ message: 'Oturumunuzun süresi dolmuş' });
     }
     
     // Danışan bilgilerini al
@@ -128,7 +139,7 @@ export const verifyClientSession = async (req: Request, res: Response, next: Fun
 // Danışan bilgilerini getir
 clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Response) => {
   try {
-    const { client } = req.clientSession;
+    const { client } = req.clientSession!;
     
     // Hassas bilgiler olmadan danışan bilgilerini gönder
     res.json({
@@ -136,7 +147,6 @@ clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Res
       firstName: client.firstName,
       lastName: client.lastName,
       email: client.email,
-      // Diğer gerekli bilgiler...
     });
   } catch (error) {
     console.error('Get client error:', error);
@@ -147,7 +157,7 @@ clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Res
 // Danışanın ölçümlerini getir
 clientPortalRouter.get('/measurements', verifyClientSession, async (req: Request, res: Response) => {
   try {
-    const { client } = req.clientSession;
+    const { client } = req.clientSession!;
     
     const measurements = await storage.getMeasurements(client.id);
     
@@ -161,7 +171,7 @@ clientPortalRouter.get('/measurements', verifyClientSession, async (req: Request
 // Danışanın diyet planını getir
 clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, res: Response) => {
   try {
-    const { client } = req.clientSession;
+    const { client } = req.clientSession!;
     
     // Burada client.id ile ilişkilendirilmiş diyet planlarını getir
     // DietPlan modeli henüz bağlantılı olmayabilir, güncelleme gerekebilir
@@ -174,12 +184,12 @@ clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, 
   }
 });
 
-// Diyetisyen tavsiyelerini getir (Uygulamamızda henüz böyle bir tablo yok, şimdilik dummy veri döndürelim)
+// Diyetisyen tavsiyelerini getir (Şimdilik dummy veri)
 clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Request, res: Response) => {
   try {
-    // const { client } = req.clientSession;
+    // const { client } = req.clientSession!;
     
-    // Şimdilik örnek veri döndürelim, ileride veritabanından çekilecek
+    // Şimdilik örnek veri dönelim, ileride veritabanından çekilecek
     res.json([
       {
         id: 1,
@@ -199,3 +209,5 @@ clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Requ
     res.status(500).json({ message: 'Tavsiyeler getirilirken bir hata oluştu' });
   }
 });
+
+export default clientPortalRouter;

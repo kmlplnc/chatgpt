@@ -36,6 +36,7 @@ export const clients = pgTable("clients", {
   status: text("status").default("active").notNull(), // "active", "inactive"
   startDate: date("start_date").defaultNow().notNull(),
   endDate: date("end_date"),
+  accessCode: text("access_code").unique(), // Danışan portalı erişim kodu
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -167,6 +168,16 @@ export const insertSavedFoodSchema = createInsertSchema(savedFoods).omit({
   createdAt: true,
 });
 
+// Client Sessions schema
+export const clientSessions = pgTable("client_sessions", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  sessionToken: text("session_token").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastActivity: timestamp("last_activity").defaultNow()
+});
+
 // Food Nutrient schema
 export const foodNutrients = pgTable("food_nutrients", {
   id: serial("id").primaryKey(),
@@ -221,6 +232,9 @@ export type InsertSavedFood = z.infer<typeof insertSavedFoodSchema>;
 
 export type FoodNutrient = typeof foodNutrients.$inferSelect;
 export type InsertFoodNutrient = z.infer<typeof insertFoodNutrientSchema>;
+
+export type ClientSession = typeof clientSessions.$inferSelect;
+export type InsertClientSession = typeof clientSessions.$inferInsert;
 
 // Search result type
 export interface FoodSearchResult {
