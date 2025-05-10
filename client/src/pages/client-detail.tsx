@@ -139,7 +139,17 @@ const formatDate = (date: string | Date) => {
   return format(dateObj, "dd MMMM yyyy", { locale: tr });
 };
 
-function calculateBMI(weight: string, height: string): string {
+// String tipinden verileri işleyip sayısal değerlere çeviren yardımcı fonksiyonlar
+function parseWeight(weight: string): number {
+  return parseFloat(weight) || 0;
+}
+
+function parseHeight(height: string): number {
+  return parseFloat(height) || 0;
+}
+
+// BMI hesaplama - string tipinde veriler için
+function calculateBmiFromString(weight: string, height: string): string {
   const w = parseFloat(weight);
   const h = parseFloat(height) / 100; // cm to m conversion
   if (isNaN(w) || isNaN(h) || h === 0) return "0.00";
@@ -147,7 +157,8 @@ function calculateBMI(weight: string, height: string): string {
   return bmi.toFixed(2);
 }
 
-function calculateBMH(weight: string, height: string, age: number, gender: string): number {
+// BMR/BMH hesaplama - string tipinde veriler için
+function calculateBmrFromString(weight: string, height: string, age: number, gender: string): number {
   const w = parseFloat(weight);
   const h = parseFloat(height);
 
@@ -161,7 +172,8 @@ function calculateBMH(weight: string, height: string, age: number, gender: strin
   }
 }
 
-function calculateTDEE(bmh: number, activityLevel: string): number {
+// TDEE hesaplama
+function calculateTdeeFromBmr(bmr: number, activityLevel: string): number {
   const activityMultipliers: { [key: string]: number } = {
     sedentary: 1.2,    // Hareketsiz (ofis işi)
     light: 1.375,      // Hafif aktivite (haftada 1-3 gün egzersiz)
@@ -170,7 +182,7 @@ function calculateTDEE(bmh: number, activityLevel: string): number {
     veryActive: 1.9    // Çok aktif (günde çift antrenman)
   };
 
-  return Math.round(bmh * (activityMultipliers[activityLevel] || 1.2));
+  return Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
 }
 
 function getHealthStatus(bmi: number): { status: string; color: string } {
@@ -614,7 +626,7 @@ export default function ClientDetail() {
 
   // Form İşlemleri
   const onSubmit = (data: z.infer<typeof measurementSchema>) => {
-    const bmi = calculateBMI(data.weight, data.height);
+    const bmi = parseFloat(calculateBmiFromString(data.weight, data.height));
 
     // Client yaşı hesaplama
     let age = 30; // Varsayılan
@@ -625,8 +637,8 @@ export default function ClientDetail() {
     }
 
     // BMR ve TDEE hesaplama
-    const bmr = calculateBMR(data.weight, data.height, age, client?.gender || "female");
-    const tdee = calculateTDEE(bmr, data.activityLevel);
+    const bmr = calculateBmrFromString(data.weight, data.height, age, client?.gender || "female");
+    const tdee = calculateTdeeFromBmr(bmr, data.activityLevel);
 
     // Verileri hazırlama
     const measurementData = {
