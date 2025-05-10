@@ -70,8 +70,8 @@ export default function SubscriptionPage() {
         variant: "default"
       });
       
-      // Redirect to checkout page
-      navigate("/subscription/checkout");
+      // Redirect to checkout page with plan parameter
+      navigate(`/subscription/checkout?plan=${selectedPlan}`);
     } catch (error) {
       console.error("Subscription error:", error);
       toast({

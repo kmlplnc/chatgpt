@@ -33,8 +33,12 @@ type PaymentFormValues = z.infer<typeof paymentFormSchema>;
 export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [_, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
+  
+  // URL'den plan parametresini al
+  const params = new URLSearchParams(location.split('?')[1] || '');
+  const planFromUrl = params.get('plan');
   
   // Kullanıcı bilgilerini getir
   const { data: user, isLoading } = useQuery({ 
@@ -168,8 +172,8 @@ export default function CheckoutPage() {
     );
   }
   
-  // Kullanıcı giriş yapmadıysa veya abonelik başlatmadıysa
-  if (!user || user.subscriptionStatus !== 'active') {
+  // Kullanıcı giriş yapmadıysa veya seçili plan yoksa
+  if (!user || !planFromUrl) {
     return (
       <Layout>
         <div className="container mx-auto max-w-3xl py-12">
@@ -215,21 +219,21 @@ export default function CheckoutPage() {
               <div className="bg-muted p-4 rounded-md">
                 <div className="flex justify-between mb-2">
                   <span>Plan:</span>
-                  <span className="font-medium capitalize">{user.subscriptionPlan}</span>
+                  <span className="font-medium capitalize">{planFromUrl}</span>
                 </div>
-                {user.subscriptionPlan === "basic" && (
+                {planFromUrl === "basic" && (
                   <div className="flex justify-between">
                     <span>Tutar:</span>
                     <span className="font-medium">₺199.00</span>
                   </div>
                 )}
-                {user.subscriptionPlan === "pro" && (
+                {planFromUrl === "pro" && (
                   <div className="flex justify-between">
                     <span>Tutar:</span>
                     <span className="font-medium">₺349.00</span>
                   </div>
                 )}
-                {user.subscriptionPlan === "premium" && (
+                {planFromUrl === "premium" && (
                   <div className="flex justify-between">
                     <span>Tutar:</span>
                     <span className="font-medium">₺599.00</span>
