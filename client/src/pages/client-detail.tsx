@@ -1270,80 +1270,14 @@ export default function ClientDetail() {
               <CardDescription>Danışan ile yapılan mesajlaşmalar</CardDescription>
             </CardHeader>
             <CardContent>
-              {isMessagesLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin size-5 border-2 border-primary border-t-transparent rounded-full"></div>
-                    <span>Mesajlar yükleniyor...</span>
-                  </div>
-                </div>
-              ) : messagesError ? (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Hata</AlertTitle>
-                  <AlertDescription>
-                    Mesajlar yüklenirken bir hata oluştu: {messagesError.message}
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="flex flex-col h-[400px]">
-                  <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 border rounded-lg">
-                    {messages && messages.length > 0 ? (
-                      messages.map((message: any) => (
-                        <div 
-                          key={message.id} 
-                          className={`flex ${message.fromClient ? 'justify-start' : 'justify-end'}`}
-                        >
-                          <div 
-                            className={`max-w-[80%] rounded-lg p-3 ${
-                              message.fromClient 
-                                ? 'bg-slate-100 text-slate-900' 
-                                : 'bg-primary text-primary-foreground'
-                            }`}
-                          >
-                            <p>{message.content}</p>
-                            <p className="text-xs mt-1 opacity-70">
-                              {new Date(message.createdAt).toLocaleString('tr-TR')}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                        <MessageSquare className="h-12 w-12 mb-2" />
-                        <p>Henüz mesaj bulunmuyor</p>
-                        <p className="text-sm">Danışanınıza mesaj göndermek için aşağıdaki formu kullanabilirsiniz</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Textarea 
-                      placeholder="Mesajınızı yazın..." 
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button 
-                      onClick={() => {
-                        if (newMessage.trim()) {
-                          sendMessageMutation.mutate(newMessage);
-                        }
-                      }}
-                      disabled={sendMessageMutation.isPending || !newMessage.trim()}
-                    >
-                      {sendMessageMutation.isPending ? (
-                        <div className="flex items-center gap-2">
-                          <div className="animate-spin size-4 border-2 border-current border-t-transparent rounded-full"></div>
-                          <span>Gönderiliyor</span>
-                        </div>
-                      ) : (
-                        <span>Gönder</span>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <MessageList
+                clientId={id}
+                messages={messages || []}
+                isLoading={isMessagesLoading}
+                error={messagesError}
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+              />
             </CardContent>
           </Card>
         </TabsContent>
