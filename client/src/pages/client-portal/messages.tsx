@@ -5,16 +5,29 @@ import { apiRequest } from "@/lib/queryClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Send } from "lucide-react";
-import { format } from 'date-fns';
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Check, 
+  CheckCheck, 
+  Clock, 
+  Loader2, 
+  MessageSquare, 
+  Search, 
+  Send 
+} from "lucide-react";
+import { format, isToday, isYesterday, isThisWeek, isThisYear } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function ClientPortalMessages() {
   const [newMessage, setNewMessage] = useState("");
+  const [groupedMessages, setGroupedMessages] = useState([]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef(null);
 
   // Mesajları getir
   const { data: messages, isLoading } = useQuery({
@@ -88,6 +101,14 @@ export default function ClientPortalMessages() {
   };
 
   // Otomatik scroll ve mesajları okundu olarak işaretle
+  // Mesajları gruplandır
+  useEffect(() => {
+    if (messages) {
+      setGroupedMessages(groupMessagesByDate(messages));
+    }
+  }, [messages]);
+
+  // Mesajların sonuna scroll
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
