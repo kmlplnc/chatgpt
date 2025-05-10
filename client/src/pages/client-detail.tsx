@@ -1542,7 +1542,8 @@ export default function ClientDetail() {
                   )}
                 />
                 <FormField
-                  control={editForm.control                  name="weight"
+                  control={editForm.control}
+                  name="weight"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Kilo (kg)</FormLabel>
