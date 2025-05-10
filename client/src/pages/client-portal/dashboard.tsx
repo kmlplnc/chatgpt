@@ -327,9 +327,9 @@ export default function ClientPortalDashboard() {
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Mesajlar
-              {unreadCount > 0 && (
+              {unreadMessages > 0 && (
                 <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 rounded-full">
-                  {unreadCount}
+                  {unreadMessages}
                 </Badge>
               )}
             </Button>
