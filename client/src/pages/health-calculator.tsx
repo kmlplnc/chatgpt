@@ -688,7 +688,7 @@ export default function HealthCalculator() {
                     <div className="grid gap-4 md:grid-cols-3">
                       <div className="space-y-2">
                         <h3 className="text-sm font-medium">Bazal Metabolizma Hızı (BMH)</h3>
-                        <div className="text-3xl font-bold">{calculationResult.bmr} kcal</div>
+                        <div className="text-3xl font-bold">{calculationResult.bmh} kcal</div>
                         <p className="text-xs text-muted-foreground">
                           Hiçbir aktivite yapmadan günlük yakılan kalori miktarı
                         </p>
