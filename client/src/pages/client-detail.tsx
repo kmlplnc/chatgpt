@@ -21,6 +21,8 @@ import {
   Copy,
   Loader2
 } from "lucide-react";
+import { AppointmentDialog } from "@/components/appointments/appointment-dialog";
+import { MessageList } from "@/components/messages/message-list";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -1241,6 +1243,24 @@ export default function ClientDetail() {
               )}
             </CardContent>
           </Card>
+          
+          {/* Appointment Dialogs */}
+          <AppointmentDialog
+            clientId={id}
+            open={openNewAppointmentDialog}
+            onOpenChange={setOpenNewAppointmentDialog}
+            isEdit={false}
+          />
+          
+          {selectedAppointment && (
+            <AppointmentDialog
+              clientId={id}
+              open={openEditAppointmentDialog}
+              onOpenChange={setOpenEditAppointmentDialog}
+              selectedAppointment={selectedAppointment}
+              isEdit={true}
+            />
+          )}
         </TabsContent>
         
         <TabsContent value="messages">
