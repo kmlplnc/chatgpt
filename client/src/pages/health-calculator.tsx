@@ -42,7 +42,7 @@ import {
   calculateBMI, 
   getBMICategory, 
   getBMIColorClass,
-  calculateBMR,
+  calculateBMH,
   calculateTDEE
 } from "@/lib/utils";
 import { 
@@ -204,7 +204,7 @@ async function addMeasurement(clientId: number, data: any) {
 
 export default function HealthCalculator() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("bmr-calculator");
+  const [activeTab, setActiveTab] = useState("bmh-calculator");
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [calculationResult, setCalculationResult] = useState<{
     bmr: number;
@@ -319,8 +319,8 @@ export default function HealthCalculator() {
   };
 
   const onSubmit = (data: HealthFormValues) => {
-    // BMR hesapla (Bazal Metabolizma Hızı)
-    const bmr = calculateBMR(
+    // BMH hesapla (Bazal Metabolizma Hızı)
+    const bmh = calculateBMH(
       data.weight,
       data.height,
       data.age,
@@ -328,7 +328,7 @@ export default function HealthCalculator() {
     );
     
     // TDEE hesapla (Toplam Günlük Enerji Tüketimi)
-    const tdee = calculateTDEE(bmr, data.activityLevel);
+    const tdee = calculateTDEE(bmh, data.activityLevel);
     
     // BMI hesapla (Beden Kitle İndeksi)
     const bmi = calculateBMI(data.weight, data.height);
@@ -350,7 +350,7 @@ export default function HealthCalculator() {
     
     // Sonuçları ayarla
     setCalculationResult({
-      bmr: Math.round(bmr), // Gerçek BMR değeri
+      bmh: Math.round(bmh), // Gerçek BMH değeri
       tdee: Math.round(tdee), // TDEE (Toplam Günlük Enerji Harcaması)
       bmi,
       bmiCategory,
@@ -387,7 +387,7 @@ export default function HealthCalculator() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="bmr-calculator">Hesaplayıcı</TabsTrigger>
+            <TabsTrigger value="bmh-calculator">Hesaplayıcı</TabsTrigger>
             <TabsTrigger value="results" disabled={!calculationResult}>
               Sonuçlar
             </TabsTrigger>
