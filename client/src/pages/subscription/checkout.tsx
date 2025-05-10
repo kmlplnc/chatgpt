@@ -37,7 +37,10 @@ export default function CheckoutPage() {
   const { toast } = useToast();
   
   // URL'den plan parametresini al
-  const params = new URLSearchParams(location.split('?')[1] || '');
+  // Sorgu parametrelerini doğru şekilde parse et
+  const queryIndex = location.indexOf('?');
+  const queryString = queryIndex !== -1 ? location.slice(queryIndex + 1) : '';
+  const params = new URLSearchParams(queryString);
   const planFromUrl = params.get('plan');
   
   // Plan seçilmemişse ve sayfa yeni yükleniyorsa anasayfaya yönlendir

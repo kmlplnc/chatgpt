@@ -53,12 +53,12 @@ export default function SubscriptionPage() {
       return;
     }
     
-    // Sadece plan seçilmediyse uyarı göster ama yine de ödeme sayfasına yönlendirebiliriz
+    // Plan seçimi zorunlu
     if (!selectedPlan) {
       toast({
-        title: "Uyarı",
-        description: "Devam etmeden önce bir abonelik planı seçmeniz önerilir",
-        variant: "default"
+        title: "Hata",
+        description: "Lütfen devam etmeden önce bir abonelik planı seçin",
+        variant: "destructive"
       });
       return;
     }
