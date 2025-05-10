@@ -69,6 +69,11 @@ export default function CheckoutPage() {
         description: "Aboneliğiniz başarıyla aktifleştirildi",
         variant: "default",
       });
+      
+      // 2 saniye sonra ana sayfaya yönlendir
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
     } catch (error) {
       console.error("Ödeme hatası:", error);
       toast({

@@ -97,9 +97,12 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
       <div className="flex items-center justify-between px-6 py-4">
-        <div>
-          <h1 className="text-xl font-heading font-semibold">{getPageTitle()}</h1>
-          <p className="text-sm text-muted-foreground">Kişisel diyet asistanınız</p>
+        <div onClick={() => navigate('/')} className="cursor-pointer flex items-center">
+          <div className="font-bold text-primary text-2xl mr-2">DietKEM</div>
+          <div>
+            <h1 className="text-xl font-heading font-semibold">{getPageTitle()}</h1>
+            <p className="text-sm text-muted-foreground">Kişisel diyet asistanınız</p>
+          </div>
         </div>
         
         <div className="flex-1 max-w-md mx-4 hidden md:block">
