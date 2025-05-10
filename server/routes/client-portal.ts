@@ -53,12 +53,13 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
       sameSite: 'strict'
     });
     
-    // Danışan bilgilerini gönder (hassas bilgiler olmadan)
+    // Danışan bilgilerini gönder - clientVisibleNotes dahil
     res.json({
       id: client.id,
       firstName: client.firstName,
       lastName: client.lastName,
       email: client.email,
+      clientVisibleNotes: client.clientVisibleNotes || null, // Danışana görünecek notlar
     });
     
   } catch (error) {
@@ -141,12 +142,13 @@ clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Res
   try {
     const { client } = req.clientSession!;
     
-    // Hassas bilgiler olmadan danışan bilgilerini gönder
+    // Danışan bilgilerini gönder - clientVisibleNotes dahil
     res.json({
       id: client.id,
       firstName: client.firstName,
       lastName: client.lastName,
       email: client.email,
+      clientVisibleNotes: client.clientVisibleNotes || null, // Danışana görünecek notlar
     });
   } catch (error) {
     console.error('Get client error:', error);
