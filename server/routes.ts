@@ -11,6 +11,7 @@ import {
   insertSavedFoodSchema
 } from "@shared/schema";
 import { openaiService } from "./services/openai-service";
+import { geminiService } from "./services/gemini-service";
 import { usdaService } from "./services/usda-service";
 import { clientsRouter } from './routes/clients';
 import { authRouter } from './routes/auth';
@@ -363,7 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Analysis Routes
+  // AI Analysis Routes with Google Gemini
   app.post("/api/analyze/meal", async (req, res) => {
     try {
       const { mealDescription } = req.body;
@@ -372,7 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Meal description is required" });
       }
       
-      const analysis = await openaiService.analyzeMeal(mealDescription);
+      const analysis = await geminiService.analyzeMeal(mealDescription);
       res.json(analysis);
     } catch (err) {
       handleError(err, res);
@@ -387,8 +388,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Context is required" });
       }
       
-      const tips = await openaiService.generateDietTips(context);
+      const tips = await geminiService.generateDietTips(context);
       res.json(tips);
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+  
+  // AI Diet Plan Generation with Google Gemini
+  app.post("/api/generate/diet-plan", async (req, res) => {
+    try {
+      // Kullanıcı yetkisi kontrol et
+      if (!req.session.user) {
+        return res.status(401).json({ message: "Oturum açmanız gerekiyor" });
+      }
+      
+      // Subscription kontrolü (Free kullanıcılar bu özelliği kullanamaz)
+      if (req.session.user.subscriptionStatus === "free") {
+        return res.status(403).json({ 
+          message: "Bu özellik abonelik gerektirir. Lütfen abonelik planınızı yükseltin."
+        });
+      }
+      
+      // Diyet gereksinimleri doğrulama
+      const validationResult = dietRequirementSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const validationError = fromZodError(validationResult.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      // Google Gemini ile diyet planı oluştur
+      const dietPlan = await geminiService.generateDietPlan(validationResult.data);
+      
+      // Veritabanına kaydet
+      const savedPlan = await storage.createDietPlan({
+        userId: req.session.user.id,
+        title: `${validationResult.data.name} için Diyet Planı`,
+        description: dietPlan.description,
+        content: dietPlan.content,
+        durationDays: dietPlan.durationDays,
+        type: validationResult.data.dietType,
+        tags: dietPlan.tags,
+        status: "active",
+      });
+      
+      res.status(201).json(savedPlan);
     } catch (err) {
       handleError(err, res);
     }

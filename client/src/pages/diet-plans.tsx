@@ -102,6 +102,12 @@ export default function DietPlans() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-3xl font-bold">Diyet Planları</h1>
+          <Link href="/diet-plans/create-ai">
+            <Button className="gap-2">
+              <PlusCircle className="h-4 w-4" />
+              <span>Yapay Zeka ile Oluştur</span>
+            </Button>
+          </Link>
         </div>
       
         <div className="flex flex-col sm:flex-row gap-4">
