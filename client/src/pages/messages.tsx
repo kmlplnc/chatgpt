@@ -250,7 +250,7 @@ export default function MessagesPage() {
     if (status === 'read' || isRead) {
       return (
         <div className="flex items-center" title="Görüldü">
-          <CheckCheck className="h-3 w-3 text-blue-400" />
+          <CheckCheck className="h-3 w-3 text-blue-500" />
         </div>
       );
     } 
@@ -265,7 +265,11 @@ export default function MessagesPage() {
     } 
     
     // Gönderildi veya varsayılan durum
-    return <Clock className="h-3 w-3 text-current opacity-70" title="Gönderildi" />;
+    return (
+      <div className="flex items-center" title="Gönderildi">
+        <Clock className="h-3 w-3 text-current opacity-70" />
+      </div>
+    );
   };
 
   return (
@@ -274,8 +278,8 @@ export default function MessagesPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
         {/* Sol panel: Danışan Listesi */}
-        <Card className="col-span-1 border h-full flex flex-col overflow-hidden bg-card shadow-md">
-          <CardHeader className="p-4 border-b space-y-2 bg-card">
+        <Card className="col-span-1 border h-full flex flex-col overflow-hidden bg-background shadow-md">
+          <CardHeader className="p-4 border-b space-y-2.5 bg-background">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">Danışanlar</CardTitle>
               <Badge variant="outline" className="font-normal text-xs">
@@ -286,7 +290,7 @@ export default function MessagesPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Danışan ara..." 
-                className="pl-9 rounded-full bg-muted/30 border-0 focus-visible:ring-1"
+                className="pl-9 rounded-full bg-muted/30 border-muted/50 focus-visible:ring-primary/20"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -432,17 +436,19 @@ export default function MessagesPage() {
                                       : ""
                                   }`}
                                 >
-                                  <p>{message.message}</p>
-                                  <div className={`flex justify-end items-center space-x-1 mt-1 ${
+                                  <div className="break-words text-[15px]">
+                                    {message.message}
+                                  </div>
+                                  <div className={`flex justify-end items-center gap-1 mt-1 ${
                                     message.fromClient 
-                                      ? "text-slate-500" 
+                                      ? "text-muted-foreground/70" 
                                       : "text-primary-foreground/80"
                                   }`}>
-                                    <span className="text-xs">
+                                    <span className="text-xs opacity-70">
                                       {formatMessageDate(message.createdAt)}
                                     </span>
                                     {!message.fromClient && (
-                                      <MessageStatus status={message.status || 'delivered'} />
+                                      <MessageStatus status={message.status} isRead={message.isRead} />
                                     )}
                                   </div>
                                 </div>
