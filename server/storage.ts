@@ -1337,6 +1337,127 @@ export class DatabaseStorage implements IStorage {
     const result = await query;
     return Number(result[0].count);
   }
+  
+  // Notifications
+  async getNotifications(userId: number, isRead?: boolean): Promise<Notification[]> {
+    let query = db.select().from(notifications)
+      .where(eq(notifications.userId, userId));
+    
+    if (isRead !== undefined) {
+      query = query.where(eq(notifications.isRead, isRead));
+    }
+    
+    return query.orderBy(desc(notifications.createdAt));
+  }
+  
+  async getClientNotifications(clientId: number, isRead?: boolean): Promise<Notification[]> {
+    let query = db.select().from(notifications)
+      .where(eq(notifications.clientId, clientId));
+    
+    if (isRead !== undefined) {
+      query = query.where(eq(notifications.isRead, isRead));
+    }
+    
+    return query.orderBy(desc(notifications.createdAt));
+  }
+  
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return newNotification;
+  }
+  
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id));
+  }
+  
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.userId, userId));
+  }
+  
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false)
+        )
+      );
+    
+    return result?.count || 0;
+  }
+  
+  async createAppointmentReminder(appointmentId: number, scheduleFor: Date): Promise<Notification> {
+    const appointment = await this.getAppointmentById(appointmentId);
+    
+    if (!appointment) {
+      throw new Error("Randevu bulunamadı");
+    }
+    
+    const client = await this.getClientById(appointment.clientId);
+    
+    if (!client) {
+      throw new Error("Danışan bulunamadı");
+    }
+    
+    // Diyetisyen için bildirim
+    const dietitianNotification = await this.createNotification({
+      userId: appointment.userId,
+      clientId: appointment.clientId,
+      title: "Randevu Hatırlatması",
+      content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde randevunuz var.`,
+      type: "appointment",
+      relatedId: appointmentId,
+      scheduledFor: scheduleFor,
+      isRead: false
+    });
+    
+    return dietitianNotification;
+  }
+  
+  async createMessageNotification(messageId: number, recipientId: number, isClient: boolean): Promise<Notification> {
+    const message = await this.getMessageById(messageId);
+    
+    if (!message) {
+      throw new Error("Mesaj bulunamadı");
+    }
+    
+    const client = await this.getClientById(message.clientId);
+    
+    if (!client) {
+      throw new Error("Danışan bulunamadı");
+    }
+    
+    let title, content;
+    
+    if (isClient) {
+      // Danışana bildirimi
+      title = "Yeni Mesaj";
+      content = `Diyetisyeninizden yeni bir mesajınız var.`;
+    } else {
+      // Diyetisyene bildirimi
+      title = "Yeni Mesaj";
+      content = `${client.firstName} ${client.lastName} adlı danışanınızdan yeni bir mesajınız var.`;
+    }
+    
+    const notification = await this.createNotification({
+      userId: recipientId,
+      clientId: message.clientId,
+      title,
+      content,
+      type: "message",
+      relatedId: messageId,
+      isRead: false
+    });
+    
+    return notification;
+  }
 }
 
 // Import needed database functions

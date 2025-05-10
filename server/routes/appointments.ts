@@ -77,6 +77,32 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
     // Create appointment
     const appointment = await storage.createAppointment(appointmentData);
     
+    // Randevu oluşturulduktan sonra hatırlatma bildirimleri için zamanlanmış görevler oluştur
+    try {
+      const appointmentDate = new Date(appointment.date);
+      
+      // 1 gün öncesi için hatırlatma
+      const oneDayBefore = new Date(appointmentDate);
+      oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+      
+      // Şimdiki zamandan sonra ise bildirimi oluştur
+      if (oneDayBefore > new Date()) {
+        await storage.createAppointmentReminder(appointment.id, oneDayBefore);
+      }
+      
+      // 1 saat öncesi için hatırlatma
+      const oneHourBefore = new Date(appointmentDate);
+      oneHourBefore.setHours(oneHourBefore.getHours() - 1);
+      
+      // Şimdiki zamandan sonra ise bildirimi oluştur
+      if (oneHourBefore > new Date()) {
+        await storage.createAppointmentReminder(appointment.id, oneHourBefore);
+      }
+    } catch (notifError) {
+      console.error("Randevu hatırlatma bildirimleri oluşturulamadı:", notifError);
+      // Bildirimler oluşturulamazsa bile randevu kaydedilmiş olacak
+    }
+    
     res.status(201).json(appointment);
   } catch (error) {
     if (error instanceof z.ZodError) {

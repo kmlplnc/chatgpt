@@ -69,6 +69,22 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
     // Create message
     const message = await storage.createMessage(messageData);
     
+    // Mesaj gönderildikten sonra ilgili kişiye bildirim gönder
+    try {
+      if (fromClient) {
+        // Eğer mesaj danışandan geldiyse, diyetisyene bildirim gönder
+        await storage.createMessageNotification(message.id, userId, false);
+      } else {
+        // Eğer mesaj diyetisyenden geldiyse ve danışanın bir user hesabı varsa bildirim gönder
+        if (client.userId) {
+          await storage.createMessageNotification(message.id, client.userId, true);
+        }
+      }
+    } catch (notifError) {
+      console.error("Mesaj bildirimi oluşturulamadı:", notifError);
+      // Bildirim oluşturulamazsa bile mesaj gönderilmiş sayılır
+    }
+    
     res.status(201).json(message);
   } catch (error) {
     if (error instanceof z.ZodError) {
