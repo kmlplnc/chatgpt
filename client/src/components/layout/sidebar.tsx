@@ -30,10 +30,23 @@ export default function Sidebar() {
     { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: false },
     { name: "Abonelik", href: "/subscription", icon: CreditCard },
     { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true, requirePremium: false },
+    { name: "Yönetim Paneli", href: "/admin", icon: ShieldCheck, requireAuth: true, requireAdmin: true },
   ];
   
-  // Filtrelenmiş menü öğeleri - Sadece kimlik doğrulaması ve premium kontrolü
-  const filteredNavItems = navItems;
+  // Filtrelenmiş menü öğeleri - Kimlik doğrulaması, premium ve admin kontrolleri
+  const filteredNavItems = navItems.filter(item => {
+    // Admin kontrolü
+    if (item.requireAdmin && user?.role !== 'admin') {
+      return false;
+    }
+    
+    // Auth kontrolü
+    if (item.requireAuth && !isAuthenticated) {
+      return false;
+    }
+    
+    return true;
+  });
   
   // Çıkış işlemi
   const handleLogout = async () => {

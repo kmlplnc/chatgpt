@@ -38,7 +38,7 @@ adminRouter.get("/users", requireAdmin, async (req: Request, res: Response) => {
     });
     
     res.json(safeUsers);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ message: "Kullanıcılar getirilirken bir hata oluştu", error: error.message });
   }
 });
@@ -90,7 +90,7 @@ adminRouter.post("/users", requireAdmin, async (req: Request, res: Response) => 
     const { password: _, ...safeUser } = user;
     
     res.status(201).json(safeUser);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ message: "Kullanıcı oluşturulurken bir hata oluştu", error: error.message });
   }
 });
@@ -155,7 +155,7 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
     const { password: _, ...safeUser } = updatedUser;
     
     res.json(safeUser);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ message: "Kullanıcı güncellenirken bir hata oluştu", error: error.message });
   }
 });
@@ -184,7 +184,7 @@ adminRouter.delete("/users/:id", requireAdmin, async (req: Request, res: Respons
     } else {
       res.status(500).json({ message: "Kullanıcı silinirken bir hata oluştu" });
     }
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ message: "Kullanıcı silinirken bir hata oluştu", error: error.message });
   }
 });
