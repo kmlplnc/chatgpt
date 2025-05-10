@@ -33,7 +33,7 @@ import {
   type Notification,
   type InsertNotification
 } from "@shared/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, count, inArray } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -47,6 +47,11 @@ export interface IStorage {
     subscriptionStartDate?: Date;
     subscriptionEndDate?: Date;
   }): Promise<User>;
+  
+  // Messages methods
+  getUnreadMessagesByClient(userId: number): Promise<{clientId: number, count: number}[]>;
+  markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean>;
+  markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean>;
   
   // Notification methods
   getNotificationsByUserId(userId: number): Promise<Notification[]>;
@@ -844,6 +849,57 @@ export class MemStorage implements IStorage {
     return messages.filter(msg => !msg.isRead).length;
   }
   
+  async getUnreadMessagesByClient(userId: number): Promise<{clientId: number, count: number}[]> {
+    const messages = Array.from(this.messages.values());
+    const clients = await this.getClients(userId);
+    
+    const unreadCounts = clients.map(client => {
+      const count = messages.filter(msg => 
+        msg.clientId === client.id && 
+        msg.userId === userId && 
+        !msg.isRead && 
+        msg.fromClient === true // Sadece danışanlardan gelen okunmamış mesajları say
+      ).length;
+      
+      return {
+        clientId: client.id,
+        count
+      };
+    });
+    
+    return unreadCounts.filter(item => item.count > 0); // Sadece okunmamış mesajı olanları dön
+  }
+  
+  async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
+    const messages = Array.from(this.messages.values());
+    
+    messages
+      .filter(msg => 
+        msg.clientId === clientId && 
+        msg.userId === userId && 
+        !msg.isRead && 
+        msg.fromClient === true
+      )
+      .forEach(msg => {
+        msg.isRead = true;
+        this.messages.set(msg.id, msg);
+      });
+    
+    return true;
+  }
+  
+  async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
+    for (const id of messageIds) {
+      const message = this.messages.get(id);
+      if (message) {
+        message.isRead = true;
+        this.messages.set(id, message);
+      }
+    }
+    
+    return true;
+  }
+  
   // Notification methods
   async getNotificationsByUserId(userId: number): Promise<Notification[]> {
     const notifications = Array.from(this.notifications.values());
@@ -989,6 +1045,49 @@ export class MemStorage implements IStorage {
 
 // DatabaseStorage implementation
 export class DatabaseStorage implements IStorage {
+  async getUnreadMessagesByClient(userId: number): Promise<{clientId: number, count: number}[]> {
+    const result = await db.select({
+      clientId: messages.clientId,
+      count: count()
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.userId, userId),
+        eq(messages.fromClient, true),
+        eq(messages.isRead, false)
+      )
+    )
+    .groupBy(messages.clientId);
+    
+    return result;
+  }
+  
+  async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
+    const result = await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(messages.clientId, clientId),
+          eq(messages.userId, userId),
+          eq(messages.fromClient, true),
+          eq(messages.isRead, false)
+        )
+      );
+    
+    return true;
+  }
+  
+  async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
+    await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(inArray(messages.id, messageIds));
+    
+    return true;
+  }
+  
   // Notification methods
   async getNotificationsByUserId(userId: number): Promise<Notification[]> {
     const result = await db
