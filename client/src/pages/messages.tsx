@@ -176,19 +176,15 @@ export default function MessagesPage() {
   };
 
   // Danışan adını görüntüle
-  const getClientInitials = (client) => {
+  const getClientInitials = (client: any): string => {
     return `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`.toUpperCase();
   };
 
   // Mesaj tarihini formatla
-  const formatMessageDate = (dateString) => {
+  const formatMessageDate = (dateString: string): string => {
     const date = new Date(dateString);
-    const now = new Date();
-    const isToday = date.getDate() === now.getDate() && 
-                    date.getMonth() === now.getMonth() && 
-                    date.getFullYear() === now.getFullYear();
     
-    if (isToday) {
+    if (isToday(date)) {
       return format(date, 'HH:mm');
     } else {
       return format(date, 'dd MMM HH:mm', { locale: tr });
@@ -196,12 +192,12 @@ export default function MessagesPage() {
   };
   
   // Mesajları günlere göre grupla
-  const groupMessagesByDate = (messages) => {
+  const groupMessagesByDate = (messages: Message[]): MessageGroup[] => {
     if (!messages || messages.length === 0) return [];
     
-    const groups = [];
-    let currentDate = null;
-    let currentGroup = [];
+    const groups: MessageGroup[] = [];
+    let currentDate: string | null = null;
+    let currentGroup: Message[] = [];
     
     messages.forEach(message => {
       const messageDate = new Date(message.createdAt);
@@ -214,7 +210,7 @@ export default function MessagesPage() {
       if (messageDay !== currentDate) {
         if (currentGroup.length > 0) {
           groups.push({
-            date: currentDate,
+            date: currentDate!,
             messages: currentGroup
           });
         }
@@ -225,7 +221,7 @@ export default function MessagesPage() {
       }
     });
     
-    if (currentGroup.length > 0) {
+    if (currentGroup.length > 0 && currentDate) {
       groups.push({
         date: currentDate,
         messages: currentGroup
@@ -249,28 +245,27 @@ export default function MessagesPage() {
   };
 
   // Mesaj durumunu görüntüle
-  const MessageStatus = ({ status }) => {
-    if (status === 'sent') {
-      return <Clock className="h-3 w-3 text-current opacity-70" />;
-    } 
-    
-    if (status === 'delivered') {
+  const MessageStatus = ({ status, isRead }: { status?: string, isRead?: boolean }) => {
+    // "Görüldü" durumunu göster
+    if (status === 'read' || isRead) {
       return (
-        <div className="flex items-center">
-          <CheckCheck className="h-3 w-3 text-current opacity-70" />
-        </div>
-      );
-    } 
-    
-    if (status === 'read') {
-      return (
-        <div className="flex items-center">
+        <div className="flex items-center" title="Görüldü">
           <CheckCheck className="h-3 w-3 text-blue-400" />
         </div>
       );
-    }
+    } 
     
-    return null;
+    // Teslim edildi
+    if (status === 'delivered') {
+      return (
+        <div className="flex items-center" title="İletildi">
+          <Check className="h-3 w-3 text-current opacity-70" />
+        </div>
+      );
+    } 
+    
+    // Gönderildi veya varsayılan durum
+    return <Clock className="h-3 w-3 text-current opacity-70" title="Gönderildi" />;
   };
 
   return (
@@ -279,10 +274,10 @@ export default function MessagesPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
         {/* Sol panel: Danışan Listesi */}
-        <Card className="col-span-1 border h-full flex flex-col overflow-hidden">
-          <CardHeader className="p-4 border-b space-y-2">
+        <Card className="col-span-1 border h-full flex flex-col overflow-hidden bg-card shadow-md">
+          <CardHeader className="p-4 border-b space-y-2 bg-card">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Danışanlar</CardTitle>
+              <CardTitle className="text-lg font-semibold">Danışanlar</CardTitle>
               <Badge variant="outline" className="font-normal text-xs">
                 {filteredClients.length} danışan
               </Badge>
@@ -291,7 +286,7 @@ export default function MessagesPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Danışan ara..." 
-                className="pl-9 rounded-full bg-muted border-0"
+                className="pl-9 rounded-full bg-muted/30 border-0 focus-visible:ring-1"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -311,7 +306,7 @@ export default function MessagesPage() {
                       <p className="text-xs text-muted-foreground">Farklı bir arama terimi deneyin</p>
                     </div>
                   ) : (
-                    <ul className="divide-y divide-muted/40">
+                    <ul className="divide-y divide-muted/20">
                       {filteredClients.map(client => {
                         const unreadCount = unreadCounts?.find(c => c.clientId === client.id)?.count || 0;
                         const isActive = selectedClient?.id === client.id;
@@ -323,19 +318,21 @@ export default function MessagesPage() {
                           : null;
                         
                         return (
-                          <li key={client.id}>
+                          <li key={client.id} className={`${isActive ? 'border-l-4 border-l-primary' : ''}`}>
                             <button 
-                              className={`w-full py-3 px-4 flex items-center space-x-3 hover:bg-muted/40 transition-colors ${isActive ? 'bg-muted/70' : ''}`}
+                              className={`w-full py-3 px-4 flex items-center space-x-3 hover:bg-muted/30 transition-colors ${isActive ? 'bg-muted/40' : ''}`}
                               onClick={() => handleClientSelect(client)}
                             >
-                              <Avatar className="h-12 w-12 border-2 border-background">
-                                <AvatarFallback className="bg-primary/10 text-primary">
+                              <Avatar className={`h-12 w-12 ${isActive ? 'border-2 border-primary' : 'border border-muted'}`}>
+                                <AvatarFallback className={`${isActive ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
                                   {getClientInitials(client)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 text-left overflow-hidden">
                                 <div className="flex justify-between items-center mb-1">
-                                  <p className="font-medium truncate">{client.firstName} {client.lastName}</p>
+                                  <p className={`font-medium truncate ${unreadCount > 0 ? 'font-semibold' : ''}`}>
+                                    {client.firstName} {client.lastName}
+                                  </p>
                                   {lastMessage && (
                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                                       {formatMessageDate(lastMessage.createdAt)}
@@ -343,14 +340,18 @@ export default function MessagesPage() {
                                   )}
                                 </div>
                                 <div className="flex justify-between items-center">
-                                  <p className="text-sm text-muted-foreground truncate max-w-[150px]">
+                                  <p className={`text-sm truncate max-w-[150px] ${
+                                    unreadCount > 0 
+                                      ? 'text-foreground font-medium' 
+                                      : 'text-muted-foreground'
+                                  }`}>
                                     {lastMessage 
                                       ? (lastMessage.fromClient ? '' : 'Sen: ') + lastMessage.message
                                       : 'Henüz mesaj yok'}
                                   </p>
                                   {unreadCount > 0 && (
                                     <Badge 
-                                      className="bg-primary text-white h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs ml-2"
+                                      className="bg-primary text-primary-foreground h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs ml-2"
                                     >
                                       {unreadCount}
                                     </Badge>
