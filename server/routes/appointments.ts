@@ -104,12 +104,26 @@ appointmentsRouter.patch("/:id", requireAuth, async (req: Request, res: Response
       return res.status(403).json({ message: "Bu randevuyu güncelleme izniniz yok" });
     }
     
+    // String tarihleri Date nesnelerine dönüştür
+    const formattedData = {
+      ...req.body,
+      date: req.body.date ? new Date(req.body.date) : undefined,
+      startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+      endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
+    };
+    
+    console.log("Güncellenen randevu verisi:", JSON.stringify(formattedData, null, 2));
+    
     // Update appointment
-    const updatedAppointment = await storage.updateAppointment(appointmentId, req.body);
+    const updatedAppointment = await storage.updateAppointment(appointmentId, formattedData);
     
     res.json(updatedAppointment);
   } catch (error) {
     console.error("Randevu güncellenemedi:", error);
+    if (error instanceof z.ZodError) {
+      console.error("Zod Validasyon Hatası:", JSON.stringify(error.errors, null, 2));
+      return res.status(400).json({ message: "Geçersiz randevu bilgileri", errors: error.errors });
+    }
     res.status(500).json({ message: "Randevu güncellenemedi" });
   }
 });
