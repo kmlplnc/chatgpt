@@ -545,9 +545,47 @@ export class MemStorage implements IStorage {
     return foodNutrient;
   }
 
+  // Admin - User Management methods
+  async getAllUsers(limit = 100, offset = 0): Promise<User[]> {
+    const users = Array.from(this.users.values())
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+    
+    if (limit && offset) {
+      return users.slice(offset, offset + limit);
+    }
+    
+    return users;
+  }
+  
+  async countUsers(): Promise<number> {
+    return this.users.size;
+  }
+  
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const user = await this.getUser(id);
+    if (!user) {
+      return undefined;
+    }
+    
+    // Parola güncellemesi ayrı olarak işlenir
+    if (updates.password) {
+      // Normalde burada parola hash işlemi yapılır
+      // Şimdilik basit bırakıyoruz
+    }
+    
+    const updatedUser = { ...user, ...updates };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    // Kullanıcıyla ilişkili tüm verileri de silmek gerekebilir
+    // Örneğin danışanlar, diyet planları, kaydedilmiş besinler vb.
+    return this.users.delete(id);
+  }
+  
   async createFoodNutrients(nutrients: InsertFoodNutrient[]): Promise<FoodNutrient[]> {
     const createdNutrients: FoodNutrient[] = [];
-    
     for (const nutrient of nutrients) {
       const createdNutrient = await this.createFoodNutrient(nutrient);
       createdNutrients.push(createdNutrient);
