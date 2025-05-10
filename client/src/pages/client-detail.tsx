@@ -218,6 +218,7 @@ export default function ClientDetail() {
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   
   // Randevu ve mesajlaşma state'leri
   const [openNewAppointmentDialog, setOpenNewAppointmentDialog] = useState(false);
