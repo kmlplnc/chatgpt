@@ -4,7 +4,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Sparkles, Loader2, InfoIcon, User } from "lucide-react";
+import { Sparkles, Loader2, InfoIcon, User, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
