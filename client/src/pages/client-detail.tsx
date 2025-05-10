@@ -1250,13 +1250,14 @@ export default function ClientDetail() {
                   <TableHead>Kalça (cm)</TableHead>
                   <TableHead>BMH (kcal)</TableHead>
                   <TableHead>Günlük İhtiyaç (kcal)</TableHead>
+                  <TableHead>Ek Notlar</TableHead>
                   <TableHead>İşlemler</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isMeasurementsLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
@@ -1279,6 +1280,13 @@ export default function ClientDetail() {
                         <TableCell>{measurement.basalMetabolicRate ? Math.round(measurement.basalMetabolicRate) : "-"}</TableCell>
                         <TableCell>{measurement.totalDailyEnergyExpenditure ? Math.round(measurement.totalDailyEnergyExpenditure) : "-"}</TableCell>
                         <TableCell>
+                          {measurement.notes ? 
+                            <div className="max-w-[200px] truncate" title={measurement.notes}>
+                              {measurement.notes}
+                            </div> 
+                          : "-"}
+                        </TableCell>
+                        <TableCell>
                           <div className="flex space-x-2">
                             <Button 
                               variant="outline" 
@@ -1300,7 +1308,7 @@ export default function ClientDetail() {
                     ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       Henüz ölçüm kaydı bulunmuyor
                     </TableCell>
                   </TableRow>
