@@ -6,7 +6,7 @@ import { CheckCircle2, CreditCard, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Layout from '@/components/layout/layout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
   Form,
   FormControl,
@@ -186,7 +186,7 @@ export default function CheckoutPage() {
               </p>
             </CardContent>
             <CardFooter className="flex justify-center">
-              <Button onClick={() => navigate("/")}>
+              <Button onClick={() => window.location.href = "/"}>
                 Ana Sayfaya Dön
               </Button>
             </CardFooter>
@@ -302,14 +302,7 @@ export default function CheckoutPage() {
               </div>
             </div>
             
-            <Tabs defaultValue="card">
-              <TabsList className="grid w-full grid-cols-1">
-                <TabsTrigger value="card" className="flex items-center">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Kredi Kartı
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="card" className="pt-4">
+            <div className="pt-4">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(handleCreditCardPayment)} className="space-y-4">
                     <FormField
@@ -403,8 +396,7 @@ export default function CheckoutPage() {
                     </div>
                   </form>
                 </Form>
-              </TabsContent>
-            </Tabs>
+            </div>
           </CardContent>
         </Card>
         
