@@ -36,16 +36,14 @@ export default function CheckoutPage() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   
-  // URL'den plan parametresini al
-  // Sorgu parametrelerini doğru şekilde parse et
-  const queryIndex = location.indexOf('?');
-  const queryString = queryIndex !== -1 ? location.slice(queryIndex + 1) : '';
-  const params = new URLSearchParams(queryString);
+  // window.location.search kullanarak URL parametrelerini al
+  const params = new URLSearchParams(window.location.search);
   const planFromUrl = params.get('plan');
   
   // Debug için plan değerini konsola yazdır
   console.log("Checkout page plan değeri:", planFromUrl);
-  console.log("Tam URL:", location);
+  console.log("Tam URL:", window.location.href);
+  console.log("URL search params:", window.location.search);
   
   // Plan seçilmemişse ve sayfa yeni yükleniyorsa anasayfaya yönlendir
   useEffect(() => {

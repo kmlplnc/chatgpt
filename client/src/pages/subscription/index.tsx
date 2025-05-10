@@ -70,8 +70,9 @@ export default function SubscriptionPage() {
     const checkoutUrl = `/subscription/checkout?plan=${selectedPlan}`;
     console.log("Yönlendirme URL:", checkoutUrl);
     
-    // Doğrudan ödeme sayfasına yönlendir
-    navigate(checkoutUrl);
+    // window.location kullanarak tam sayfa yönlendirmesi yap
+    // wouter'ın navigate fonksiyonu yerine window.location kullan
+    window.location.href = checkoutUrl;
   };
   
   // Handle subscription cancellation
