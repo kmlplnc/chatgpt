@@ -1112,7 +1112,7 @@ export default function ClientDetail() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-72">
+                    <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" />
@@ -1180,7 +1180,7 @@ export default function ClientDetail() {
                   <TableHead>Tarih</TableHead>
                   <TableHead>Kilo (kg)</TableHead>
                   <TableHead>Boy (cm)</TableHead>
-                  <TableHead>VKİ</TableHead>
+                  <TableHead>BKİ</TableHead>
                   <TableHead>Vücut Yağ %</TableHead>
                   <TableHead>Bel (cm)</TableHead>
                   <TableHead>Kalça (cm)</TableHead>
@@ -1293,7 +1293,7 @@ export default function ClientDetail() {
                       <CardTitle>Bel Çevresi Değişimi</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-72">
+                      <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
                           <ReLineChart data={chartData.filter(d => d.waist !== null)} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" />
