@@ -795,8 +795,7 @@ export default function ClientDetail() {
                   <CardContent>
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-2xl font-bold">
-                          {lastMeasurement?.totalDailyEnergyExpenditure || "-"}
+                        <p className="text-2xl font-bold">{lastMeasurement?.totalDailyEnergyExpenditure || "-"}
                         </p>
                         <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
                       </div>
@@ -805,7 +804,7 @@ export default function ClientDetail() {
                   </CardContent>
                 </Card>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Kalori ve Besin Değerleri</DialogTitle>
                   <DialogDescription>
@@ -813,65 +812,48 @@ export default function ClientDetail() {
                   </DialogDescription>
                 </DialogHeader>
                 {lastMeasurement ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Bazal Metabolizma Hızı (BMR)</Label>
-                        <p className="text-2xl font-bold">{lastMeasurement.basalMetabolicRate} kcal</p>
-                        <p className="text-sm text-muted-foreground">
-                          Hiçbir aktivite yapmadan günlük yakılan kalori miktarı
-                        </p>
+                      <div>
+                        <Label>Bazal Metabolizma Hızı (BMH)</Label>
+                        <p className="text-xl font-bold">{lastMeasurement.basalMetabolicRate} kcal</p>
                       </div>
-                      <div className="space-y-2">
+                      <div>
                         <Label>Toplam Günlük Enerji Tüketimi (TDEE)</Label>
-                        <p className="text-2xl font-bold">{lastMeasurement.totalDailyEnergyExpenditure} kcal</p>
-                        <p className="text-sm text-muted-foreground">
-                          Aktivite seviyenize göre günlük yakılan kalori
-                        </p>
+                        <p className="text-xl font-bold">{lastMeasurement.totalDailyEnergyExpenditure} kcal</p>
                       </div>
                     </div>
 
                     <Separator />
 
                     <div>
-                      <h3 className="font-semibold mb-4">Önerilen Makro Besin Dağılımı</h3>
-                      <div className="space-y-6">
+                      <h3 className="font-semibold mb-2">Önerilen Makro Besin Dağılımı</h3>
+                      <div className="space-y-3">
                         <div>
-                          <div className="flex justify-between mb-2">
+                          <div className="flex justify-between mb-1">
                             <Label>Protein (%30)</Label>
                             <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 4)}g</span>
                           </div>
                           <Progress value={30} className="h-2" />
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30)} kcal
-                          </p>
                         </div>
 
                         <div>
-                          <div className="flex justify-between mb-2">
+                          <div className="flex justify-between mb-1">
                             <Label>Karbonhidrat (%40)</Label>
                             <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.40 / 4)}g</span>
                           </div>
                           <Progress value={40} className="h-2" />
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.40)} kcal
-                          </p>
                         </div>
 
                         <div>
-                          <div className="flex justify-between mb-2">
+                          <div className="flex justify-between mb-1">
                             <Label>Yağ (%30)</Label>
                             <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 9)}g</span>
                           </div>
                           <Progress value={30} className="h-2" />
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30)} kcal
-                          </p>
                         </div>
                       </div>
                     </div>
-
-                    <Separator />
 
                     <Alert>
                       <AlertTitle>Aktivite Seviyesi</AlertTitle>
@@ -883,12 +865,10 @@ export default function ClientDetail() {
                         {lastMeasurement.activityLevel === "very_active" && "Çok Aktif: Günde iki kez veya ekstra ağır egzersiz yapan kişiler"}
                       </AlertDescription>
                     </Alert>
-                    
-                    <Separator className="my-4" />
-                    
+
                     <div>
-                      <h3 className="font-semibold mb-4">Günlük Vitamin ve Mineral İhtiyaçları</h3>
-                      <div className="grid grid-cols-2 gap-4">
+                      <h3 className="font-semibold mb-2">Günlük Vitamin ve Mineral İhtiyaçları</h3>
+                      <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
                           <span className="text-sm font-medium">A vitamini</span>
                           <span className="text-sm">900 mcg</span>
@@ -905,24 +885,8 @@ export default function ClientDetail() {
                           <span className="text-sm font-medium">E vitamini</span>
                           <span className="text-sm">15 mg</span>
                         </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">Kalsiyum</span>
-                          <span className="text-sm">1000 mg</span>
-                        </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">Demir</span>
-                          <span className="text-sm">8 mg</span>
-                        </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">Potasyum</span>
-                          <span className="text-sm">3500 mg</span>
-                        </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">Magnezyum</span>
-                          <span className="text-sm">400 mg</span>
-                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-3">Bu değerler ortalama bir erişkin için belirlenen günlük önerilen miktarlardır. Yaş, cinsiyet ve bireysel farklılıklara göre değişiklik gösterebilir.</p>
+                      <p className="text-xs text-muted-foreground mt-2">Bu değerler ortalama bir erişkin için belirlenen günlük önerilen miktarlardır.</p>
                     </div>
                   </div>
                 ) : (
