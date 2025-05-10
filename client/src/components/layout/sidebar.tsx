@@ -26,25 +26,22 @@ export default function Sidebar() {
     { name: "Ana Sayfa", href: "/", icon: Home },
     { name: "Danışanlar", href: "/clients", icon: BarChart, requireAuth: true, requirePremium: true },
     { name: "Diyet Planları", href: "/diet-plans", icon: Utensils, requireAuth: true, requirePremium: true },
-    { name: "Besin Veritabanı", href: "/food-database", icon: Apple, requirePremium: false },
-    { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: false },
+    { name: "Besin Veritabanı", href: "/food-database", icon: Apple, requirePremium: true },
+    { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: true },
     { name: "Abonelik", href: "/subscription", icon: CreditCard },
     { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true, requirePremium: false },
     { name: "Yönetim Paneli", href: "/admin", icon: ShieldCheck, requireAuth: true, requireAdmin: true },
   ];
   
-  // Filtrelenmiş menü öğeleri - Kimlik doğrulaması, premium ve admin kontrolleri
+  // Kayıtsız kullanıcı için tüm menü öğeleri gösteriliyor ama kilit işaretiyle
+  // Admin kontrolü sadece admin kullanıcılar için
   const filteredNavItems = navItems.filter(item => {
     // Admin kontrolü
     if (item.requireAdmin && user?.role !== 'admin') {
       return false;
     }
     
-    // Auth kontrolü
-    if (item.requireAuth && !isAuthenticated) {
-      return false;
-    }
-    
+    // Tüm diğer öğeler gösteriliyor (auth kontrolü kaldırıldı)
     return true;
   });
   
@@ -88,8 +85,8 @@ export default function Sidebar() {
           {filteredNavItems.map((item) => {
             const isActive = location === item.href;
             // Kilit gösterilecek durumlar:
-            // 1. Giriş yapmış kullanıcı için premium özellikler (ve premium üye değil ise)
-            // 2. Giriş yapmamış kullanıcı için Ana Sayfa dışındaki tüm sayfalar
+            // 1. Kullanıcı giriş yapmış, premium gerektiren bir özellik ve premium değilse
+            // 2. Kullanıcı giriş yapmamış ve Ana Sayfa veya Abonelik dışında bir sayfaysa
             const isLocked = 
               (isAuthenticated && item.requirePremium && !isPremium && item.href !== "/subscription") ||
               (!isAuthenticated && item.href !== "/" && item.href !== "/subscription");
