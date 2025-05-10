@@ -56,7 +56,7 @@ export default function CheckoutPage() {
       
       // Kısa bir gecikme ile yönlendir (toast'un görünmesine izin ver)
       setTimeout(() => {
-        navigate('/subscription');
+        window.location.href = '/subscription';
       }, 1500);
     }
   }, []);
@@ -111,7 +111,7 @@ export default function CheckoutPage() {
       
       // 1 saniye sonra ana sayfaya yönlendir
       setTimeout(() => {
-        navigate('/');
+        window.location.href = '/';
       }, 1000);
     } catch (error) {
       console.error("Ödeme hatası:", error);
