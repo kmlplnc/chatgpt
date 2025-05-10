@@ -186,26 +186,25 @@ clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, 
   }
 });
 
-// Diyetisyen tavsiyelerini getir (Şimdilik dummy veri)
+// Diyetisyen tavsiyelerini getir (danışana görünecek notlar)
 clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Request, res: Response) => {
   try {
-    // const { client } = req.clientSession!;
+    const { client } = req.clientSession!;
     
-    // Şimdilik örnek veri dönelim, ileride veritabanından çekilecek
-    res.json([
-      {
-        id: 1,
-        title: 'Su Tüketimi',
-        content: 'Günde en az 2 litre su içmeyi hedefleyin.',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        title: 'Egzersiz Önerisi',
-        content: 'Haftada en az 3 gün 30 dakika tempolu yürüyüş yapın.',
-        createdAt: new Date().toISOString()
-      }
-    ]);
+    if (client.clientVisibleNotes) {
+      // Diyetisyenin danışan için yazdığı notları tavsiye olarak döndür
+      res.json([
+        {
+          id: 1,
+          title: 'Diyetisyeninizden Notlar',
+          content: client.clientVisibleNotes,
+          createdAt: new Date().toISOString()
+        }
+      ]);
+    } else {
+      // Danışan için not yoksa boş dizi döndür
+      res.json([]);
+    }
   } catch (error) {
     console.error('Get recommendations error:', error);
     res.status(500).json({ message: 'Tavsiyeler getirilirken bir hata oluştu' });
