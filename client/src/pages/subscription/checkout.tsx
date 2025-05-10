@@ -243,15 +243,15 @@ export default function CheckoutPage() {
         <div className="container mx-auto max-w-3xl py-12">
           <Card>
             <CardHeader>
-              <CardTitle>Plan Seçilmedi</CardTitle>
+              <CardTitle>Plan Seçimi Gerekli</CardTitle>
               <CardDescription>
-                Önce bir abonelik planı seçmeniz gerekmektedir.
+                Lütfen bir abonelik planı seçin.
               </CardDescription>
             </CardHeader>
             <CardFooter>
               <Button variant="outline" onClick={() => window.location.href = "/subscription"}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Abonelik Planlarını Görüntüle
+                Plan Seçimine Dön
               </Button>
             </CardFooter>
           </Card>
@@ -260,17 +260,23 @@ export default function CheckoutPage() {
     );
   }
   
+  // Ana ödeme formu
   return (
     <Layout>
       <div className="container mx-auto max-w-3xl py-12">
-        <div className="mb-8">
-          <Button variant="ghost" onClick={() => window.location.href = "/subscription"}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Abonelik Planlarına Dön
+        <div className="flex items-center mb-8">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => window.location.href = '/subscription'}
+            className="mr-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Geri
           </Button>
         </div>
         
-        <Card>
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>Ödeme İşlemi</CardTitle>
             <CardDescription>
@@ -306,101 +312,99 @@ export default function CheckoutPage() {
               </div>
             </div>
             
-            <div className="pt-4">
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleCreditCardPayment)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="cardNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kart Numarası</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="0000 0000 0000 0000" 
-                              {...field} 
-                              onChange={handleCardNumberChange}
-                              maxLength={19}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="cardHolder"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kart Sahibi</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ad Soyad" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="expiryDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Son Kullanma Tarihi</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="AA/YY" 
-                                {...field} 
-                                onChange={handleExpiryDateChange}
-                                maxLength={5}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="cvv"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CVV</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="123" 
-                                {...field} 
-                                maxLength={4}
-                                type="password"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <div className="pt-4">
-                      <Button 
-                        type="submit" 
-                        className="w-full" 
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <div className="mr-2 animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
-                            İşleniyor...
-                          </>
-                        ) : (
-                          'Ödemeyi Tamamla'
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-            </div>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreditCardPayment)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="cardNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kart Numarası</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="0000 0000 0000 0000" 
+                          {...field} 
+                          onChange={handleCardNumberChange}
+                          maxLength={19}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="cardHolder"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kart Sahibi</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ad Soyad" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="expiryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Son Kullanma Tarihi</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="MM/YY" 
+                            {...field} 
+                            onChange={handleExpiryDateChange}
+                            maxLength={5}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="cvv"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>CVV</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="123" 
+                            {...field} 
+                            maxLength={4}
+                            type="password"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="pt-4">
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="mr-2 animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
+                        İşleniyor...
+                      </>
+                    ) : (
+                      'Ödemeyi Tamamla'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </CardContent>
         </Card>
         
