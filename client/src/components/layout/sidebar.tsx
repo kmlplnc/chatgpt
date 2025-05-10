@@ -72,9 +72,20 @@ export default function Sidebar() {
             </div>
             <div className="ml-2">
               <p className="text-sm font-medium">{user.name || user.username}</p>
-              <p className="text-xs text-muted-foreground">
-                {user.subscriptionPlan ? `${user.subscriptionPlan.charAt(0).toUpperCase() + user.subscriptionPlan.slice(1)} Abonelik` : 'Ücretsiz Kullanıcı'}
-              </p>
+              {user.role === 'admin' ? (
+                <div className="flex items-center">
+                  <span className="bg-red-100 text-red-800 text-xs font-medium mr-1 px-1.5 py-0.5 rounded">
+                    Admin
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {user.subscriptionPlan ? `${user.subscriptionPlan.charAt(0).toUpperCase() + user.subscriptionPlan.slice(1)} Abonelik` : 'Ücretsiz Kullanıcı'}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {user.subscriptionPlan ? `${user.subscriptionPlan.charAt(0).toUpperCase() + user.subscriptionPlan.slice(1)} Abonelik` : 'Ücretsiz Kullanıcı'}
+                </p>
+              )}
             </div>
           </div>
         </div>
