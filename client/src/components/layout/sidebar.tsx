@@ -29,7 +29,7 @@ export default function Sidebar() {
     { name: "Besin Veritabanı", href: "/food-database", icon: Apple, requirePremium: true },
     { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: true },
     { name: "Abonelik", href: "/subscription", icon: CreditCard },
-    { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true, requirePremium: false },
+    { name: "Ayarlar", href: "/settings", icon: Settings, requireAuth: true, requirePremium: false, noLock: true },
     { name: "Yönetim Paneli", href: "/admin", icon: ShieldCheck, requireAuth: true, requireAdmin: true },
   ];
   
@@ -88,8 +88,8 @@ export default function Sidebar() {
             // 1. Kullanıcı giriş yapmış, premium gerektiren bir özellik ve premium değilse
             // 2. Kullanıcı giriş yapmamış ve Ana Sayfa veya Abonelik dışında bir sayfaysa
             const isLocked = 
-              (isAuthenticated && item.requirePremium && !isPremium && item.href !== "/subscription") ||
-              (!isAuthenticated && item.href !== "/" && item.href !== "/subscription");
+              (isAuthenticated && item.requirePremium && !isPremium && item.href !== "/subscription" && !item.noLock) ||
+              (!isAuthenticated && item.href !== "/" && item.href !== "/subscription" && !item.noLock);
             
             return (
               <li key={item.name}>
