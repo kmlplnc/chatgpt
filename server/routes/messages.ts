@@ -111,6 +111,75 @@ messagesRouter.patch("/:messageId/read", requireAuth, async (req: Request, res: 
   }
 });
 
+// Mark multiple messages as read
+messagesRouter.patch("/mark-read", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const { messageIds } = req.body;
+    
+    if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({ message: "En az bir mesaj ID gereklidir" });
+    }
+    
+    // Mesajları kontrol et
+    for (const messageId of messageIds) {
+      const message = await storage.getMessageById(messageId);
+      if (!message) {
+        return res.status(404).json({ message: `Mesaj bulunamadı: ${messageId}` });
+      }
+      
+      // Mesajın bu kullanıcıya ait olduğunu doğrula
+      if (message.userId !== userId) {
+        return res.status(403).json({ message: `Bu mesajı işaretleme izniniz yok: ${messageId}` });
+      }
+    }
+    
+    // Tüm mesajları okundu olarak işaretle
+    const success = await storage.markMultipleMessagesAsRead(messageIds);
+    
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
+    }
+  } catch (error) {
+    console.error("Mesajlar okundu olarak işaretlenemedi:", error);
+    res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
+  }
+});
+
+// Mark all client messages as read
+messagesRouter.patch("/read", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const { clientId } = req.query;
+    
+    if (!clientId) {
+      return res.status(400).json({ message: "Danışan ID gereklidir" });
+    }
+    
+    const clientIdNum = Number(clientId);
+    
+    // Diyetisyenin kendi danışanı olduğunu doğrula
+    const client = await storage.getClient(clientIdNum);
+    if (!client || (client.userId !== userId && client.userId !== null)) {
+      return res.status(403).json({ message: "Bu danışana ait mesajları işaretleme izniniz yok" });
+    }
+    
+    // Tüm mesajları okundu olarak işaretle
+    const success = await storage.markAllClientMessagesAsRead(clientIdNum, userId);
+    
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
+    }
+  } catch (error) {
+    console.error("Mesajlar okundu olarak işaretlenemedi:", error);
+    res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
+  }
+});
+
 // Get unread message count for user or specific client
 messagesRouter.get("/unread/count", requireAuth, async (req: Request, res: Response) => {
   try {
