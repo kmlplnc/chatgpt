@@ -64,7 +64,8 @@ export default function ClientPortalMessages() {
         throw new Error('Mesajlar getirilemedi');
       }
       return response.json();
-    }
+    },
+    refetchInterval: 3000 // Her 3 saniyede bir güncelle
   });
 
   // Dietisyen ve danışan bilgilerini getir
@@ -131,12 +132,42 @@ export default function ClientPortalMessages() {
   };
 
   // Otomatik scroll ve mesajları okundu olarak işaretle
-  // Mesajları gruplandır
+  // Mesajları gruplandır ve yeni mesaj bildirim sesi
   useEffect(() => {
     if (messages) {
-      setGroupedMessages(groupMessagesByDate(messages));
+      const newGroups = groupMessagesByDate(messages);
+      
+      // Önceki mesajlar ile karşılaştır
+      if (groupedMessages.length > 0) {
+        const oldMessageCount = groupedMessages.reduce(
+          (sum, group) => sum + group.messages.length, 0
+        );
+        const newMessageCount = messages.length;
+        
+        // Yeni mesaj geldiyse ve diyetisyenden geldiyse ses çal
+        if (newMessageCount > oldMessageCount) {
+          // En son eklenen mesajı bul
+          const lastMessage = messages[messages.length - 1];
+          
+          if (!lastMessage.fromClient) {
+            console.log("Yeni mesaj bildirim sesi çalınıyor");
+            if (audioRef.current) {
+              audioRef.current.play().catch(err => console.error("Ses çalma hatası:", err));
+            }
+            
+            // Bildirim göster
+            toast({
+              title: "Yeni Mesaj",
+              description: "Diyetisyeninizden yeni bir mesaj aldınız.",
+              duration: 3000
+            });
+          }
+        }
+      }
+      
+      setGroupedMessages(newGroups);
     }
-  }, [messages]);
+  }, [messages, groupedMessages, toast]);
 
   // Mesajların sonuna scroll
   useEffect(() => {
