@@ -22,8 +22,11 @@ import {
   TrendingDown,
   TrendingUp,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  MessageSquare
 } from 'lucide-react';
+// Mesajlar bileşenini içe aktar
+import Messages from './messages';
 import { 
   FaSmile, 
   FaSadTear, 
@@ -325,6 +328,10 @@ export default function ClientPortalDashboard() {
             <TabsTrigger value="recommendations">
               <ClipboardList className="h-4 w-4 mr-2" />
               Tavsiyeler
+            </TabsTrigger>
+            <TabsTrigger value="messages">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Mesajlar
             </TabsTrigger>
           </TabsList>
 
@@ -633,6 +640,10 @@ export default function ClientPortalDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="messages" className="space-y-6">
+            <Messages />
           </TabsContent>
         </Tabs>
       </main>
