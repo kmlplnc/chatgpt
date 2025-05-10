@@ -857,6 +857,7 @@ export default function ClientDetail() {
           <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
           <TabsTrigger value="measurements">Ölçümler</TabsTrigger>
           <TabsTrigger value="analytics">Analiz</TabsTrigger>
+          <TabsTrigger value="notes">Notlar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
