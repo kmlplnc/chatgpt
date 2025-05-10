@@ -614,6 +614,16 @@ export class MemStorage implements IStorage {
       this.recentViews.pop();
     }
   }
+  
+  // Bildirim zamanlayıcısı için gerekli metotlar
+  async getAllAppointments(): Promise<Appointment[]> {
+    return Array.from(this.appointments.values());
+  }
+  
+  async getNotificationsByAppointmentId(appointmentId: number): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(notification => notification.relatedId === appointmentId && notification.type === "appointment");
+  }
 
   // Saved Foods methods
   async getSavedFoods(userId?: number): Promise<Food[]> {
