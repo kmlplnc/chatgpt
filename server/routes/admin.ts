@@ -81,7 +81,7 @@ adminRouter.post("/users", requireAdmin, async (req: Request, res: Response) => 
         subscriptionStatus,
         subscriptionPlan,
         subscriptionStartDate: new Date(),
-        subscriptionEndDate: null
+        subscriptionEndDate: undefined
       });
     }
     
@@ -151,10 +151,13 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
     }
     
     // Parola bilgisini çıkar
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _, ...safeUser } = updatedUser;
-    
-    res.json(safeUser);
+    if (updatedUser) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password: _, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } else {
+      res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
   } catch (error: any) {
     res.status(500).json({ message: "Kullanıcı güncellenirken bir hata oluştu", error: error.message });
   }
@@ -166,7 +169,7 @@ adminRouter.delete("/users/:id", requireAdmin, async (req: Request, res: Respons
     const userId = parseInt(req.params.id);
     
     // Admin kendisini silmeye çalışıyorsa engelle
-    if (req.session.user.id === userId) {
+    if (req.session?.user?.id === userId) {
       return res.status(400).json({ message: "Kendi hesabınızı silemezsiniz" });
     }
     
