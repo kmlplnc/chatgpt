@@ -21,7 +21,8 @@ import {
   LogOut,
   TrendingDown,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   FaSmile, 
@@ -280,7 +281,18 @@ export default function ClientPortalDashboard() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b">
         <div className="container mx-auto py-4 px-4 md:px-6 flex justify-between items-center">
-          <h1 className="text-xl font-semibold">Danışan Portalı</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-semibold">Danışan Portalı</h1>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => window.location.href = '/'} 
+              className="text-muted-foreground hover:text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Ana Sayfaya Dön
+            </Button>
+          </div>
           <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
             Çıkış Yap
