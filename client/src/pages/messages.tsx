@@ -34,7 +34,9 @@ export default function MessagesPage() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
+  const [groupedMessages, setGroupedMessages] = useState([]);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -129,12 +131,19 @@ export default function MessagesPage() {
     }
   }, [selectedClient, messages]);
 
+  // Mesajları gruplandır
+  useEffect(() => {
+    if (messages) {
+      setGroupedMessages(groupMessagesByDate(messages));
+    }
+  }, [messages]);
+
   // Mesajların sonuna scroll
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [groupedMessages]);
 
   // Danışanları ara
   const filteredClients = clients
@@ -167,12 +176,93 @@ export default function MessagesPage() {
       return format(date, 'dd MMM HH:mm', { locale: tr });
     }
   };
+  
+  // Mesajları günlere göre grupla
+  const groupMessagesByDate = (messages) => {
+    if (!messages || messages.length === 0) return [];
+    
+    const groups = [];
+    let currentDate = null;
+    let currentGroup = [];
+    
+    messages.forEach(message => {
+      const messageDate = new Date(message.createdAt);
+      const messageDay = new Date(
+        messageDate.getFullYear(),
+        messageDate.getMonth(),
+        messageDate.getDate()
+      ).toISOString();
+      
+      if (messageDay !== currentDate) {
+        if (currentGroup.length > 0) {
+          groups.push({
+            date: currentDate,
+            messages: currentGroup
+          });
+        }
+        currentDate = messageDay;
+        currentGroup = [message];
+      } else {
+        currentGroup.push(message);
+      }
+    });
+    
+    if (currentGroup.length > 0) {
+      groups.push({
+        date: currentDate,
+        messages: currentGroup
+      });
+    }
+    
+    return groups;
+  };
+  
+  // Tarih gösterimini formatla
+  const formatGroupDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    
+    const isToday = date.getDate() === now.getDate() && 
+                   date.getMonth() === now.getMonth() && 
+                   date.getFullYear() === now.getFullYear();
+                   
+    const isYesterday = date.getDate() === yesterday.getDate() && 
+                        date.getMonth() === yesterday.getMonth() && 
+                        date.getFullYear() === yesterday.getFullYear();
+    
+    if (isToday) {
+      return "Bugün";
+    } else if (isYesterday) {
+      return "Dün";
+    } else {
+      return format(date, 'd MMMM yyyy', { locale: tr });
+    }
+  };
 
   // Mesaj durumunu görüntüle
   const MessageStatus = ({ status }) => {
-    if (status === 'sent') return <Clock className="h-3 w-3 text-gray-400" />;
-    if (status === 'delivered') return <Check className="h-3 w-3 text-blue-500" />;
-    if (status === 'read') return <CheckCheck className="h-3 w-3 text-blue-500" />;
+    if (status === 'sent') {
+      return <Clock className="h-3 w-3 text-current opacity-70" />;
+    } 
+    
+    if (status === 'delivered') {
+      return (
+        <div className="flex items-center">
+          <CheckCheck className="h-3 w-3 text-current opacity-70" />
+        </div>
+      );
+    } 
+    
+    if (status === 'read') {
+      return (
+        <div className="flex items-center">
+          <CheckCheck className="h-3 w-3 text-blue-400" />
+        </div>
+      );
+    }
+    
     return null;
   };
 
@@ -182,20 +272,25 @@ export default function MessagesPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
         {/* Sol panel: Danışan Listesi */}
-        <Card className="col-span-1 border h-full">
-          <CardHeader className="p-4">
-            <CardTitle>Danışanlar</CardTitle>
-            <div className="relative mt-2">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Card className="col-span-1 border h-full flex flex-col overflow-hidden">
+          <CardHeader className="p-4 border-b space-y-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Danışanlar</CardTitle>
+              <Badge variant="outline" className="font-normal text-xs">
+                {filteredClients.length} danışan
+              </Badge>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Danışan ara..." 
-                className="pl-8"
+                className="pl-9 rounded-full bg-muted border-0"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 flex-1 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-290px)]">
               {clientsLoading ? (
                 <div className="flex justify-center items-center h-40">
@@ -204,35 +299,58 @@ export default function MessagesPage() {
               ) : (
                 <div>
                   {filteredClients.length === 0 ? (
-                    <p className="text-center text-muted-foreground p-4">Danışan bulunamadı</p>
+                    <div className="flex flex-col items-center justify-center h-40 p-4 text-center">
+                      <p className="text-muted-foreground mb-1">Danışan bulunamadı</p>
+                      <p className="text-xs text-muted-foreground">Farklı bir arama terimi deneyin</p>
+                    </div>
                   ) : (
-                    <ul className="space-y-1">
+                    <ul className="divide-y divide-muted/40">
                       {filteredClients.map(client => {
                         const unreadCount = unreadCounts?.find(c => c.clientId === client.id)?.count || 0;
                         const isActive = selectedClient?.id === client.id;
+                        const lastMessageGroup = messages && selectedClient?.id === client.id && groupedMessages.length > 0 
+                          ? groupedMessages[groupedMessages.length - 1] 
+                          : null;
+                        const lastMessage = lastMessageGroup 
+                          ? lastMessageGroup.messages[lastMessageGroup.messages.length - 1] 
+                          : null;
                         
                         return (
                           <li key={client.id}>
                             <button 
-                              className={`w-full p-3 flex items-center space-x-3 hover:bg-slate-50 transition-colors ${isActive ? 'bg-slate-100' : ''}`}
+                              className={`w-full py-3 px-4 flex items-center space-x-3 hover:bg-muted/40 transition-colors ${isActive ? 'bg-muted/70' : ''}`}
                               onClick={() => handleClientSelect(client)}
                             >
-                              <Avatar>
-                                <AvatarFallback>{getClientInitials(client)}</AvatarFallback>
+                              <Avatar className="h-12 w-12 border-2 border-background">
+                                <AvatarFallback className="bg-primary/10 text-primary">
+                                  {getClientInitials(client)}
+                                </AvatarFallback>
                               </Avatar>
-                              <div className="flex-1 text-left">
-                                <p className="font-medium truncate">{client.firstName} {client.lastName}</p>
-                                <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                              <div className="flex-1 text-left overflow-hidden">
+                                <div className="flex justify-between items-center mb-1">
+                                  <p className="font-medium truncate">{client.firstName} {client.lastName}</p>
+                                  {lastMessage && (
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {formatMessageDate(lastMessage.createdAt)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <p className="text-sm text-muted-foreground truncate max-w-[150px]">
+                                    {lastMessage 
+                                      ? (lastMessage.fromClient ? '' : 'Sen: ') + lastMessage.message
+                                      : 'Henüz mesaj yok'}
+                                  </p>
+                                  {unreadCount > 0 && (
+                                    <Badge 
+                                      className="bg-primary text-white h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs ml-2"
+                                    >
+                                      {unreadCount}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-                              {unreadCount > 0 && (
-                                <Badge 
-                                  className="bg-primary text-white h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs"
-                                >
-                                  {unreadCount}
-                                </Badge>
-                              )}
                             </button>
-                            <Separator />
                           </li>
                         );
                       })}
@@ -261,39 +379,63 @@ export default function MessagesPage() {
               
               {/* Mesaj alanı */}
               <CardContent className="flex-1 p-0 overflow-hidden flex flex-col">
-                <ScrollArea className="flex-1 p-4">
+                <ScrollArea className="flex-1 p-4" ref={messagesContainerRef}>
                   {messagesLoading ? (
                     <div className="flex justify-center items-center h-full">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
-                  ) : messages && messages.length > 0 ? (
+                  ) : groupedMessages.length > 0 ? (
                     <div className="space-y-4">
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${message.fromClient ? "justify-start" : "justify-end"}`}
-                        >
-                          <div
-                            className={`max-w-[80%] rounded-lg px-4 py-2 flex flex-col ${
-                              message.fromClient 
-                                ? "bg-slate-100 text-slate-900" 
-                                : "bg-primary text-primary-foreground"
-                            }`}
-                          >
-                            <p>{message.message}</p>
-                            <div className={`flex justify-end items-center space-x-1 mt-1 ${
-                              message.fromClient 
-                                ? "text-slate-500" 
-                                : "text-primary-foreground/80"
-                            }`}>
-                              <span className="text-xs">
-                                {formatMessageDate(message.createdAt)}
-                              </span>
-                              {!message.fromClient && (
-                                <MessageStatus status={message.status || 'delivered'} />
-                              )}
+                      {groupedMessages.map((group, groupIndex) => (
+                        <div key={group.date} className="space-y-3">
+                          {/* Tarih ayırıcı */}
+                          <div className="flex justify-center my-4">
+                            <div className="bg-muted px-3 py-1 rounded-full text-xs text-muted-foreground">
+                              {formatGroupDate(group.date)}
                             </div>
                           </div>
+                          
+                          {/* Gün içindeki mesajlar */}
+                          {group.messages.map((message, messageIndex) => {
+                            // Aynı kişiden ardışık mesajları belirle
+                            const isConsecutive = messageIndex > 0 && 
+                              group.messages[messageIndex - 1].fromClient === message.fromClient;
+                            
+                            return (
+                              <div
+                                key={message.id}
+                                className={`flex ${message.fromClient ? "justify-start" : "justify-end"}`}
+                              >
+                                <div
+                                  className={`max-w-[80%] rounded-lg px-4 py-2 flex flex-col ${
+                                    message.fromClient 
+                                      ? "bg-slate-100 text-slate-900" 
+                                      : "bg-primary text-primary-foreground"
+                                  } ${
+                                    isConsecutive 
+                                      ? message.fromClient 
+                                        ? "rounded-tl-sm" 
+                                        : "rounded-tr-sm" 
+                                      : ""
+                                  }`}
+                                >
+                                  <p>{message.message}</p>
+                                  <div className={`flex justify-end items-center space-x-1 mt-1 ${
+                                    message.fromClient 
+                                      ? "text-slate-500" 
+                                      : "text-primary-foreground/80"
+                                  }`}>
+                                    <span className="text-xs">
+                                      {formatMessageDate(message.createdAt)}
+                                    </span>
+                                    {!message.fromClient && (
+                                      <MessageStatus status={message.status || 'delivered'} />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       ))}
                       <div ref={messagesEndRef} />
@@ -307,25 +449,30 @@ export default function MessagesPage() {
                 </ScrollArea>
                 
                 {/* Mesaj gönderme alanı */}
-                <div className="p-4 border-t">
-                  <div className="flex space-x-2">
-                    <Input
-                      placeholder="Mesajınızı yazın..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      disabled={sendMessageMutation.isPending}
-                      className="flex-1"
-                    />
+                <div className="px-4 py-3 border-t bg-background">
+                  <div className="flex items-end space-x-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder="Mesajınızı yazın..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        disabled={sendMessageMutation.isPending}
+                        className="flex-1 pr-10 min-h-[48px] rounded-2xl bg-muted border-0"
+                      />
+                      <div className="absolute inset-y-0 right-3 flex items-center">
+                        {sendMessageMutation.isPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        ) : null}
+                      </div>
+                    </div>
                     <Button 
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || sendMessageMutation.isPending}
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
                     >
-                      {sendMessageMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
+                      <Send className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
