@@ -67,11 +67,20 @@ messagesRouter.get("/", requireAuth, async (req: Request, res: Response) => {
 messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const { clientId, content, fromClient = false } = req.body;
+    const { clientId, content, message, fromClient = false } = req.body;
+    
+    // Hem content hem de message değişkeni destekle (geriye uyumluluk)
+    const messageContent = content || message;
     
     if (!clientId) {
       return res.status(400).json({ message: "Danışan ID gereklidir" });
     }
+    
+    if (!messageContent) {
+      return res.status(400).json({ message: "Mesaj içeriği gereklidir" });
+    }
+    
+    console.log("Yeni mesaj gönderiliyor:", { clientId, messageContent, fromClient });
     
     const clientIdNum = Number(clientId);
     
@@ -83,7 +92,7 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
     
     // Validate request body
     const messageData = insertMessageSchema.parse({
-      content,
+      content: messageContent,
       userId,
       clientId: clientIdNum,
       fromClient, // false = Diyetisyenden gönderilen mesaj
@@ -91,17 +100,18 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
     });
     
     // Create message
-    const message = await storage.createMessage(messageData);
+    const newMessage = await storage.createMessage(messageData);
+    console.log("Mesaj oluşturuldu:", newMessage);
     
     // Mesaj gönderildikten sonra ilgili kişiye bildirim gönder
     try {
       if (fromClient) {
         // Eğer mesaj danışandan geldiyse, diyetisyene bildirim gönder
-        await storage.createMessageNotification(message.id, userId, false);
+        await storage.createMessageNotification(newMessage.id, userId, false);
       } else {
         // Eğer mesaj diyetisyenden geldiyse ve danışanın bir user hesabı varsa bildirim gönder
         if (client.userId) {
-          await storage.createMessageNotification(message.id, client.userId, true);
+          await storage.createMessageNotification(newMessage.id, client.userId, true);
         }
       }
     } catch (notifError) {
@@ -109,10 +119,13 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
       // Bildirim oluşturulamazsa bile mesaj gönderilmiş sayılır
     }
     
-    res.status(201).json(message);
+    res.status(201).json(newMessage);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Geçersiz mesaj bilgileri", errors: error.errors });
+      return res.status(400).json({ 
+        message: "Geçersiz mesaj bilgileri", 
+        errors: error.errors 
+      });
     }
     
     console.error("Mesaj gönderilemedi:", error);
@@ -261,13 +274,21 @@ messagesRouter.post("/:clientId/mark-as-read", requireAuth, async (req: Request,
     const userId = req.session.user!.id;
     const clientId = Number(req.params.clientId);
     
+    console.log(`markAllClientMessagesAsRead çağrıldı: clientId=${clientId}, userId=${userId}`);
+    
     if (isNaN(clientId)) {
       return res.status(400).json({ message: "Geçerli bir danışan ID gereklidir" });
     }
     
     // Diyetisyenin kendi danışanı olduğunu doğrula
     const client = await storage.getClient(clientId);
-    if (!client || (client.userId !== userId && client.userId !== null)) {
+    if (!client) {
+      console.error(`Danışan bulunamadı: clientId=${clientId}`);
+      return res.status(404).json({ message: "Danışan bulunamadı" });
+    }
+    
+    if (client.userId !== userId && client.userId !== null) {
+      console.error(`Erişim hatası: danışan başka bir diyetisyene ait (clientId=${clientId}, clientUserId=${client.userId}, userId=${userId})`);
       return res.status(403).json({ message: "Bu danışana ait mesajları işaretleme izniniz yok" });
     }
     
@@ -275,8 +296,10 @@ messagesRouter.post("/:clientId/mark-as-read", requireAuth, async (req: Request,
     const success = await storage.markAllClientMessagesAsRead(clientId, userId);
     
     if (success) {
+      console.log(`Danışanın (${clientId}) tüm mesajları okundu olarak işaretlendi`);
       res.json({ success: true });
     } else {
+      console.error(`Mesajlar okundu olarak işaretlenemedi: clientId=${clientId}`);
       res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
     }
   } catch (error) {

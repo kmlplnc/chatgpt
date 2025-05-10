@@ -871,21 +871,29 @@ export class MemStorage implements IStorage {
   }
   
   async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
-    const messages = Array.from(this.messages.values());
-    
-    messages
-      .filter(msg => 
+    try {
+      const messages = Array.from(this.messages.values());
+      
+      // Okunacak mesajları bul
+      const messagesToMarkRead = messages.filter(msg => 
         msg.clientId === clientId && 
         msg.userId === userId && 
         !msg.isRead && 
         msg.fromClient === true
-      )
-      .forEach(msg => {
+      );
+      
+      // Her bir mesajı okundu olarak işaretle
+      messagesToMarkRead.forEach(msg => {
         msg.isRead = true;
         this.messages.set(msg.id, msg);
       });
-    
-    return true;
+      
+      console.log(`${messagesToMarkRead.length} mesaj okundu olarak işaretlendi`);
+      return true;
+    } catch (error) {
+      console.error("markAllClientMessagesAsRead hatası:", error);
+      return false;
+    }
   }
   
   async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
