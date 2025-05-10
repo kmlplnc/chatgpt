@@ -157,16 +157,24 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
 });
 
 // Get measurements for a client
-clientsRouter.get("/:id/measurements", async (req: Request, res: Response) => {
+clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
   try {
     const clientId = parseInt(req.params.id);
     if (isNaN(clientId)) {
       return res.status(400).json({ message: "Invalid client ID" });
     }
+    
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
 
     const client = await storage.getClient(clientId);
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
+    }
+    
+    // Kullanıcının sadece kendi danışanlarına ait ölçümleri görmesine izin ver
+    if (client.userId !== userId) {
+      return res.status(403).json({ message: "Bu danışanın ölçümlerine erişim izniniz yok" });
     }
 
     const measurements = await storage.getMeasurements(clientId);
