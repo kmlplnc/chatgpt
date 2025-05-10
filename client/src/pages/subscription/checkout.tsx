@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
 import { CheckCircle2, CreditCard, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -94,8 +95,11 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     
     try {
-      // Ödeme işlemini simüle et (sadece 300ms bekle - kullanıcı deneyimini hızlandırmak için)
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Demo kredi kartı işlemini simüle et
+      console.log("Demo ödeme bilgileri:", values);
+      
+      // Ödeme işlemini simüle et (kullanıcı deneyimi için biraz bekle)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       
       // Plan parametresi ile abonelik oluştur
       await apiRequest("POST", "/api/subscription/create", { plan: planFromUrl });
@@ -109,15 +113,15 @@ export default function CheckoutPage() {
         variant: "default",
       });
       
-      // 1 saniye sonra ana sayfaya yönlendir
+      // 2 saniye sonra ana sayfaya yönlendir (toast'u okumaya zaman tanı)
       setTimeout(() => {
         window.location.href = '/';
-      }, 1000);
+      }, 2000);
     } catch (error) {
       console.error("Ödeme hatası:", error);
       toast({
         title: "Ödeme hatası",
-        description: "Ödeme işlemi sırasında bir hata oluştu",
+        description: "Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyiniz.",
         variant: "destructive",
       });
     } finally {
@@ -402,7 +406,8 @@ export default function CheckoutPage() {
         
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>Bu bir demo uygulamasıdır. Gerçek ödeme işlemi gerçekleştirilmeyecektir.</p>
-          <p>Herhangi bir kart bilgisi girebilirsiniz, ödeme simüle edilecektir.</p>
+          <p><strong>Herhangi bir kredi kartı bilgisi ile ödeme yapabilirsiniz.</strong></p>
+          <p>Örnek kart: 4242 4242 4242 4242 | Son Kullanma: 12/24 | CVV: 123</p>
         </div>
       </div>
     </Layout>
