@@ -314,6 +314,25 @@ export default function ClientPortalMessages() {
     const date = new Date(dateString);
     return format(date, 'HH:mm');
   };
+  
+  // Mesaj durumunu göster için bileşen
+  function renderMessageStatus(status?: string, isRead?: boolean) {
+    // "Görüldü" durumunu göster - çift tik
+    if (status === 'read' || isRead) {
+      return (
+        <div className="flex items-center" title="Görüldü">
+          <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+        </div>
+      );
+    } 
+    
+    // Teslim edildi - tek tik
+    return (
+      <div className="flex items-center" title="Gönderildi">
+        <Check className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    );
+  };
 
   const [, navigate] = useLocation();
 

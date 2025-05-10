@@ -345,28 +345,19 @@ export default function MessagesPage() {
 
   // Mesaj durumunu görüntüle
   const MessageStatus = ({ status, isRead }: { status?: string, isRead?: boolean }) => {
-    // "Görüldü" durumunu göster
+    // "Görüldü" durumunu göster - çift tik
     if (status === 'read' || isRead) {
       return (
         <div className="flex items-center" title="Görüldü">
-          <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
+          <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
         </div>
       );
     } 
     
-    // Teslim edildi
-    if (status === 'delivered') {
-      return (
-        <div className="flex items-center" title="İletildi">
-          <Check className="h-3.5 w-3.5 opacity-80" />
-        </div>
-      );
-    } 
-    
-    // Gönderildi veya varsayılan durum
+    // Teslim edildi - tek tik
     return (
       <div className="flex items-center" title="Gönderildi">
-        <Clock className="h-3.5 w-3.5 opacity-70" />
+        <Check className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
     );
   };
