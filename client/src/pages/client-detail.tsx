@@ -706,6 +706,28 @@ export default function ClientDetail() {
                   </div>
                 </div>
               )}
+              
+              {lastMeasurement.basalMetabolicRate && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <Label>Bazal Metabolizma Hızı (BMH)</Label>
+                    <span className="font-medium">
+                      {Math.round(lastMeasurement.basalMetabolicRate)} kcal/gün
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {lastMeasurement.totalDailyEnergyExpenditure && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <Label>Toplam Günlük Enerji (TDEE)</Label>
+                    <span className="font-medium">
+                      {Math.round(lastMeasurement.totalDailyEnergyExpenditure)} kcal/gün
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div>

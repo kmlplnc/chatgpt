@@ -226,11 +226,67 @@ clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
+    // Get client details for BMH calculation
+    const birthDateStr = client.birthDate;
+    let age = 30; // default age if not available
+    
+    if (birthDateStr) {
+      const birthDate = new Date(birthDateStr);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      
+      // Adjust age if birthday hasn't occurred yet this year
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+    }
+
+    // Calculate BMI
+    const weight = parseFloat(req.body.weight);
+    const height = parseFloat(req.body.height) / 100; // convert to meters
+    const bmi = weight / (height * height);
+    
+    // Calculate BMH (Bazal Metabolizma Hızı) using Harris-Benedict equation
+    let bmh = 0;
+    if (client.gender === 'male') {
+      bmh = 88.362 + (13.397 * weight) + (4.799 * (height * 100)) - (5.677 * age);
+    } else {
+      bmh = 447.593 + (9.247 * weight) + (3.098 * (height * 100)) - (4.330 * age);
+    }
+    
+    // Calculate TDEE (Total Daily Energy Expenditure)
+    let tdee = 0;
+    const activityLevel = req.body.activityLevel || 'moderate';
+    
+    switch(activityLevel) {
+      case 'sedentary':
+        tdee = bmh * 1.2;
+        break;
+      case 'light':
+        tdee = bmh * 1.375;
+        break;
+      case 'moderate':
+        tdee = bmh * 1.55;
+        break;
+      case 'active':
+        tdee = bmh * 1.725;
+        break;
+      case 'very_active':
+        tdee = bmh * 1.9;
+        break;
+      default:
+        tdee = bmh * 1.55; // default to moderate
+    }
+    
     // Add client ID to the measurement data
     const measurementData = { 
-      ...req.body, 
+      ...req.body,
       clientId,
-      updatedAt: new Date() // Şema gereksinimine uygun olarak updatedAt ekliyoruz
+      updatedAt: new Date(), // Şema gereksinimine uygun olarak updatedAt ekliyoruz
+      bmi: bmi.toFixed(2),
+      basalMetabolicRate: Math.round(bmh),
+      totalDailyEnergyExpenditure: Math.round(tdee)
     };
     
     // Zorunlu alanları kontrol et
