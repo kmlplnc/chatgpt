@@ -33,6 +33,7 @@ import {
   type Notification,
   type InsertNotification
 } from "@shared/schema";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -54,6 +55,8 @@ export interface IStorage {
   markNotificationAsRead(id: number): Promise<boolean>;
   markAllNotificationsAsRead(userId: number): Promise<boolean>;
   getUnreadNotificationCount(userId: number): Promise<number>;
+  createAppointmentReminder(appointmentId: number, scheduleFor: Date): Promise<Notification>;
+  createMessageNotification(messageId: number, recipientId: number, isClient: boolean): Promise<Notification>;
   
   // Admin - User Management methods
   getAllUsers(limit?: number, offset?: number): Promise<User[]>;
@@ -128,6 +131,8 @@ export interface IStorage {
 
 // In-memory storage implementation
 export class MemStorage implements IStorage {
+  private notifications = new Map<number, Notification>();
+  private notificationIdCounter = 1;
   // Client Portal methods
   async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
     for (const client of this.clients.values()) {
@@ -828,10 +833,295 @@ export class MemStorage implements IStorage {
     
     return messages.filter(msg => !msg.isRead).length;
   }
+  
+  // Notification methods
+  async getNotificationsByUserId(userId: number): Promise<Notification[]> {
+    const notifications = Array.from(this.notifications.values());
+    return notifications
+      .filter(notification => notification.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  
+  async getNotificationById(id: number): Promise<Notification | undefined> {
+    return this.notifications.get(id);
+  }
+  
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = this.notificationIdCounter++;
+    
+    const newNotification: Notification = {
+      ...notification,
+      id,
+      createdAt: new Date()
+    };
+    
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+  
+  async markNotificationAsRead(id: number): Promise<boolean> {
+    const notification = this.notifications.get(id);
+    if (!notification) {
+      return false;
+    }
+    
+    notification.isRead = true;
+    this.notifications.set(id, notification);
+    return true;
+  }
+  
+  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
+    const notifications = Array.from(this.notifications.values());
+    let success = true;
+    
+    notifications
+      .filter(notification => notification.userId === userId)
+      .forEach(notification => {
+        notification.isRead = true;
+        this.notifications.set(notification.id, notification);
+      });
+      
+    return success;
+  }
+  
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const notifications = Array.from(this.notifications.values());
+    return notifications.filter(notification => 
+      notification.userId === userId && !notification.isRead
+    ).length;
+  }
+  
+  // Yardımcı bildirim fonksiyonları
+  async createAppointmentReminder(appointmentId: number, scheduleFor: Date): Promise<Notification> {
+    // Önce randevuyu getir
+    const appointment = await this.getAppointmentById(appointmentId);
+    if (!appointment) {
+      throw new Error("Randevu bulunamadı");
+    }
+    
+    const client = await this.getClient(appointment.clientId);
+    if (!client) {
+      throw new Error("Danışan bulunamadı");
+    }
+    
+    // Bildirim içeriği oluştur
+    const appointmentTime = new Date(appointment.date).toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    let timeUntil = "1 gün";
+    if (scheduleFor.getDate() === new Date(appointment.date).getDate()) {
+      timeUntil = "1 saat";
+    }
+    
+    // Diyetisyen için bildirim oluştur
+    const notification = await this.createNotification({
+      userId: appointment.userId,
+      clientId: appointment.clientId,
+      title: "Yaklaşan Randevu Hatırlatması",
+      content: `${client.name} ${client.surname} ile randevunuz ${timeUntil} sonra (${appointmentTime}) gerçekleşecek.`,
+      type: "appointment",
+      relatedId: appointmentId,
+      isRead: false,
+      scheduledFor: scheduleFor
+    });
+    
+    return notification;
+  }
+  
+  // Mesaj bildirimi oluştur
+  async createMessageNotification(messageId: number, recipientId: number, isClient: boolean): Promise<Notification> {
+    // Mesajı getir
+    const message = await this.getMessageById(messageId);
+    if (!message) {
+      throw new Error("Mesaj bulunamadı");
+    }
+    
+    let senderName = "";
+    let title = "";
+    
+    if (isClient) {
+      // Danışan için bildirim oluşturuluyor, gönderen diyetisyen
+      const user = await this.getUser(message.userId);
+      if (!user) {
+        throw new Error("Kullanıcı bulunamadı");
+      }
+      senderName = `${user.name}`;
+      title = "Yeni Mesajınız Var";
+    } else {
+      // Diyetisyen için bildirim oluşturuluyor, gönderen danışan
+      const client = await this.getClient(message.clientId);
+      if (!client) {
+        throw new Error("Danışan bulunamadı");
+      }
+      senderName = `${client.name} ${client.surname}`;
+      title = "Yeni Danışan Mesajı";
+    }
+    
+    // Bildirim oluştur
+    const notification = await this.createNotification({
+      userId: recipientId,
+      clientId: isClient ? message.clientId : null,
+      title: title,
+      content: `${senderName}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
+      type: "message",
+      relatedId: messageId,
+      isRead: false
+    });
+    
+    return notification;
+  }
 }
 
 // DatabaseStorage implementation
 export class DatabaseStorage implements IStorage {
+  // Notification methods
+  async getNotificationsByUserId(userId: number): Promise<Notification[]> {
+    const result = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+    
+    return result;
+  }
+  
+  async getNotificationById(id: number): Promise<Notification | undefined> {
+    const [notification] = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.id, id));
+    
+    return notification || undefined;
+  }
+  
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    
+    return newNotification;
+  }
+  
+  async markNotificationAsRead(id: number): Promise<boolean> {
+    const result = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id));
+    
+    return true;
+  }
+  
+  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.userId, userId));
+    
+    return true;
+  }
+  
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+    
+    return result[0]?.count || 0;
+  }
+  
+  // Yardımcı bildirim fonksiyonları
+  async createAppointmentReminder(appointmentId: number, scheduleFor: Date): Promise<Notification> {
+    // Önce randevuyu getir
+    const appointment = await this.getAppointmentById(appointmentId);
+    if (!appointment) {
+      throw new Error("Randevu bulunamadı");
+    }
+    
+    const client = await this.getClient(appointment.clientId);
+    if (!client) {
+      throw new Error("Danışan bulunamadı");
+    }
+    
+    // Bildirim içeriği oluştur
+    const appointmentTime = new Date(appointment.date).toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    let timeUntil = "1 gün";
+    if (scheduleFor.getDate() === new Date(appointment.date).getDate()) {
+      timeUntil = "1 saat";
+    }
+    
+    // Diyetisyen için bildirim oluştur
+    const notification = await this.createNotification({
+      userId: appointment.userId,
+      clientId: appointment.clientId,
+      title: "Yaklaşan Randevu Hatırlatması",
+      content: `${client.name} ${client.surname} ile randevunuz ${timeUntil} sonra (${appointmentTime}) gerçekleşecek.`,
+      type: "appointment",
+      relatedId: appointmentId,
+      isRead: false,
+      scheduledFor: scheduleFor
+    });
+    
+    return notification;
+  }
+  
+  // Mesaj bildirimi oluştur
+  async createMessageNotification(messageId: number, recipientId: number, isClient: boolean): Promise<Notification> {
+    // Mesajı getir
+    const message = await this.getMessageById(messageId);
+    if (!message) {
+      throw new Error("Mesaj bulunamadı");
+    }
+    
+    let senderName = "";
+    let title = "";
+    
+    if (isClient) {
+      // Danışan için bildirim oluşturuluyor, gönderen diyetisyen
+      const user = await this.getUser(message.userId);
+      if (!user) {
+        throw new Error("Kullanıcı bulunamadı");
+      }
+      senderName = `${user.name}`;
+      title = "Yeni Mesajınız Var";
+    } else {
+      // Diyetisyen için bildirim oluşturuluyor, gönderen danışan
+      const client = await this.getClient(message.clientId);
+      if (!client) {
+        throw new Error("Danışan bulunamadı");
+      }
+      senderName = `${client.name} ${client.surname}`;
+      title = "Yeni Danışan Mesajı";
+    }
+    
+    // Bildirim oluştur
+    const notification = await this.createNotification({
+      userId: recipientId,
+      clientId: isClient ? message.clientId : null,
+      title: title,
+      content: `${senderName}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
+      type: "message",
+      relatedId: messageId,
+      isRead: false
+    });
+    
+    return notification;
+  }
   // Client Portal methods
   async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
     const [client] = await db

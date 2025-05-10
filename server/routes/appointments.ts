@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertAppointmentSchema } from "@shared/schema";
+import { insertAppointmentSchema, insertNotificationSchema } from "@shared/schema";
 
 const appointmentsRouter = Router();
 
