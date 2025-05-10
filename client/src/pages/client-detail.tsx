@@ -431,8 +431,8 @@ export default function ClientDetail() {
     bodyFat: measurement.bodyFatPercentage ? parseFloat(measurement.bodyFatPercentage) : null,
     waist: measurement.waistCircumference ? parseFloat(measurement.waistCircumference) : null,
     hip: measurement.hipCircumference ? parseFloat(measurement.hipCircumference) : null,
-    tdee: measurement.totalDailyEnergyExpenditure,
-    bmr: measurement.basalMetabolicRate
+    tdee: measurement.totalDailyEnergyExpenditure ? Math.round(measurement.totalDailyEnergyExpenditure) : 0,
+    bmh: measurement.basalMetabolicRate ? Math.round(measurement.basalMetabolicRate) : 0
   })).sort((a: any, b: any) => {
     const dateA = new Date(a.date.split('/').reverse().join('/'));
     const dateB = new Date(b.date.split('/').reverse().join('/'));
@@ -468,6 +468,11 @@ export default function ClientDetail() {
   // BMI değişimi
   const bmiChange = lastMeasurement && firstMeasurement
     ? calculateChange(parseFloat(lastMeasurement.bmi), parseFloat(firstMeasurement.bmi))
+    : { value: 0, percentage: 0 };
+    
+  // BMH değişimi
+  const bmhChange = lastMeasurement && firstMeasurement && lastMeasurement.basalMetabolicRate && firstMeasurement.basalMetabolicRate
+    ? calculateChange(Math.round(lastMeasurement.basalMetabolicRate), Math.round(firstMeasurement.basalMetabolicRate))
     : { value: 0, percentage: 0 };
 
   // Yaş hesaplama
