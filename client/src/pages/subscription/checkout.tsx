@@ -43,6 +43,10 @@ export default function CheckoutPage() {
   const params = new URLSearchParams(queryString);
   const planFromUrl = params.get('plan');
   
+  // Debug için plan değerini konsola yazdır
+  console.log("Checkout page plan değeri:", planFromUrl);
+  console.log("Tam URL:", location);
+  
   // Plan seçilmemişse ve sayfa yeni yükleniyorsa anasayfaya yönlendir
   useEffect(() => {
     if (!planFromUrl) {

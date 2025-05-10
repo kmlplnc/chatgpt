@@ -93,7 +93,10 @@ export function SubscriptionPlans({ onSelectPlan, selectedPlan }: SubscriptionPl
           
           <CardFooter>
             <Button 
-              onClick={() => onSelectPlan(plan.id)}
+              onClick={() => {
+                console.log("Plan seçildi:", plan.id);
+                onSelectPlan(plan.id);
+              }}
               className="w-full" 
               variant={selectedPlan === plan.id ? "default" : "outline"}
             >

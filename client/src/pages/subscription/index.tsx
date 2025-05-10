@@ -63,8 +63,15 @@ export default function SubscriptionPage() {
       return;
     }
     
-    // Doğrudan ödeme sayfasına yönlendir (hata yakalama bloğuna gerek yok çünkü asenkron işlem yok)
-    navigate(`/subscription/checkout?plan=${selectedPlan}`);
+    // Plan seçildiğini konsola logla ve ödeme sayfasına yönlendir
+    console.log("Seçilen plan:", selectedPlan);
+    
+    // URL'i oluştur ve konsola logla
+    const checkoutUrl = `/subscription/checkout?plan=${selectedPlan}`;
+    console.log("Yönlendirme URL:", checkoutUrl);
+    
+    // Doğrudan ödeme sayfasına yönlendir
+    navigate(checkoutUrl);
   };
   
   // Handle subscription cancellation
