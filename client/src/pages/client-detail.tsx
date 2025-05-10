@@ -804,13 +804,13 @@ export default function ClientDetail() {
                   </CardContent>
                 </Card>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Kalori ve Besin Değerleri</DialogTitle>
-                  <DialogDescription>
-                    Son ölçüme göre hesaplanan günlük kalori ve makro besin ihtiyaçları
-                  </DialogDescription>
-                </DialogHeader>
+              <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Kalori ve Besin Değerleri</DialogTitle>
+                    <DialogDescription>
+                      Son ölçüme göre hesaplanan günlük kalori ve makro besin ihtiyaçları. Bu değerler kişisel özelliklerinize ve aktivite seviyenize göre hesaplanmıştır.
+                    </DialogDescription>
+                  </DialogHeader>
                 {lastMeasurement ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -827,31 +827,43 @@ export default function ClientDetail() {
                     <Separator />
 
                     <div>
-                      <h3 className="font-semibold mb-2">Önerilen Makro Besin Dağılımı</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <Label>Protein (%30)</Label>
-                            <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 4)}g</span>
+                        <h3 className="font-semibold mb-2">Önerilen Makro Besin Dağılımı</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Makro besinler, vücudunuzun ihtiyaç duyduğu temel besin gruplarıdır. Dengeli bir diyet için bu oranları takip etmeniz önemlidir.
+                        </p>
+                        <div className="space-y-4">
+                            <div>
+                            <div className="flex justify-between mb-1">
+                              <Label>Protein (%30)</Label>
+                              <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 4)}g</span>
+                            </div>
+                            <Progress value={30} className="h-2" />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Kas yapımı, onarımı ve bağışıklık sistemi için gerekli. Her gram 4 kalori enerji sağlar.
+                            </p>
                           </div>
-                          <Progress value={30} className="h-2" />
-                        </div>
 
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <Label>Karbonhidrat (%40)</Label>
-                            <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.40 / 4)}g</span>
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <Label>Karbonhidrat (%40)</Label>
+                              <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.40 / 4)}g</span>
+                            </div>
+                            <Progress value={40} className="h-2" />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Ana enerji kaynağı. Beyin ve merkezi sinir sistemi için temel yakıt. Her gram 4 kalori enerji sağlar.
+                            </p>
                           </div>
-                          <Progress value={40} className="h-2" />
-                        </div>
 
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <Label>Yağ (%30)</Label>
-                            <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 9)}g</span>
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <Label>Yağ (%30)</Label>
+                              <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 9)}g</span>
+                            </div>
+                            <Progress value={30} className="h-2" />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Hormon üretimi ve vitamin emilimi için önemli. Her gram 9 kalori enerji sağlar.
+                            </p>
                           </div>
-                          <Progress value={30} className="h-2" />
-                        </div>
                       </div>
                     </div>
 
@@ -867,27 +879,68 @@ export default function ClientDetail() {
                     </Alert>
 
                     <div>
-                      <h3 className="font-semibold mb-2">Günlük Vitamin ve Mineral İhtiyaçları</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">A vitamini</span>
-                          <span className="text-sm">900 mcg</span>
+                        <h3 className="font-semibold mb-2">Günlük Vitamin ve Mineral İhtiyaçları</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Vitamin ve mineraller, vücudunuzun düzgün çalışması için gerekli olan mikro besinlerdir. Bu değerler sağlıklı bir yaşam için gerekli günlük alım miktarlarıdır.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="text-sm font-medium mb-2">Vitaminler</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                                <div>
+                                  <span className="text-sm font-medium">A vitamini</span>
+                                  <p className="text-xs text-muted-foreground">Göz sağlığı ve bağışıklık için</p>
+                                </div>
+                                <span className="text-sm">900 mcg</span>
+                              </div>
+                              <div className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                                <div>
+                                  <span className="text-sm font-medium">C vitamini</span>
+                                  <p className="text-xs text-muted-foreground">Bağışıklık ve cilt sağlığı için</p>
+                                </div>
+                                <span className="text-sm">90 mg</span>
+                              </div>
+                              <div className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                                <div>
+                                  <span className="text-sm font-medium">D vitamini</span>
+                                  <p className="text-xs text-muted-foreground">Kemik sağlığı ve kalsiyum emilimi için</p>
+                                </div>
+                                <span className="text-sm">15 mcg</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-medium mb-2">Mineraller</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                                <div>
+                                  <span className="text-sm font-medium">Kalsiyum</span>
+                                  <p className="text-xs text-muted-foreground">Kemik ve diş sağlığı için</p>
+                                </div>
+                                <span className="text-sm">1000 mg</span>
+                              </div>
+                              <div className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                                <div>
+                                  <span className="text-sm font-medium">Demir</span>
+                                  <p className="text-xs text-muted-foreground">Kan hücresi üretimi için</p>
+                                </div>
+                                <span className="text-sm">18 mg</span>
+                              </div>
+                              <div className="flex items-center justify-between bg-primary/5 p-3 rounded-md">
+                                <div>
+                                  <span className="text-sm font-medium">Magnezyum</span>
+                                  <p className="text-xs text-muted-foreground">Kas ve sinir fonksiyonu için</p>
+                                </div>
+                                <span className="text-sm">400 mg</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">C vitamini</span>
-                          <span className="text-sm">90 mg</span>
-                        </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">D vitamini</span>
-                          <span className="text-sm">15 mcg</span>
-                        </div>
-                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
-                          <span className="text-sm font-medium">E vitamini</span>
-                          <span className="text-sm">15 mg</span>
-                        </div>
+                        <p className="text-xs text-muted-foreground mt-4">
+                          Bu değerler ortalama bir erişkin için belirlenen günlük önerilen miktarlardır. Kişisel ihtiyaçlarınız yaş, cinsiyet ve sağlık durumunuza göre farklılık gösterebilir.
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">Bu değerler ortalama bir erişkin için belirlenen günlük önerilen miktarlardır.</p>
-                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">
