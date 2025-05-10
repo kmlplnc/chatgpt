@@ -177,22 +177,47 @@ export default function CheckoutPage() {
     );
   }
   
-  // Kullanıcı giriş yapmadıysa veya seçili plan yoksa
-  if (!user || !planFromUrl) {
+  // Kullanıcı giriş yapmamışsa veya seçili plan yoksa
+  if (!user) {
     return (
       <Layout>
         <div className="container mx-auto max-w-3xl py-12">
           <Card>
             <CardHeader>
-              <CardTitle>Geçersiz İşlem</CardTitle>
+              <CardTitle>Giriş Yapmanız Gerekiyor</CardTitle>
               <CardDescription>
-                Bu sayfaya erişmek için önce bir abonelik planı seçmeniz gerekmektedir.
+                Abonelik işlemi yapabilmek için önce giriş yapmanız gerekmektedir.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button variant="outline" onClick={() => navigate("/login")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Giriş Yap
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+  
+  // Plan parametresi yoksa
+  if (!planFromUrl) {
+    // Plan belirtilmemiş, bir plan seçmeye yönlendir
+    return (
+      <Layout>
+        <div className="container mx-auto max-w-3xl py-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Plan Seçilmedi</CardTitle>
+              <CardDescription>
+                Önce bir abonelik planı seçmeniz gerekmektedir.
               </CardDescription>
             </CardHeader>
             <CardFooter>
               <Button variant="outline" onClick={() => navigate("/subscription")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Abonelik Sayfasına Dön
+                Abonelik Planlarını Görüntüle
               </Button>
             </CardFooter>
           </Card>
