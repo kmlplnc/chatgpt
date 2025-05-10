@@ -207,7 +207,7 @@ export default function HealthCalculator() {
   const [activeTab, setActiveTab] = useState("bmh-calculator");
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [calculationResult, setCalculationResult] = useState<{
-    bmr: number;
+    bmh: number;
     tdee: number;
     bmi: number;
     bmiCategory: string;
@@ -306,7 +306,7 @@ export default function HealthCalculator() {
       weight: formValues.weight.toString(),
       activityLevel: formValues.activityLevel,
       bmi: calculationResult.bmi.toFixed(1),
-      bmr: calculationResult.bmr.toString(),
+      bmr: calculationResult.bmh.toString(),
       targetCalories: calculationResult.targetCalories.toString(),
       proteinPercentage: formValues.proteinPercentage,
       carbsPercentage: formValues.carbsPercentage,
@@ -393,7 +393,7 @@ export default function HealthCalculator() {
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="bmr-calculator" className="p-4 border rounded-lg mt-4">
+          <TabsContent value="bmh-calculator" className="p-4 border rounded-lg mt-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <Card>
