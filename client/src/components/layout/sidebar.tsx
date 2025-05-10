@@ -57,7 +57,10 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-white border-r border-neutral-200 h-screen fixed">
       <div className="p-4 border-b border-neutral-200">
-        <div className="flex items-center">
+        <div 
+          onClick={() => navigate('/')} 
+          className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <img src="/dietkem-logo.png" alt="DietKEM Logo" className="w-12 h-12 mr-2" />
           <h1 className="font-heading font-semibold text-xl text-primary">DietKEM</h1>
         </div>
