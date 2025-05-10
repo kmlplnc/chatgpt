@@ -424,13 +424,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Veritabanına kaydet
       const savedPlan = await storage.createDietPlan({
         userId: req.session.user.id,
-        title: `${validationResult.data.name} için Diyet Planı`,
+        name: `${validationResult.data.name} için Diyet Planı`,
         description: dietPlan.description,
         content: dietPlan.content,
-        durationDays: dietPlan.durationDays,
-        type: validationResult.data.dietType,
-        tags: dietPlan.tags,
+        calorieGoal: validationResult.data.calorieGoal || 2000,
+        proteinPercentage: validationResult.data.proteinPercentage,
+        carbsPercentage: validationResult.data.carbsPercentage,
+        fatPercentage: validationResult.data.fatPercentage,
+        meals: validationResult.data.meals,
+        includeDessert: validationResult.data.includeDessert,
+        includeSnacks: validationResult.data.includeSnacks,
         status: "active",
+        durationDays: dietPlan.durationDays || 7,
+        tags: Array.isArray(dietPlan.tags) ? dietPlan.tags.join(',') : "",
+        dietType: validationResult.data.dietType,
       });
       
       res.status(201).json(savedPlan);
