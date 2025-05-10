@@ -1809,69 +1809,81 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createAppointmentReminder(appointmentId: number, scheduleFor: Date): Promise<Notification> {
-    const appointment = await this.getAppointmentById(appointmentId);
-    
-    if (!appointment) {
-      throw new Error("Randevu bulunamadı");
+    try {
+      const appointment = await this.getAppointmentById(appointmentId);
+      
+      if (!appointment) {
+        throw new Error("Randevu bulunamadı");
+      }
+      
+      // getClientById yerine getClient kullan (getClientById mevcut değil)
+      const client = await this.getClient(appointment.clientId);
+      
+      if (!client) {
+        throw new Error("Danışan bulunamadı");
+      }
+      
+      // Diyetisyen için bildirim
+      const dietitianNotification = await this.createNotification({
+        userId: appointment.userId,
+        clientId: appointment.clientId,
+        title: "Randevu Hatırlatması",
+        content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde randevunuz var.`,
+        type: "appointment",
+        relatedId: appointmentId,
+        scheduledFor: scheduleFor,
+        isRead: false
+      });
+      
+      return dietitianNotification;
+    } catch (error) {
+      console.error("createAppointmentReminder hatası:", error);
+      throw error;
     }
-    
-    const client = await this.getClientById(appointment.clientId);
-    
-    if (!client) {
-      throw new Error("Danışan bulunamadı");
-    }
-    
-    // Diyetisyen için bildirim
-    const dietitianNotification = await this.createNotification({
-      userId: appointment.userId,
-      clientId: appointment.clientId,
-      title: "Randevu Hatırlatması",
-      content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde randevunuz var.`,
-      type: "appointment",
-      relatedId: appointmentId,
-      scheduledFor: scheduleFor,
-      isRead: false
-    });
-    
-    return dietitianNotification;
   }
   
   async createMessageNotification(messageId: number, recipientId: number, isClient: boolean): Promise<Notification> {
-    const message = await this.getMessageById(messageId);
-    
-    if (!message) {
-      throw new Error("Mesaj bulunamadı");
+    try {
+      const message = await this.getMessageById(messageId);
+      
+      if (!message) {
+        throw new Error("Mesaj bulunamadı");
+      }
+      
+      // getClientById yerine getClient kullan (getClientById mevcut değil)
+      const client = await this.getClient(message.clientId);
+      
+      if (!client) {
+        throw new Error("Danışan bulunamadı");
+      }
+      
+      let title, content;
+      
+      if (isClient) {
+        // Danışana bildirimi
+        title = "Yeni Mesaj";
+        content = `Diyetisyeninizden yeni bir mesajınız var.`;
+      } else {
+        // Diyetisyene bildirimi
+        title = "Yeni Mesaj";
+        content = `${client.firstName} ${client.lastName} adlı danışanınızdan yeni bir mesajınız var.`;
+      }
+      
+      const notification = await this.createNotification({
+        userId: recipientId,
+        clientId: message.clientId,
+        title,
+        content,
+        type: "message",
+        relatedId: messageId,
+        isRead: false
+      });
+      
+      return notification;
+    } catch (error) {
+      console.error("createMessageNotification hatası:", error);
+      throw error;
     }
-    
-    const client = await this.getClientById(message.clientId);
-    
-    if (!client) {
-      throw new Error("Danışan bulunamadı");
-    }
-    
-    let title, content;
-    
-    if (isClient) {
-      // Danışana bildirimi
-      title = "Yeni Mesaj";
-      content = `Diyetisyeninizden yeni bir mesajınız var.`;
-    } else {
-      // Diyetisyene bildirimi
-      title = "Yeni Mesaj";
-      content = `${client.firstName} ${client.lastName} adlı danışanınızdan yeni bir mesajınız var.`;
-    }
-    
-    const notification = await this.createNotification({
-      userId: recipientId,
-      clientId: message.clientId,
-      title,
-      content,
-      type: "message",
-      relatedId: messageId,
-      isRead: false
-    });
-    
-    return notification;
   }
 }
 

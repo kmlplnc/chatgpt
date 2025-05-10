@@ -528,7 +528,7 @@ export default function MessagesPage() {
                                   }`}
                                 >
                                   <div className="break-words text-[15px]">
-                                    {message.message}
+                                    {message.content}
                                   </div>
                                   <div className={`flex justify-end items-center gap-1.5 mt-1.5 ${
                                     message.fromClient 
