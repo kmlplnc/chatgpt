@@ -439,4 +439,39 @@ clientsRouter.delete("/:id/measurements/:measurementId", async (req: Request, re
   }
 });
 
+// Generate access code for client portal
+clientsRouter.post("/:id/access-code", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const clientId = parseInt(req.params.id);
+    if (isNaN(clientId)) {
+      return res.status(400).json({ message: "Geçersiz danışan ID'si" });
+    }
+    
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
+    
+    // Danışanı kontrol et
+    const client = await storage.getClient(clientId);
+    if (!client) {
+      return res.status(404).json({ message: "Danışan bulunamadı" });
+    }
+    
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Sadece admin kullanıcıları veya danışanın sahibi erişim kodu oluşturabilir
+    if (!admin && client.userId !== userId) {
+      return res.status(403).json({ message: "Bu danışan için erişim kodu oluşturma yetkiniz yok" });
+    }
+
+    // Erişim kodu oluştur
+    const accessCode = await storage.generateClientAccessCode(clientId);
+    
+    return res.status(200).json({ accessCode });
+  } catch (error) {
+    console.error("Error generating access code:", error);
+    return res.status(500).json({ message: "Erişim kodu oluşturulamadı" });
+  }
+});
+
 export { clientsRouter };

@@ -97,6 +97,78 @@ export interface IStorage {
 
 // In-memory storage implementation
 export class MemStorage implements IStorage {
+  // Client Portal methods
+  async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
+    for (const client of this.clients.values()) {
+      if (client.accessCode === accessCode) {
+        return client;
+      }
+    }
+    return undefined;
+  }
+  
+  async generateClientAccessCode(clientId: number): Promise<string> {
+    const client = await this.getClient(clientId);
+    if (!client) {
+      throw new Error("Danışan bulunamadı");
+    }
+    
+    // 6 karakterli alfanumerik rastgele bir kod oluştur
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let accessCode = '';
+    for (let i = 0; i < 6; i++) {
+      accessCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    // Danışanı güncelleyerek erişim kodunu kaydet
+    const updatedClient = await this.updateClient(clientId, { accessCode });
+    if (!updatedClient) {
+      throw new Error("Erişim kodu güncellenemedi");
+    }
+    
+    return accessCode;
+  }
+  
+  async updateClientAccessCode(clientId: number, accessCode: string): Promise<boolean> {
+    const client = await this.getClient(clientId);
+    if (!client) {
+      return false;
+    }
+    
+    await this.updateClient(clientId, { accessCode });
+    return true;
+  }
+  
+  // Client Session management
+  async createClientSession(session: InsertClientSession): Promise<ClientSession> {
+    const newSession: ClientSession = {
+      ...session,
+      lastActivity: new Date()
+    };
+    
+    this.clientSessions.set(session.sessionToken, newSession);
+    return newSession;
+  }
+  
+  async getClientSession(sessionToken: string): Promise<ClientSession | undefined> {
+    const session = this.clientSessions.get(sessionToken);
+    return session;
+  }
+  
+  async updateClientSessionActivity(sessionToken: string): Promise<boolean> {
+    const session = this.clientSessions.get(sessionToken);
+    if (!session) {
+      return false;
+    }
+    
+    session.lastActivity = new Date();
+    this.clientSessions.set(sessionToken, session);
+    return true;
+  }
+  
+  async deleteClientSession(sessionToken: string): Promise<boolean> {
+    return this.clientSessions.delete(sessionToken);
+  }
   private users: Map<number, User>;
   private clients: Map<number, Client>;
   private measurements: Map<number, Measurement>;
@@ -104,6 +176,7 @@ export class MemStorage implements IStorage {
   private foods: Map<string, Food>;
   private savedFoods: Map<number, SavedFood>;
   private foodNutrients: Map<number, FoodNutrient>;
+  private clientSessions: Map<string, ClientSession>;
   
   private userIdCounter: number;
   private clientIdCounter: number;
@@ -121,6 +194,7 @@ export class MemStorage implements IStorage {
     this.foods = new Map();
     this.savedFoods = new Map();
     this.foodNutrients = new Map();
+    this.clientSessions = new Map();
     
     this.userIdCounter = 1;
     this.clientIdCounter = 1;
@@ -611,6 +685,84 @@ export class MemStorage implements IStorage {
 
 // DatabaseStorage implementation
 export class DatabaseStorage implements IStorage {
+  // Client Portal methods
+  async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
+    const [client] = await db
+      .select()
+      .from(clients)
+      .where(eq(clients.accessCode, accessCode));
+    return client || undefined;
+  }
+  
+  async generateClientAccessCode(clientId: number): Promise<string> {
+    const client = await this.getClient(clientId);
+    if (!client) {
+      throw new Error("Danışan bulunamadı");
+    }
+    
+    // 6 karakterli alfanumerik rastgele bir kod oluştur
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let accessCode = '';
+    for (let i = 0; i < 6; i++) {
+      accessCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    // Danışanı güncelleyerek erişim kodunu kaydet
+    const updatedClient = await this.updateClient(clientId, { accessCode });
+    if (!updatedClient) {
+      throw new Error("Erişim kodu güncellenemedi");
+    }
+    
+    return accessCode;
+  }
+  
+  async updateClientAccessCode(clientId: number, accessCode: string): Promise<boolean> {
+    const result = await db
+      .update(clients)
+      .set({ accessCode })
+      .where(eq(clients.id, clientId));
+    
+    return result.rowCount > 0;
+  }
+  
+  // Client Session management
+  async createClientSession(session: InsertClientSession): Promise<ClientSession> {
+    const [newSession] = await db
+      .insert(clientSessions)
+      .values({
+        ...session,
+        lastActivity: new Date()
+      })
+      .returning();
+    
+    return newSession;
+  }
+  
+  async getClientSession(sessionToken: string): Promise<ClientSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(clientSessions)
+      .where(eq(clientSessions.sessionToken, sessionToken));
+    
+    return session || undefined;
+  }
+  
+  async updateClientSessionActivity(sessionToken: string): Promise<boolean> {
+    const result = await db
+      .update(clientSessions)
+      .set({ lastActivity: new Date() })
+      .where(eq(clientSessions.sessionToken, sessionToken));
+    
+    return result.rowCount > 0;
+  }
+  
+  async deleteClientSession(sessionToken: string): Promise<boolean> {
+    const result = await db
+      .delete(clientSessions)
+      .where(eq(clientSessions.sessionToken, sessionToken));
+    
+    return result.rowCount > 0;
+  }
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
