@@ -220,9 +220,9 @@ export default function HealthCalculator() {
   } | null>(null);
   
   // Danışanları getir
-  const { data: clients = [], isLoading: isClientsLoading } = useQuery({
+  const { data: clients, isLoading: isClientsLoading } = useQuery({
     queryKey: ['/api/clients'],
-    queryFn: getClients
+    queryFn: getQueryFn({ on401: "returnNull" })
   });
   
   // Ölçüm kaydetme mutation'ı
@@ -653,7 +653,7 @@ export default function HealthCalculator() {
                       <SelectContent>
                         {isClientsLoading ? (
                           <SelectItem value="loading" disabled>Yükleniyor...</SelectItem>
-                        ) : clients.length === 0 ? (
+                        ) : !clients || clients.length === 0 ? (
                           <SelectItem value="empty" disabled>Danışan bulunamadı</SelectItem>
                         ) : (
                           clients.map((client: any) => (
