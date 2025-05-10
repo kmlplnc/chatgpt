@@ -371,22 +371,28 @@ export default function MessagesPage() {
         </Card>
         
         {/* Sağ panel: Mesajlaşma Alanı */}
-        <Card className="col-span-1 md:col-span-2 lg:col-span-3 h-full flex flex-col">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-3 h-full flex flex-col bg-card shadow-md">
           {selectedClient ? (
             <>
               {/* Mesajlaşma başlığı */}
-              <CardHeader className="flex flex-row items-center p-4 border-b">
-                <Avatar className="h-10 w-10 mr-3">
-                  <AvatarFallback>{getClientInitials(selectedClient)}</AvatarFallback>
+              <CardHeader className="flex flex-row items-center p-4 border-b bg-card">
+                <Avatar className="h-10 w-10 mr-3 border border-primary">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-medium">
+                    {getClientInitials(selectedClient)}
+                  </AvatarFallback>
                 </Avatar>
-                <div>
-                  <CardTitle className="text-lg">{selectedClient.firstName} {selectedClient.lastName}</CardTitle>
-                  <CardDescription>{selectedClient.email}</CardDescription>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-semibold">{selectedClient.firstName} {selectedClient.lastName}</CardTitle>
+                      <CardDescription>{selectedClient.email}</CardDescription>
+                    </div>
+                  </div>
                 </div>
               </CardHeader>
               
               {/* Mesaj alanı */}
-              <CardContent className="flex-1 p-0 overflow-hidden flex flex-col">
+              <CardContent className="flex-1 p-0 overflow-hidden flex flex-col bg-muted/10">
                 <ScrollArea className="flex-1 p-4" ref={messagesContainerRef}>
                   {messagesLoading ? (
                     <div className="flex justify-center items-center h-full">
@@ -398,7 +404,7 @@ export default function MessagesPage() {
                         <div key={group.date} className="space-y-3">
                           {/* Tarih ayırıcı */}
                           <div className="flex justify-center my-4">
-                            <div className="bg-muted px-3 py-1 rounded-full text-xs text-muted-foreground">
+                            <div className="bg-background/80 px-4 py-1.5 rounded-full text-xs text-muted-foreground font-medium shadow-sm">
                               {formatGroupDate(group.date)}
                             </div>
                           </div>
