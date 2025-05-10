@@ -304,4 +304,25 @@ clientPortalRouter.get('/messages/unread/count', verifyClientSession, async (req
   }
 });
 
+// Mesajları okundu olarak işaretle
+clientPortalRouter.post('/messages/mark-as-read', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    const { messageIds } = req.body;
+    
+    if (!messageIds || !Array.isArray(messageIds)) {
+      return res.status(400).json({ message: 'Geçerli mesaj ID\'leri gönderilmelidir' });
+    }
+    
+    // Her mesajı okundu olarak işaretle
+    const updatePromises = messageIds.map(id => storage.markMessageAsRead(id));
+    await Promise.all(updatePromises);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark messages as read error:', error);
+    res.status(500).json({ message: 'Mesajlar okundu olarak işaretlenirken bir hata oluştu' });
+  }
+});
+
 export default clientPortalRouter;

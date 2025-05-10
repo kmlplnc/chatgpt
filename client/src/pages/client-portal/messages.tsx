@@ -32,13 +32,7 @@ export default function ClientPortalMessages() {
   // Mesajları getir
   const { data: messages, isLoading } = useQuery({
     queryKey: ['/api/client-portal/messages'],
-    queryFn: async () => {
-      const response = await fetch('/api/client-portal/messages');
-      if (!response.ok) {
-        throw new Error('Mesajlar getirilemedi');
-      }
-      return response.json();
-    }
+    queryFn: getQueryFn()
   });
 
   // Dietisyen ve danışan bilgilerini getir
