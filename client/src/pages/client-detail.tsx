@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Calendar, MessageSquare, AlertTriangle, Info, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -191,12 +192,18 @@ export default function ClientDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes">('measurements');
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments" | "messages">('measurements');
   const [clientNotes, setClientNotes] = useState<string>();
   const [clientPublicNotes, setClientPublicNotes] = useState<string>();
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
+  
+  // Randevu ve mesajlaşma state'leri
+  const [openNewAppointmentDialog, setOpenNewAppointmentDialog] = useState(false);
+  const [openEditAppointmentDialog, setOpenEditAppointmentDialog] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [newMessage, setNewMessage] = useState("");
 
   // API İstekleri
   async function getClient() {
@@ -244,6 +251,71 @@ export default function ClientDetail() {
     const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
     if (!response.ok) {
       throw new Error("Ölçüm silinemedi");
+    }
+    return response.json();
+  }
+  
+  // Randevu API fonksiyonları
+  async function getAppointments() {
+    const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error("Randevular yüklenemedi");
+    }
+    return response.json();
+  }
+  
+  async function createAppointment(data: any) {
+    const response = await apiRequest("POST", `/api/appointments`, {
+      ...data,
+      clientId: parseInt(id as string)
+    });
+    if (!response.ok) {
+      throw new Error("Randevu oluşturulamadı");
+    }
+    return response.json();
+  }
+  
+  async function updateAppointment(appointmentId: number, data: any) {
+    const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}`, data);
+    if (!response.ok) {
+      throw new Error("Randevu güncellenemedi");
+    }
+    return response.json();
+  }
+  
+  async function deleteAppointment(appointmentId: number) {
+    const response = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
+    if (!response.ok) {
+      throw new Error("Randevu silinemedi");
+    }
+    return response.json();
+  }
+  
+  // Mesaj API fonksiyonları
+  async function getMessages() {
+    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error("Mesajlar yüklenemedi");
+    }
+    return response.json();
+  }
+  
+  async function sendMessage(content: string) {
+    const response = await apiRequest("POST", `/api/messages`, {
+      content,
+      clientId: parseInt(id as string),
+      fromClient: false
+    });
+    if (!response.ok) {
+      throw new Error("Mesaj gönderilemedi");
+    }
+    return response.json();
+  }
+  
+  async function markMessagesAsRead() {
+    const response = await apiRequest("PATCH", `/api/messages/read?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error("Mesajlar okundu olarak işaretlenemedi");
     }
     return response.json();
   }
@@ -836,6 +908,8 @@ export default function ClientDetail() {
           <TabsTrigger value="analytics">Analiz</TabsTrigger>
           <TabsTrigger value="notes">Diyetisyen Notları</TabsTrigger>
           <TabsTrigger value="clientNotes">Danışana Görünecek Notlar</TabsTrigger>
+          <TabsTrigger value="appointments">Randevular</TabsTrigger>
+          <TabsTrigger value="messages">Mesajlar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes">
