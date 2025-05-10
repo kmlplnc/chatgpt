@@ -1,107 +1,130 @@
-import { Router, Request, Response } from 'express';
-import { storage } from '../storage';
-import { eq } from 'drizzle-orm';
-import { z } from 'zod';
+import { Request, Response, Router } from "express";
+import { z } from "zod";
+import { storage } from "../storage";
+import { insertAppointmentSchema } from "@shared/schema";
 
-export const appointmentsRouter = Router();
+const appointmentsRouter = Router();
 
-// Middleware: Kimlik doğrulama gerektiren işlemler için
+// Middleware to check if user is authenticated
 const requireAuth = (req: Request, res: Response, next: Function) => {
   if (!req.session || !req.session.user) {
-    return res.status(401).json({ message: 'Oturum açmanız gerekiyor' });
+    return res.status(401).json({ message: "Oturum açmanız gerekiyor" });
   }
   next();
 };
 
-// Tüm randevuları getir (kullanıcıya ya da danışana göre filtrelenmiş)
-appointmentsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+// Get appointments with filters
+appointmentsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { clientId, startDate, endDate, status } = req.query;
-    const userId = req.session.user?.id;
+    const userId = req.session.user!.id;
+    const { clientId } = req.query;
     
-    const appointments = await storage.getAppointments({ 
-      userId,
-      clientId: clientId ? parseInt(clientId as string) : undefined,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
-      status: status as string | undefined
-    });
+    let appointments;
+    if (clientId) {
+      appointments = await storage.getAppointments(Number(clientId), userId);
+    } else {
+      appointments = await storage.getAppointments(undefined, userId);
+    }
     
     res.json(appointments);
   } catch (error) {
-    console.error('Error fetching appointments:', error);
-    res.status(500).json({ message: 'Randevular getirilirken bir hata oluştu' });
+    console.error("Randevular getirilemedi:", error);
+    res.status(500).json({ message: "Randevular getirilemedi" });
   }
 });
 
-// Belirli bir randevuyu getir
-appointmentsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
+// Get specific appointment
+appointmentsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    const appointment = await storage.getAppointment(id);
+    const appointmentId = Number(req.params.id);
+    const appointment = await storage.getAppointmentById(appointmentId);
     
     if (!appointment) {
-      return res.status(404).json({ message: 'Randevu bulunamadı' });
+      return res.status(404).json({ message: "Randevu bulunamadı" });
+    }
+    
+    // Kullanıcının sadece kendi randevularına erişimi olmalı
+    if (appointment.userId !== req.session.user!.id) {
+      return res.status(403).json({ message: "Bu randevuya erişim izniniz yok" });
     }
     
     res.json(appointment);
   } catch (error) {
-    console.error('Error fetching appointment:', error);
-    res.status(500).json({ message: 'Randevu getirilirken bir hata oluştu' });
+    console.error("Randevu detayı getirilemedi:", error);
+    res.status(500).json({ message: "Randevu detayı getirilemedi" });
   }
 });
 
-// Yeni randevu oluştur
-appointmentsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
+// Create appointment
+appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const appointmentData = req.body;
-    // İstediğimiz zaman şemasını ekleyebiliriz
-    // const data = appointmentSchema.parse(appointmentData);
-    
-    const appointment = await storage.createAppointment({
-      ...appointmentData,
-      createdBy: req.session.user!.id,
+    // Validate request body
+    const appointmentData = insertAppointmentSchema.parse({
+      ...req.body,
+      userId: req.session.user!.id,
     });
+    
+    // Create appointment
+    const appointment = await storage.createAppointment(appointmentData);
     
     res.status(201).json(appointment);
   } catch (error) {
-    console.error('Error creating appointment:', error);
-    res.status(500).json({ message: 'Randevu oluşturulurken bir hata oluştu' });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Geçersiz randevu bilgileri", errors: error.errors });
+    }
+    
+    console.error("Randevu oluşturulamadı:", error);
+    res.status(500).json({ message: "Randevu oluşturulamadı" });
   }
 });
 
-// Randevu güncelle
-appointmentsRouter.patch('/:id', requireAuth, async (req: Request, res: Response) => {
+// Update appointment
+appointmentsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    const updates = req.body;
-    
-    const appointment = await storage.updateAppointment(id, updates);
+    const appointmentId = Number(req.params.id);
+    const appointment = await storage.getAppointmentById(appointmentId);
     
     if (!appointment) {
-      return res.status(404).json({ message: 'Randevu bulunamadı' });
+      return res.status(404).json({ message: "Randevu bulunamadı" });
     }
     
-    res.json(appointment);
+    // Sadece randevuyu oluşturan kullanıcı güncelleyebilir
+    if (appointment.userId !== req.session.user!.id) {
+      return res.status(403).json({ message: "Bu randevuyu güncelleme izniniz yok" });
+    }
+    
+    // Update appointment
+    const updatedAppointment = await storage.updateAppointment(appointmentId, req.body);
+    
+    res.json(updatedAppointment);
   } catch (error) {
-    console.error('Error updating appointment:', error);
-    res.status(500).json({ message: 'Randevu güncellenirken bir hata oluştu' });
+    console.error("Randevu güncellenemedi:", error);
+    res.status(500).json({ message: "Randevu güncellenemedi" });
   }
 });
 
-// Randevu sil
-appointmentsRouter.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+// Delete appointment
+appointmentsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    const success = await storage.deleteAppointment(id);
+    const appointmentId = Number(req.params.id);
+    const appointment = await storage.getAppointmentById(appointmentId);
     
-    if (!success) {
-      return res.status(404).json({ message: 'Randevu bulunamadı' });
+    if (!appointment) {
+      return res.status(404).json({ message: "Randevu bulunamadı" });
     }
     
-    res.json({ message: 'Randevu başarıyla silindi' });
+    // Sadece randevuyu oluşturan kullanıcı silebilir
+    if (appointment.userId !== req.session.user!.id) {
+      return res.status(403).json({ message: "Bu randevuyu silme izniniz yok" });
+    }
+    
+    await storage.deleteAppointment(appointmentId);
+    
+    res.status(204).end();
   } catch (error) {
-    console.error('Error deleting appointment:', error);
-    res.status(500).json({ message: 'Randevu silinirken bir hata oluştu' });
+    console.error("Randevu silinemedi:", error);
+    res.status(500).json({ message: "Randevu silinemedi" });
   }
 });
+
+export default appointmentsRouter;

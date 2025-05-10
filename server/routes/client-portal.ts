@@ -211,4 +211,73 @@ clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Requ
   }
 });
 
+// Randevuları getir
+clientPortalRouter.get('/appointments', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    
+    const appointments = await storage.getAppointments(client.id);
+    
+    res.json(appointments);
+  } catch (error) {
+    console.error('Get client appointments error:', error);
+    res.status(500).json({ message: 'Randevular getirilirken bir hata oluştu' });
+  }
+});
+
+// Mesajları getir
+clientPortalRouter.get('/messages', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    
+    // Danışanın diyetisyeni ile olan mesajlarını getir
+    const messages = await storage.getMessages(client.id, client.userId);
+    
+    res.json(messages);
+  } catch (error) {
+    console.error('Get client messages error:', error);
+    res.status(500).json({ message: 'Mesajlar getirilirken bir hata oluştu' });
+  }
+});
+
+// Danışandan diyetisyene mesaj gönder
+clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    const { content } = req.body;
+    
+    if (!content || content.trim() === '') {
+      return res.status(400).json({ message: 'Mesaj içeriği boş olamaz' });
+    }
+    
+    // Mesaj oluştur
+    const message = await storage.createMessage({
+      clientId: client.id,
+      userId: client.userId,
+      content,
+      fromClient: true, // Danışandan gelen mesaj
+      isRead: false
+    });
+    
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ message: 'Mesaj gönderilirken bir hata oluştu' });
+  }
+});
+
+// Okunmamış mesaj sayısını getir
+clientPortalRouter.get('/messages/unread/count', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    
+    const unreadCount = await storage.getUnreadMessages(client.id, client.userId);
+    
+    res.json({ count: unreadCount });
+  } catch (error) {
+    console.error('Get unread message count error:', error);
+    res.status(500).json({ message: 'Okunmamış mesaj sayısı getirilirken bir hata oluştu' });
+  }
+});
+
 export default clientPortalRouter;
