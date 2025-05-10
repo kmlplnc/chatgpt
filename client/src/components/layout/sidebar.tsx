@@ -58,7 +58,7 @@ export default function Sidebar() {
           onClick={() => navigate('/')} 
           className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <img src="/dietkem-logo.png" alt="DietKEM Logo" className="w-12 h-12 mr-2" />
+          <img src="/assets/logo.png" alt="DietKEM Logo" className="w-12 h-12 mr-2" />
           <h1 className="font-heading font-semibold text-xl text-primary">DietKEM</h1>
         </div>
         <p className="text-xs text-muted-foreground mt-1">Beslenme ve Diyet Planlama</p>
