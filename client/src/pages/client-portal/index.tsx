@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Home } from 'lucide-react';
 
 const accessCodeSchema = z.object({
   accessCode: z.string().min(1, { message: 'Erişim kodu gereklidir' }).max(10)
@@ -73,7 +73,18 @@ export default function ClientPortalLogin() {
   }
   
   return (
-    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-background to-slate-50 dark:from-background dark:to-slate-900/50 p-4">
+    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-slate-50 dark:from-background dark:to-slate-900/50 p-4">
+      <div className="absolute top-4 left-4">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => window.location.href = '/'} 
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+        >
+          <Home className="h-4 w-4" />
+          <span>Ana Sayfaya Dön</span>
+        </Button>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Danışan Portalı</CardTitle>
