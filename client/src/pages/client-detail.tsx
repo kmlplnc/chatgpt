@@ -589,11 +589,11 @@ export default function ClientDetail() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div>
+              <div className="truncate">
                 <Label>E-posta</Label>
-                <p className="font-medium">{client.email}</p>
+                <p className="font-medium truncate">{client.email}</p>
               </div>
-              <div>
+              <div className="truncate">
                 <Label>Telefon</Label>
                 <p className="font-medium">{client.phone || "-"}</p>
               </div>
