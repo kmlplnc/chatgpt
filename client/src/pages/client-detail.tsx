@@ -113,9 +113,9 @@ function calculateBMI(weight: string, height: string): string {
 function calculateBMR(weight: string, height: string, age: number, gender: string): number {
   const w = parseFloat(weight);
   const h = parseFloat(height);
-  
+
   if (isNaN(w) || isNaN(h) || isNaN(age)) return 0;
-  
+
   // Harris-Benedict denklemi
   if (gender === "male") {
     return Math.round(88.362 + (13.397 * w) + (4.799 * h) - (5.677 * age));
@@ -132,7 +132,7 @@ function calculateTDEE(bmr: number, activityLevel: string): number {
     active: 1.725,     // Aktif (haftada 6-7 gün egzersiz)
     veryActive: 1.9    // Çok aktif (günde çift antrenman)
   };
-  
+
   return Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
 }
 
@@ -188,7 +188,7 @@ export default function ClientDetail() {
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
-  
+
   // API İstekleri
   async function getClient() {
     const response = await apiRequest("GET", `/api/clients/${id}`);
@@ -197,7 +197,7 @@ export default function ClientDetail() {
     }
     return response.json();
   }
-  
+
   async function getMeasurements() {
     const response = await apiRequest("GET", `/api/clients/${id}/measurements`);
     if (!response.ok) {
@@ -205,7 +205,7 @@ export default function ClientDetail() {
     }
     return response.json();
   }
-  
+
   async function createMeasurement(data: any) {
     const response = await apiRequest("POST", `/api/clients/${id}/measurements`, data);
     if (!response.ok) {
@@ -213,7 +213,7 @@ export default function ClientDetail() {
     }
     return response.json();
   }
-  
+
   async function updateMeasurement(measurementId: number, data: any) {
     const response = await apiRequest("PATCH", `/api/clients/${id}/measurements/${measurementId}`, data);
     if (!response.ok) {
@@ -221,7 +221,7 @@ export default function ClientDetail() {
     }
     return response.json();
   }
-  
+
   async function deleteMeasurement(measurementId: number) {
     const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
     if (!response.ok) {
@@ -229,7 +229,7 @@ export default function ClientDetail() {
     }
     return response.json();
   }
-  
+
   // Veri Sorgulama
   const { 
     data: client, 
@@ -240,7 +240,7 @@ export default function ClientDetail() {
     queryFn: getClient,
     retry: 1,
   });
-  
+
   const { 
     data: measurements, 
     isLoading: isMeasurementsLoading, 
@@ -250,7 +250,7 @@ export default function ClientDetail() {
     queryFn: getMeasurements,
     retry: 1,
   });
-  
+
   // Mutasyonlar
   const createMeasurementMutation = useMutation({
     mutationFn: createMeasurement,
@@ -276,7 +276,7 @@ export default function ClientDetail() {
       });
     },
   });
-  
+
   const updateMeasurementMutation = useMutation({
     mutationFn: (data: any) => updateMeasurement(selectedMeasurement.id, data),
     onSuccess: () => {
@@ -295,7 +295,7 @@ export default function ClientDetail() {
       });
     },
   });
-  
+
   const deleteMeasurementMutation = useMutation({
     mutationFn: (measurementId: number) => deleteMeasurement(measurementId),
     onSuccess: () => {
@@ -313,7 +313,7 @@ export default function ClientDetail() {
       });
     },
   });
-  
+
   // Formlar
   const form = useForm<z.infer<typeof measurementSchema>>({
     resolver: zodResolver(measurementSchema),
@@ -328,7 +328,7 @@ export default function ClientDetail() {
       notes: "",
     },
   });
-  
+
   const editForm = useForm<z.infer<typeof measurementSchema>>({
     resolver: zodResolver(measurementSchema),
     defaultValues: {
@@ -342,11 +342,11 @@ export default function ClientDetail() {
       notes: "",
     },
   });
-  
+
   // Form İşlemleri
   const onSubmit = (data: z.infer<typeof measurementSchema>) => {
     const bmi = calculateBMI(data.weight, data.height);
-    
+
     // Client yaşı hesaplama
     let age = 30; // Varsayılan
     if (client && client.birthDate) {
@@ -354,11 +354,11 @@ export default function ClientDetail() {
       const today = new Date();
       age = today.getFullYear() - birthDate.getFullYear();
     }
-    
+
     // BMR ve TDEE hesaplama
     const bmr = calculateBMR(data.weight, data.height, age, client?.gender || "female");
     const tdee = calculateTDEE(bmr, data.activityLevel);
-    
+
     // Verileri hazırlama
     const measurementData = {
       ...data,
@@ -366,13 +366,13 @@ export default function ClientDetail() {
       basalMetabolicRate: bmr,
       totalDailyEnergyExpenditure: tdee,
     };
-    
+
     createMeasurementMutation.mutate(measurementData);
   };
-  
+
   const onEditSubmit = (data: z.infer<typeof measurementSchema>) => {
     const bmi = calculateBMI(data.weight, data.height);
-    
+
     // Client yaşı hesaplama
     let age = 30; // Varsayılan
     if (client && client.birthDate) {
@@ -380,11 +380,11 @@ export default function ClientDetail() {
       const today = new Date();
       age = today.getFullYear() - birthDate.getFullYear();
     }
-    
+
     // BMR ve TDEE hesaplama
     const bmr = calculateBMR(data.weight, data.height, age, client?.gender || "female");
     const tdee = calculateTDEE(bmr, data.activityLevel);
-    
+
     // Verileri hazırlama
     const measurementData = {
       ...data,
@@ -392,10 +392,10 @@ export default function ClientDetail() {
       basalMetabolicRate: bmr,
       totalDailyEnergyExpenditure: tdee,
     };
-    
+
     updateMeasurementMutation.mutate(measurementData);
   };
-  
+
   const handleEditMeasurement = (measurement: any) => {
     setSelectedMeasurement(measurement);
     editForm.reset({
@@ -410,13 +410,13 @@ export default function ClientDetail() {
     });
     setOpenEditMeasurementDialog(true);
   };
-  
+
   const handleDeleteMeasurement = (measurementId: number) => {
     if (window.confirm("Bu ölçümü silmek istediğinizden emin misiniz?")) {
       deleteMeasurementMutation.mutate(measurementId);
     }
   };
-  
+
   // Grafik Verileri
   const chartData = measurements?.map((measurement: any) => ({
     date: format(new Date(measurement.date), "dd/MM/yy"),
@@ -432,17 +432,17 @@ export default function ClientDetail() {
     const dateB = new Date(b.date.split('/').reverse().join('/'));
     return dateA.getTime() - dateB.getTime();
   });
-  
+
   // Son ölçüm
   const lastMeasurement = measurements && measurements.length > 0 
     ? measurements.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] 
     : null;
-  
+
   // İlk ölçüm
   const firstMeasurement = measurements && measurements.length > 0
     ? measurements.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
     : null;
-  
+
   // Değişim hesaplama
   const calculateChange = (current: number, initial: number) => {
     if (!initial) return { value: 0, percentage: 0 };
@@ -453,17 +453,17 @@ export default function ClientDetail() {
       percentage: percentage.toFixed(2)
     };
   };
-  
+
   // Kilo değişimi
   const weightChange = lastMeasurement && firstMeasurement
     ? calculateChange(parseFloat(lastMeasurement.weight), parseFloat(firstMeasurement.weight))
     : { value: 0, percentage: 0 };
-  
+
   // BMI değişimi
   const bmiChange = lastMeasurement && firstMeasurement
     ? calculateChange(parseFloat(lastMeasurement.bmi), parseFloat(firstMeasurement.bmi))
     : { value: 0, percentage: 0 };
-  
+
   // Yaş hesaplama
   const calculateAge = (birthDate?: string) => {
     if (!birthDate) return null;
@@ -476,9 +476,9 @@ export default function ClientDetail() {
     }
     return age;
   };
-  
+
   const clientAge = calculateAge(client?.birthDate);
-  
+
   // Bel-Kalça Oranı hesaplama
   const calculateWHR = (waist?: string, hip?: string) => {
     if (!waist || !hip) return null;
@@ -487,7 +487,7 @@ export default function ClientDetail() {
     if (isNaN(w) || isNaN(h) || h === 0) return null;
     return (w / h).toFixed(2);
   };
-  
+
   const getWHRStatus = (whr: number, gender: string) => {
     if (gender === "male") {
       if (whr <= 0.9) return { status: "Sağlıklı", color: "text-green-500" };
@@ -499,10 +499,10 @@ export default function ClientDetail() {
       return { status: "Yüksek Risk", color: "text-red-500" };
     }
   };
-  
+
   const whr = lastMeasurement ? calculateWHR(lastMeasurement.waistCircumference, lastMeasurement.hipCircumference) : null;
   const whrStatus = whr && client ? getWHRStatus(parseFloat(whr), client.gender) : null;
-  
+
   // Vücut Yağ Oranı Durumu
   const getBodyFatStatus = (bf: number, gender: string) => {
     if (gender === "male") {
@@ -519,11 +519,11 @@ export default function ClientDetail() {
       return { status: "Yüksek", color: "text-red-500" };
     }
   };
-  
+
   const bodyFatStatus = lastMeasurement && lastMeasurement.bodyFatPercentage && client
     ? getBodyFatStatus(parseFloat(lastMeasurement.bodyFatPercentage), client.gender)
     : null;
-  
+
   if (isClientLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -531,7 +531,7 @@ export default function ClientDetail() {
       </div>
     );
   }
-  
+
   if (clientError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -542,7 +542,7 @@ export default function ClientDetail() {
       </div>
     );
   }
-  
+
   if (!client) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -553,7 +553,7 @@ export default function ClientDetail() {
       </div>
     );
   }
-  
+
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex items-center mb-6">
@@ -568,7 +568,7 @@ export default function ClientDetail() {
         </Button>
         <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <Card>
           <CardHeader>
@@ -612,9 +612,13 @@ export default function ClientDetail() {
               <Label>Kayıt Tarihi</Label>
               <p className="font-medium">{formatDate(client.createdAt)}</p>
             </div>
-          </CardContent>
-        </Card>
-        
+                <div>
+                  <Label>Kullanıcı ID</Label>
+                  <p className="font-medium">{client.userId || "-"}</p>
+                </div>
+              </CardContent>
+            </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Sağlık Bilgileri</CardTitle>
@@ -634,7 +638,7 @@ export default function ClientDetail() {
             </div>
           </CardContent>
         </Card>
-        
+
         {lastMeasurement && (
           <Card>
             <CardHeader>
@@ -652,7 +656,7 @@ export default function ClientDetail() {
                   <p className="text-lg font-semibold">{lastMeasurement.height} cm</p>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between mb-1">
                   <Label>VKİ (BMI)</Label>
@@ -669,7 +673,7 @@ export default function ClientDetail() {
                     "bg-red-500"}`}
                 />
               </div>
-              
+
               {lastMeasurement.bodyFatPercentage && (
                 <div>
                   <div className="flex justify-between mb-1">
@@ -685,7 +689,7 @@ export default function ClientDetail() {
                   />
                 </div>
               )}
-              
+
               {whr && (
                 <div>
                   <div className="flex justify-between mb-1">
@@ -696,7 +700,7 @@ export default function ClientDetail() {
                   </div>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div>
                   <Label>BMR</Label>
@@ -711,14 +715,14 @@ export default function ClientDetail() {
           </Card>
         )}
       </div>
-      
+
       <Tabs defaultValue="overview" className="mb-6">
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
           <TabsTrigger value="measurements">Ölçümler</TabsTrigger>
           <TabsTrigger value="analytics">Analiz</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             <Card>
@@ -739,7 +743,7 @@ export default function ClientDetail() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">VKİ Değişimi</CardTitle>
@@ -758,7 +762,7 @@ export default function ClientDetail() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Aktif Veri</CardTitle>
@@ -775,7 +779,7 @@ export default function ClientDetail() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Günlük Kalori İhtiyacı</CardTitle>
@@ -793,7 +797,7 @@ export default function ClientDetail() {
               </CardContent>
             </Card>
           </div>
-          
+
           {measurements && measurements.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <Card>
@@ -815,7 +819,7 @@ export default function ClientDetail() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader>
                   <CardTitle>VKİ (BMI) Değişimi</CardTitle>
@@ -848,7 +852,7 @@ export default function ClientDetail() {
             </div>
           )}
         </TabsContent>
-        
+
         <TabsContent value="measurements">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Ölçüm Kayıtları</h2>
@@ -856,7 +860,7 @@ export default function ClientDetail() {
               <Plus className="mr-2 h-4 w-4" /> Yeni Ölçüm
             </Button>
           </div>
-          
+
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -929,7 +933,7 @@ export default function ClientDetail() {
             </Table>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="analytics">
           {measurements && measurements.length > 0 ? (
             <div className="space-y-6">
@@ -970,7 +974,7 @@ export default function ClientDetail() {
                     </CardContent>
                   </Card>
                 )}
-                
+
                 {chartData.some(d => d.waist !== null) && (
                   <Card>
                     <CardHeader>
@@ -993,7 +997,7 @@ export default function ClientDetail() {
                   </Card>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
@@ -1014,7 +1018,7 @@ export default function ClientDetail() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle>Toplam Günlük Enerji İhtiyacı (TDEE)</CardTitle>
@@ -1046,7 +1050,7 @@ export default function ClientDetail() {
           )}
         </TabsContent>
       </Tabs>
-      
+
       {/* Yeni Ölçüm Modal */}
       <Dialog open={openNewMeasurementDialog} onOpenChange={setOpenNewMeasurementDialog}>
         <DialogContent className="max-w-3xl">
@@ -1056,7 +1060,7 @@ export default function ClientDetail() {
               Danışanın yeni ölçüm verilerini girin. Tarih, kilo, boy ve aktivite seviyesi zorunludur.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
@@ -1100,7 +1104,7 @@ export default function ClientDetail() {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
@@ -1142,7 +1146,7 @@ export default function ClientDetail() {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="activityLevel"
@@ -1167,7 +1171,7 @@ export default function ClientDetail() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="notes"
@@ -1181,7 +1185,7 @@ export default function ClientDetail() {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setOpenNewMeasurementDialog(false)}>
                   İptal
@@ -1194,7 +1198,7 @@ export default function ClientDetail() {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       {/* Ölçüm Düzenleme Modal */}
       <Dialog open={openEditMeasurementDialog} onOpenChange={setOpenEditMeasurementDialog}>
         <DialogContent className="max-w-3xl">
@@ -1204,7 +1208,7 @@ export default function ClientDetail() {
               Ölçüm verilerini güncelleyin. Tarih, kilo, boy ve aktivite seviyesi zorunludur.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
@@ -1248,7 +1252,7 @@ export default function ClientDetail() {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={editForm.control}
@@ -1290,7 +1294,7 @@ export default function ClientDetail() {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={editForm.control}
                 name="activityLevel"
@@ -1315,7 +1319,7 @@ export default function ClientDetail() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="notes"
@@ -1329,7 +1333,7 @@ export default function ClientDetail() {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setOpenEditMeasurementDialog(false)}>
                   İptal
