@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { 
   Avatar, 
-  AvatarFallback, 
+  AvatarFallback,
   AvatarImage 
 } from "@/components/ui/avatar";
 import { 
@@ -22,21 +22,39 @@ import {
   Loader2, 
   Check, 
   CheckCheck, 
-  Clock 
+  Clock,
+  MessageSquare
 } from "lucide-react";
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+// Mesaj tipi tanımı
+interface Message {
+  id: number;
+  message: string;
+  fromClient: boolean;
+  createdAt: string;
+  isRead?: boolean;
+  status?: string;
+  userId?: number;
+  clientId?: number;
+}
+
+// Grup tipi tanımı
+interface MessageGroup {
+  date: string;
+  messages: Message[];
+}
+
 export default function MessagesPage() {
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
-  const [groupedMessages, setGroupedMessages] = useState([]);
-  const messagesEndRef = useRef(null);
-  const messagesContainerRef = useRef(null);
+  const [groupedMessages, setGroupedMessages] = useState<MessageGroup[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -218,23 +236,12 @@ export default function MessagesPage() {
   };
   
   // Tarih gösterimini formatla
-  const formatGroupDate = (dateString) => {
+  const formatGroupDate = (dateString: string): string => {
     const date = new Date(dateString);
-    const now = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(now.getDate() - 1);
     
-    const isToday = date.getDate() === now.getDate() && 
-                   date.getMonth() === now.getMonth() && 
-                   date.getFullYear() === now.getFullYear();
-                   
-    const isYesterday = date.getDate() === yesterday.getDate() && 
-                        date.getMonth() === yesterday.getMonth() && 
-                        date.getFullYear() === yesterday.getFullYear();
-    
-    if (isToday) {
+    if (isToday(date)) {
       return "Bugün";
-    } else if (isYesterday) {
+    } else if (isYesterday(date)) {
       return "Dün";
     } else {
       return format(date, 'd MMMM yyyy', { locale: tr });
@@ -493,5 +500,4 @@ export default function MessagesPage() {
   );
 }
 
-// MessageSquare ekleme
-import { MessageSquare } from 'lucide-react';
+// Import should be at the top of the file, this line can be removed
