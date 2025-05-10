@@ -5,10 +5,22 @@ import { insertClientSchema, insertMeasurementSchema } from "@shared/schema";
 
 const clientsRouter = Router();
 
-// Get all clients
-clientsRouter.get("/", async (req: Request, res: Response) => {
+// Middleware to check if user is authenticated
+const requireAuth = (req: Request, res: Response, next: Function) => {
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: "Oturum açmanız gerekiyor" });
+  }
+  next();
+};
+
+// Get all clients for the authenticated user
+clientsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const clients = await storage.getClients();
+    // Giriş yapmış kullanıcının ID'sini al
+    const userId = req.session.user!.id;
+    
+    // Sadece bu kullanıcıya ait danışanları getir
+    const clients = await storage.getClients(userId);
     return res.json(clients);
   } catch (error) {
     console.error("Error fetching clients:", error);
@@ -17,16 +29,24 @@ clientsRouter.get("/", async (req: Request, res: Response) => {
 });
 
 // Get a specific client by ID
-clientsRouter.get("/:id", async (req: Request, res: Response) => {
+clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid client ID" });
     }
+    
+    // Kullanıcı ID'sini al
+    const userId = req.session.user!.id;
 
     const client = await storage.getClient(id);
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
+    }
+    
+    // Sadece kullanıcının kendi danışanlarına erişmesine izin ver
+    if (client.userId !== userId) {
+      return res.status(403).json({ message: "Bu danışana erişim izniniz yok" });
     }
 
     return res.json(client);
@@ -37,11 +57,19 @@ clientsRouter.get("/:id", async (req: Request, res: Response) => {
 });
 
 // Create a new client
-clientsRouter.post("/", async (req: Request, res: Response) => {
+clientsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const validatedData = insertClientSchema.parse(req.body);
     
-    const client = await storage.createClient(validatedData);
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
+    
+    // Danışanı kullanıcı ID'si ile ilişkilendir
+    const client = await storage.createClient({
+      ...validatedData,
+      userId  // Add userId to associate client with current user
+    });
+    
     return res.status(201).json(client);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -57,16 +85,24 @@ clientsRouter.post("/", async (req: Request, res: Response) => {
 });
 
 // Update a client
-clientsRouter.patch("/:id", async (req: Request, res: Response) => {
+clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid client ID" });
     }
+    
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
 
     const client = await storage.getClient(id);
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
+    }
+    
+    // Kullanıcının sadece kendi danışanlarını güncellemesine izin ver
+    if (client.userId !== userId) {
+      return res.status(403).json({ message: "Bu danışanı güncelleme yetkiniz yok" });
     }
 
     const validatedData = insertClientSchema.partial().parse(req.body);
@@ -87,11 +123,25 @@ clientsRouter.patch("/:id", async (req: Request, res: Response) => {
 });
 
 // Delete a client
-clientsRouter.delete("/:id", async (req: Request, res: Response) => {
+clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid client ID" });
+    }
+    
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
+    
+    // Danışanı kontrol et
+    const client = await storage.getClient(id);
+    if (!client) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+    
+    // Kullanıcının sadece kendi danışanlarını silmesine izin ver
+    if (client.userId !== userId) {
+      return res.status(403).json({ message: "Bu danışanı silme yetkiniz yok" });
     }
 
     const success = await storage.deleteClient(id);
