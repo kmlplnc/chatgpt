@@ -41,21 +41,36 @@ export function AppointmentDialog({
 
   // API fonksiyonları
   async function createAppointment(data: any) {
+    // String tarihleri olduğu gibi gönder, sunucu tarafında Date'e dönüştürülecek
     const appointmentData = {
       ...data,
       clientId: Number(clientId),
     };
+    
+    console.log("Sunucuya gönderilen randevu verisi:", appointmentData);
+    
     const response = await apiRequest("POST", "/api/appointments", appointmentData);
     if (!response.ok) {
-      throw new Error("Randevu oluşturulamadı");
+      const errorData = await response.json();
+      console.error("Randevu oluşturma hatası:", errorData);
+      throw new Error("Randevu oluşturulamadı: " + (errorData.message || ''));
     }
     return response.json();
   }
 
   async function updateAppointment(data: any) {
-    const response = await apiRequest("PATCH", `/api/appointments/${selectedAppointment.id}`, data);
+    // String tarihleri olduğu gibi gönder, sunucu tarafında Date'e dönüştürülecek
+    const appointmentData = {
+      ...data
+    };
+    
+    console.log("Sunucuya gönderilen güncelleme verisi:", appointmentData);
+    
+    const response = await apiRequest("PATCH", `/api/appointments/${selectedAppointment.id}`, appointmentData);
     if (!response.ok) {
-      throw new Error("Randevu güncellenemedi");
+      const errorData = await response.json();
+      console.error("Randevu güncelleme hatası:", errorData);
+      throw new Error("Randevu güncellenemedi: " + (errorData.message || ''));
     }
     return response.json();
   }

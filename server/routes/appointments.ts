@@ -60,11 +60,17 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
   try {
     console.log("Randevu verisi:", JSON.stringify(req.body, null, 2));
     
-    // Validate request body
-    const appointmentData = insertAppointmentSchema.parse({
+    // String tarihleri Date nesnelerine dönüştür
+    const formattedData = {
       ...req.body,
       userId: req.session.user!.id,
-    });
+      date: req.body.date ? new Date(req.body.date) : undefined,
+      startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+      endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
+    };
+    
+    // Validate request body
+    const appointmentData = insertAppointmentSchema.parse(formattedData);
     
     console.log("Onaylanmış randevu verisi:", JSON.stringify(appointmentData, null, 2));
     
