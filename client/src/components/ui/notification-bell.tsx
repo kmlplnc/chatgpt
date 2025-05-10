@@ -37,13 +37,24 @@ export function NotificationBell() {
     queryFn: async () => {
       try {
         const response = await apiRequest("GET", "/api/notifications/unread-count");
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Oturum açılmamış, sessizce hata yönetimi
+            return 0;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         return data.count;
       } catch (error) {
-        console.error("Bildirim sayısı alınamadı:", error);
+        // Yalnızca beklenmeyen hatalar için konsola yazdır
+        if (!(error instanceof Response && error.status === 401)) {
+          console.error("Bildirim sayısı alınamadı:", error);
+        }
         return 0;
       }
     },
+    retry: false,
   });
 
   // Tüm bildirimleri al
@@ -56,14 +67,25 @@ export function NotificationBell() {
     queryFn: async () => {
       try {
         const response = await apiRequest("GET", "/api/notifications");
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Oturum açılmamış, sessizce hata yönetimi
+            return [];
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         return data as Notification[];
       } catch (error) {
-        console.error("Bildirimler alınamadı:", error);
+        // Yalnızca beklenmeyen hatalar için konsola yazdır
+        if (!(error instanceof Response && error.status === 401)) {
+          console.error("Bildirimler alınamadı:", error);
+        }
         return [];
       }
     },
     enabled: open, // Popover açılınca yükle
+    retry: false,
   });
 
   // Bildirim okundu olarak işaretle

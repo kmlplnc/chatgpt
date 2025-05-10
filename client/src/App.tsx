@@ -13,6 +13,7 @@ import FoodDetail from "@/pages/food-detail";
 import HealthCalculator from "@/pages/health-calculator";
 import ClientsPage from "@/pages/clients";
 import ClientDetail from "@/pages/client-detail";
+import Messages from "@/pages/messages";
 import SubscriptionPage from "@/pages/subscription";
 import CheckoutPage from "@/pages/subscription/checkout";
 import Login from "@/pages/auth/login";
@@ -65,6 +66,7 @@ function Router() {
         <Route path="/health-calculator" component={HealthCalculator} />
         <Route path="/clients" component={ClientsPage} />
         <Route path="/client/:id" component={ClientDetail} />
+        <Route path="/messages" component={Messages} />
         <Route path="/subscription" component={SubscriptionPage} />
         <Route path="/subscription/checkout" component={CheckoutPage} />
         <Route path="/admin" component={AdminDashboard} />
