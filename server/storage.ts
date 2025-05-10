@@ -35,6 +35,12 @@ export interface IStorage {
     subscriptionEndDate?: Date;
   }): Promise<User>;
   
+  // Admin - User Management methods
+  getAllUsers(limit?: number, offset?: number): Promise<User[]>;
+  countUsers(): Promise<number>;
+  updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
+  
   // Client methods
   getClients(userId?: number, limit?: number): Promise<Client[]>;
   getClient(id: number): Promise<Client | undefined>;
