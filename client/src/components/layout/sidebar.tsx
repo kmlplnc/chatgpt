@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import newLogo from "@/assets/new-logo.png";
 import { 
   Home, 
@@ -17,8 +19,10 @@ import {
   CreditCard,
   Lock,
   ShieldCheck,
-  Users
+  Users,
+  MessageSquare
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function Sidebar() {
   const [location, navigate] = useLocation();
