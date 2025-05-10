@@ -280,6 +280,28 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
+// Bildirimler tablosu
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  type: text("type").notNull(), // "message", "appointment", "system"
+  relatedId: integer("related_id"), // İlgili mesaj, randevu vb. ID'si
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  scheduledFor: timestamp("scheduled_for"), // İleriye dönük bildirimler için
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
 // Search result type
 export interface FoodSearchResult {
   foods: Food[];

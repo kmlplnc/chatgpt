@@ -28,7 +28,10 @@ import {
   type InsertAppointment,
   messages,
   type Message,
-  type InsertMessage
+  type InsertMessage,
+  notifications,
+  type Notification,
+  type InsertNotification
 } from "@shared/schema";
 
 // Interface for storage operations
