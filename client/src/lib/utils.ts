@@ -38,22 +38,22 @@ export function formatDate(dateString: string | undefined | null): string {
 }
 
 /**
- * Calculates BMR (Basal Metabolic Rate) using the Mifflin-St Jeor Equation
+ * Calculates BMH (Bazal Metabolizma Hızı - Basal Metabolic Rate) using the Mifflin-St Jeor Equation
  * @param weight Weight in kg
  * @param height Height in cm
  * @param age Age in years
  * @param gender 'male' or 'female'
- * @returns BMR value in calories
+ * @returns BMH value in calories
  */
-export function calculateBMR(
+export function calculateBMH(
   weight: number,
   height: number,
   age: number,
   gender: "male" | "female"
 ): number {
   // Mifflin-St Jeor Equation
-  // BMR (men) = (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) + 5
-  // BMR (women) = (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) - 161
+  // BMH (men) = (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) + 5
+  // BMH (women) = (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) - 161
   
   const commonCalculation = 10 * weight + 6.25 * height - 5 * age;
   
@@ -63,12 +63,25 @@ export function calculateBMR(
 }
 
 /**
- * Calculates TDEE (Total Daily Energy Expenditure) based on BMR and activity level
- * @param bmr Basal Metabolic Rate
+ * Legacy function name for backward compatibility
+ * @deprecated Use calculateBMH instead
+ */
+export function calculateBMR(
+  weight: number,
+  height: number,
+  age: number,
+  gender: "male" | "female"
+): number {
+  return calculateBMH(weight, height, age, gender);
+}
+
+/**
+ * Calculates TDEE (Total Daily Energy Expenditure) based on BMH and activity level
+ * @param bmh Bazal Metabolizma Hızı (Basal Metabolic Rate)
  * @param activityLevel Activity level factor
  * @returns TDEE value in calories
  */
-export function calculateTDEE(bmr: number, activityLevel: string): number {
+export function calculateTDEE(bmh: number, activityLevel: string): number {
   // Activity level multipliers
   const activityMultipliers: {[key: string]: number} = {
     sedentary: 1.2, // Little or no exercise
@@ -79,7 +92,7 @@ export function calculateTDEE(bmr: number, activityLevel: string): number {
   };
   
   const multiplier = activityMultipliers[activityLevel] || 1.2;
-  return bmr * multiplier;
+  return bmh * multiplier;
 }
 
 /**
