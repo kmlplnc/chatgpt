@@ -448,7 +448,8 @@ export default function ClientDetail() {
   const firstMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[0] : null;
   
   // Son ölçüm (tarih sırasına göre en yeni)
-  const lastMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[sortedMeasurements.length - 1] : null;
+  // Sadece bir ölçüm varsa ilk ve son aynı olacak, karşılaştırma yapılmayacak
+  const lastMeasurement = sortedMeasurements.length > 1 ? sortedMeasurements[sortedMeasurements.length - 1] : firstMeasurement;
 
   // Değişim hesaplama
   const calculateChange = (current: number, initial: number) => {
@@ -462,22 +463,24 @@ export default function ClientDetail() {
   };
 
   // Kilo değişimi
-  const weightChange = lastMeasurement && firstMeasurement
+  const weightChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement
     ? calculateChange(parseFloat(lastMeasurement.weight), parseFloat(firstMeasurement.weight))
     : { value: 0, percentage: 0 };
 
-  // BMI değişimi
-  const bmiChange = lastMeasurement && firstMeasurement
+  // BKI değişimi
+  const bmiChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement
     ? calculateChange(parseFloat(lastMeasurement.bmi), parseFloat(firstMeasurement.bmi))
     : { value: 0, percentage: 0 };
     
   // BMH değişimi
-  const bmhChange = lastMeasurement && firstMeasurement && lastMeasurement.basalMetabolicRate && firstMeasurement.basalMetabolicRate
+  const bmhChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement && 
+      lastMeasurement.basalMetabolicRate && firstMeasurement.basalMetabolicRate
     ? calculateChange(Math.round(lastMeasurement.basalMetabolicRate), Math.round(firstMeasurement.basalMetabolicRate))
     : { value: 0, percentage: 0 };
     
   // TDEE değişimi
-  const tdeeChange = lastMeasurement && firstMeasurement && lastMeasurement.totalDailyEnergyExpenditure && firstMeasurement.totalDailyEnergyExpenditure
+  const tdeeChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement && 
+      lastMeasurement.totalDailyEnergyExpenditure && firstMeasurement.totalDailyEnergyExpenditure
     ? calculateChange(Math.round(lastMeasurement.totalDailyEnergyExpenditure), Math.round(firstMeasurement.totalDailyEnergyExpenditure))
     : { value: 0, percentage: 0 };
 
