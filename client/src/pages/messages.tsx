@@ -310,7 +310,7 @@ export default function MessagesPage() {
                       <p className="text-xs text-muted-foreground">Farklı bir arama terimi deneyin</p>
                     </div>
                   ) : (
-                    <ul className="divide-y divide-muted/20">
+                    <ul className="divide-y divide-border/60">
                       {filteredClients.map(client => {
                         const unreadCount = unreadCounts?.find(c => c.clientId === client.id)?.count || 0;
                         const isActive = selectedClient?.id === client.id;
@@ -322,23 +322,47 @@ export default function MessagesPage() {
                           : null;
                         
                         return (
-                          <li key={client.id} className={`${isActive ? 'border-l-4 border-l-primary' : ''}`}>
+                          <li key={client.id} className={`${
+                            isActive 
+                              ? 'border-l-4 border-l-primary' 
+                              : 'border-l-4 border-l-transparent'
+                          }`}>
                             <button 
-                              className={`w-full py-3 px-4 flex items-center space-x-3 hover:bg-muted/30 transition-colors ${isActive ? 'bg-muted/40' : ''}`}
+                              className={`w-full py-3.5 px-4 flex items-center space-x-3 transition-colors ${
+                                isActive 
+                                  ? 'bg-primary/10' 
+                                  : 'hover:bg-muted/30'
+                              }`}
                               onClick={() => handleClientSelect(client)}
                             >
-                              <Avatar className={`h-12 w-12 ${isActive ? 'border-2 border-primary' : 'border border-muted'}`}>
-                                <AvatarFallback className={`${isActive ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
+                              <Avatar className={`h-12 w-12 ${
+                                isActive 
+                                  ? 'ring-2 ring-primary ring-offset-2' 
+                                  : unreadCount > 0 
+                                    ? 'ring-1 ring-muted-foreground/30' 
+                                    : ''
+                              }`}>
+                                <AvatarFallback className={`${
+                                  isActive 
+                                    ? 'bg-primary/20 text-primary font-medium' 
+                                    : 'bg-primary/10 text-primary/80'
+                                }`}>
                                   {getClientInitials(client)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 text-left overflow-hidden">
                                 <div className="flex justify-between items-center mb-1">
-                                  <p className={`font-medium truncate ${unreadCount > 0 ? 'font-semibold' : ''}`}>
+                                  <p className={`font-medium truncate ${
+                                    isActive 
+                                      ? 'text-primary font-semibold' 
+                                      : unreadCount > 0 
+                                        ? 'font-semibold' 
+                                        : ''
+                                  }`}>
                                     {client.firstName} {client.lastName}
                                   </p>
                                   {lastMessage && (
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap opacity-70">
                                       {formatMessageDate(lastMessage.createdAt)}
                                     </span>
                                   )}
@@ -355,7 +379,8 @@ export default function MessagesPage() {
                                   </p>
                                   {unreadCount > 0 && (
                                     <Badge 
-                                      className="bg-primary text-primary-foreground h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs ml-2"
+                                      className="bg-primary text-primary-foreground h-5 min-w-[22px] py-0.5 flex items-center justify-center rounded-full text-[10px] ml-2"
+                                      variant="default"
                                     >
                                       {unreadCount}
                                     </Badge>
@@ -375,13 +400,13 @@ export default function MessagesPage() {
         </Card>
         
         {/* Sağ panel: Mesajlaşma Alanı */}
-        <Card className="col-span-1 md:col-span-2 lg:col-span-3 h-full flex flex-col bg-card shadow-md">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-3 h-full flex flex-col bg-background shadow-md border">
           {selectedClient ? (
             <>
               {/* Mesajlaşma başlığı */}
-              <CardHeader className="flex flex-row items-center p-4 border-b bg-card">
-                <Avatar className="h-10 w-10 mr-3 border border-primary">
-                  <AvatarFallback className="bg-primary text-primary-foreground font-medium">
+              <CardHeader className="flex flex-row items-center p-4 border-b bg-background">
+                <Avatar className="h-12 w-12 mr-3 ring-2 ring-primary ring-offset-2">
+                  <AvatarFallback className="bg-primary/20 text-primary font-medium">
                     {getClientInitials(selectedClient)}
                   </AvatarFallback>
                 </Avatar>
@@ -389,15 +414,18 @@ export default function MessagesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg font-semibold">{selectedClient.firstName} {selectedClient.lastName}</CardTitle>
-                      <CardDescription>{selectedClient.email}</CardDescription>
+                      <CardDescription className="text-muted-foreground flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5" />
+                        {selectedClient.email}
+                      </CardDescription>
                     </div>
                   </div>
                 </div>
               </CardHeader>
               
               {/* Mesaj alanı */}
-              <CardContent className="flex-1 p-0 overflow-hidden flex flex-col bg-muted/10">
-                <ScrollArea className="flex-1 p-4" ref={messagesContainerRef}>
+              <CardContent className="flex-1 p-0 overflow-hidden flex flex-col bg-muted/5">
+                <ScrollArea className="flex-1 p-4 px-6" ref={messagesContainerRef}>
                   {messagesLoading ? (
                     <div className="flex justify-center items-center h-full">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -469,7 +497,7 @@ export default function MessagesPage() {
                 
                 {/* Mesaj gönderme alanı */}
                 <div className="px-4 py-3 border-t bg-background">
-                  <div className="flex items-end space-x-2">
+                  <div className="flex items-end space-x-3">
                     <div className="relative flex-1">
                       <Input
                         placeholder="Mesajınızı yazın..."
@@ -477,7 +505,7 @@ export default function MessagesPage() {
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyDown={handleKeyPress}
                         disabled={sendMessageMutation.isPending}
-                        className="flex-1 pr-10 min-h-[48px] rounded-2xl bg-muted border-0"
+                        className="flex-1 pr-10 min-h-[50px] rounded-full bg-card border border-border/50 focus-visible:ring-primary/20 shadow-sm"
                       />
                       <div className="absolute inset-y-0 right-3 flex items-center">
                         {sendMessageMutation.isPending ? (
@@ -489,7 +517,7 @@ export default function MessagesPage() {
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || sendMessageMutation.isPending}
                       size="icon"
-                      className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="h-12 w-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
                     >
                       <Send className="h-5 w-5" />
                     </Button>
