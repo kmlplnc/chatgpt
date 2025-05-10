@@ -13,7 +13,31 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
   next();
 };
 
-// Get messages for a specific client-user pair
+// Get messages for a specific client
+messagesRouter.get("/:clientId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const clientId = Number(req.params.clientId);
+    
+    if (isNaN(clientId)) {
+      return res.status(400).json({ message: "Geçerli bir danışan ID gereklidir" });
+    }
+    
+    // Diyetisyenin kendi danışanı olduğunu doğrula
+    const client = await storage.getClient(clientId);
+    if (!client || (client.userId !== userId && client.userId !== null)) {
+      return res.status(403).json({ message: "Bu danışana ait mesajlara erişim izniniz yok" });
+    }
+    
+    const messages = await storage.getMessages(clientId, userId);
+    res.json(messages);
+  } catch (error) {
+    console.error("Mesajlar getirilemedi:", error);
+    res.status(500).json({ message: "Mesajlar getirilemedi" });
+  }
+});
+
+// Get messages for a specific client (eski endpoint - geriye uyumluluk için)
 messagesRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
@@ -213,6 +237,51 @@ messagesRouter.get("/unread/count", requireAuth, async (req: Request, res: Respo
   } catch (error) {
     console.error("Okunmamış mesaj sayısı getirilemedi:", error);
     res.status(500).json({ message: "Okunmamış mesaj sayısı getirilemedi" });
+  }
+});
+
+// Get unread message counts by client
+messagesRouter.get("/unread/counts-by-client", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    
+    // Tüm danışanlar için okunmamış mesaj sayılarını getir
+    const unreadCounts = await storage.getUnreadMessagesByClient(userId);
+    
+    res.json(unreadCounts);
+  } catch (error) {
+    console.error("Okunmamış mesaj sayıları getirilemedi:", error);
+    res.status(500).json({ message: "Okunmamış mesaj sayıları getirilemedi" });
+  }
+});
+
+// Mark all messages from a client as read
+messagesRouter.post("/:clientId/mark-as-read", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const clientId = Number(req.params.clientId);
+    
+    if (isNaN(clientId)) {
+      return res.status(400).json({ message: "Geçerli bir danışan ID gereklidir" });
+    }
+    
+    // Diyetisyenin kendi danışanı olduğunu doğrula
+    const client = await storage.getClient(clientId);
+    if (!client || (client.userId !== userId && client.userId !== null)) {
+      return res.status(403).json({ message: "Bu danışana ait mesajları işaretleme izniniz yok" });
+    }
+    
+    // Tüm mesajları okundu olarak işaretle
+    const success = await storage.markAllClientMessagesAsRead(clientId, userId);
+    
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
+    }
+  } catch (error) {
+    console.error("Mesajlar okundu olarak işaretlenemedi:", error);
+    res.status(500).json({ message: "Mesajlar okundu olarak işaretlenemedi" });
   }
 });
 
