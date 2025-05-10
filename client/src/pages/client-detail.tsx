@@ -282,6 +282,7 @@ export default function ClientDetail() {
         weight: "",
         height: "",
         activityLevel: "light",
+        notes: "",
       });
     },
     onError: (error: any) => {
