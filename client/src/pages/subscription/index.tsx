@@ -42,16 +42,8 @@ export default function SubscriptionPage() {
   const endDate = formatDate(user?.subscriptionEndDate);
   
   // Handle plan purchase
-  const handlePurchase = async () => {
-    if (!selectedPlan) {
-      toast({
-        title: "Hata",
-        description: "Lütfen bir abonelik planı seçin",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+  const handlePurchase = () => {
+    // Plan seçilmediğinde bile devam et - ödeme sayfasında kontrol edilecek
     if (!user) {
       toast({
         title: "Hata",
@@ -61,18 +53,18 @@ export default function SubscriptionPage() {
       return;
     }
     
-    try {
-      // İlk olarak ödeme sayfasına yönlendir, API çağrısını ödeme sayfasında yap
-      // Başarılı ödeme sonrasında abonelik oluşturulacak
-      navigate(`/subscription/checkout?plan=${selectedPlan}`);
-    } catch (error) {
-      console.error("Subscription error:", error);
+    // Sadece plan seçilmediyse uyarı göster ama yine de ödeme sayfasına yönlendirebiliriz
+    if (!selectedPlan) {
       toast({
-        title: "Hata",
-        description: "Abonelik işlemi sırasında bir hata oluştu",
-        variant: "destructive"
+        title: "Uyarı",
+        description: "Devam etmeden önce bir abonelik planı seçmeniz önerilir",
+        variant: "default"
       });
+      return;
     }
+    
+    // Doğrudan ödeme sayfasına yönlendir (hata yakalama bloğuna gerek yok çünkü asenkron işlem yok)
+    navigate(`/subscription/checkout?plan=${selectedPlan}`);
   };
   
   // Handle subscription cancellation
