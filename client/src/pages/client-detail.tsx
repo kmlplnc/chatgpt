@@ -443,10 +443,10 @@ export default function ClientDetail() {
   const sortedMeasurements = measurements && measurements.length > 0
     ? [...measurements].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
     : [];
-    
+
   // İlk ölçüm (tarih sırasına göre en eski)
   const firstMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[0] : null;
-  
+
   // Son ölçüm (tarih sırasına göre en yeni)
   // Sadece bir ölçüm varsa ilk ve son aynı olacak, karşılaştırma yapılmayacak
   const lastMeasurement = sortedMeasurements.length > 1 ? sortedMeasurements[sortedMeasurements.length - 1] : firstMeasurement;
@@ -471,13 +471,13 @@ export default function ClientDetail() {
   const bmiChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement
     ? calculateChange(parseFloat(lastMeasurement.bmi), parseFloat(firstMeasurement.bmi))
     : { value: 0, percentage: 0 };
-    
+
   // BMH değişimi
   const bmhChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement && 
       lastMeasurement.basalMetabolicRate && firstMeasurement.basalMetabolicRate
     ? calculateChange(Math.round(lastMeasurement.basalMetabolicRate), Math.round(firstMeasurement.basalMetabolicRate))
     : { value: 0, percentage: 0 };
-    
+
   // TDEE değişimi
   const tdeeChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement && 
       lastMeasurement.totalDailyEnergyExpenditure && firstMeasurement.totalDailyEnergyExpenditure
@@ -720,7 +720,7 @@ export default function ClientDetail() {
                   </div>
                 </div>
               )}
-              
+
               {lastMeasurement.basalMetabolicRate && (
                 <div>
                   <div className="flex justify-between mb-1">
@@ -731,7 +731,7 @@ export default function ClientDetail() {
                   </div>
                 </div>
               )}
-              
+
               {lastMeasurement.totalDailyEnergyExpenditure && (
                 <div>
                   <div className="flex justify-between mb-1">
@@ -1049,7 +1049,7 @@ export default function ClientDetail() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
@@ -1059,7 +1059,7 @@ export default function ClientDetail() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-80">
+                    <div className="h-[350px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" />
@@ -1107,7 +1107,7 @@ export default function ClientDetail() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle>TDEE Değişimi</CardTitle>
@@ -1116,7 +1116,7 @@ export default function ClientDetail() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-80">
+                    <div className="h-[350px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <ReLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" />
@@ -1542,8 +1542,7 @@ export default function ClientDetail() {
                   )}
                 />
                 <FormField
-                  control={editForm.control}
-                  name="weight"
+                  control={editForm.control                  name="weight"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Kilo (kg)</FormLabel>
