@@ -652,7 +652,7 @@ export default function ClientDetail() {
   };
 
   const onEditSubmit = (data: z.infer<typeof measurementSchema>) => {
-    const bmi = calculateBMI(data.weight, data.height);
+    const bmi = parseFloat(calculateBmiFromString(data.weight, data.height));
 
     // Client yaşı hesaplama
     let age = 30; // Varsayılan
@@ -663,8 +663,8 @@ export default function ClientDetail() {
     }
 
     // BMR ve TDEE hesaplama
-    const bmr = calculateBMR(data.weight, data.height, age, client?.gender || "female");
-    const tdee = calculateTDEE(bmr, data.activityLevel);
+    const bmr = calculateBmrFromString(data.weight, data.height, age, client?.gender || "female");
+    const tdee = calculateTdeeFromBmr(bmr, data.activityLevel);
 
     // Verileri hazırlama
     const measurementData = {

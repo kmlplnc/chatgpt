@@ -16,6 +16,11 @@ class GeminiService {
   // Diyet planı oluşturma
   async generateDietPlan(requirements: DietRequirement) {
     try {
+      // API anahtarı geçerliliğini kontrol et
+      if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === "GOOGLE_API_KEY") {
+        throw new Error("Google Gemini API anahtarı geçersiz veya ayarlanmamış. Lütfen geçerli bir API anahtarı ekleyin.");
+      }
+      
       // Gemini modeline erişim
       const model = this.genAI.getGenerativeModel({ model: this.model });
       
@@ -52,6 +57,14 @@ class GeminiService {
       }
     } catch (error) {
       console.error("Gemini diyet planı üretme hatası:", error);
+      
+      // API anahtarı hatası için daha kullanıcı dostu bir mesaj
+      if (error.message?.includes("API key not valid") || 
+          error.message?.includes("API_KEY_INVALID") ||
+          error.message?.includes("anahtarı geçersiz")) {
+        throw new Error("Google Gemini API anahtarı geçersiz. Sistem yöneticinize başvurun ve yeni bir API anahtarı talep edin.");
+      }
+      
       throw new Error(`Diyet planı oluşturulamadı: ${error.message}`);
     }
   }
@@ -59,6 +72,11 @@ class GeminiService {
   // Öğün besin değerlerini analiz etme
   async analyzeMeal(mealDescription: string) {
     try {
+      // API anahtarı geçerliliğini kontrol et
+      if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === "GOOGLE_API_KEY") {
+        throw new Error("Google Gemini API anahtarı geçersiz veya ayarlanmamış. Lütfen geçerli bir API anahtarı ekleyin.");
+      }
+      
       const model = this.genAI.getGenerativeModel({ model: this.model });
       
       const prompt = `
@@ -95,6 +113,14 @@ class GeminiService {
       }
     } catch (error) {
       console.error("Gemini öğün analizi hatası:", error);
+      
+      // API anahtarı hatası için daha kullanıcı dostu bir mesaj
+      if (error.message?.includes("API key not valid") || 
+          error.message?.includes("API_KEY_INVALID") ||
+          error.message?.includes("anahtarı geçersiz")) {
+        throw new Error("Google Gemini API anahtarı geçersiz. Sistem yöneticinize başvurun ve yeni bir API anahtarı talep edin.");
+      }
+      
       throw new Error(`Öğün analizi yapılamadı: ${error.message}`);
     }
   }
@@ -102,6 +128,11 @@ class GeminiService {
   // Diyet tavsiyeleri üretme
   async generateDietTips(context: string) {
     try {
+      // API anahtarı geçerliliğini kontrol et
+      if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === "GOOGLE_API_KEY") {
+        throw new Error("Google Gemini API anahtarı geçersiz veya ayarlanmamış. Lütfen geçerli bir API anahtarı ekleyin.");
+      }
+      
       const model = this.genAI.getGenerativeModel({ model: this.model });
       
       const prompt = `
@@ -128,6 +159,14 @@ class GeminiService {
       }
     } catch (error) {
       console.error("Gemini diyet tavsiyeleri üretme hatası:", error);
+      
+      // API anahtarı hatası için daha kullanıcı dostu bir mesaj
+      if (error.message?.includes("API key not valid") || 
+          error.message?.includes("API_KEY_INVALID") ||
+          error.message?.includes("anahtarı geçersiz")) {
+        throw new Error("Google Gemini API anahtarı geçersiz. Sistem yöneticinize başvurun ve yeni bir API anahtarı talep edin.");
+      }
+      
       throw new Error(`Diyet tavsiyeleri oluşturulamadı: ${error.message}`);
     }
   }
