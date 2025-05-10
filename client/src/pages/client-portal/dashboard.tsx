@@ -69,6 +69,20 @@ export default function ClientPortalDashboard() {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  
+  // Okunmamış mesaj sayısını al
+  const fetchUnreadMessages = useCallback(async () => {
+    try {
+      const response = await fetch('/api/client-portal/messages/unread/count');
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadMessages(data.count);
+      }
+    } catch (error) {
+      console.error('Okunmamış mesaj sayısı alınamadı:', error);
+    }
+  }, []);
 
   // Verileri yüklemek için bir fonksiyon tanımlayalım
   const fetchData = useCallback(async () => {
@@ -110,7 +124,15 @@ export default function ClientPortalDashboard() {
   // Sayfa ilk yüklendiğinde verileri getir
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchUnreadMessages();
+    
+    // Her 30 saniyede bir okunmamış mesaj sayısını güncelle
+    const intervalId = setInterval(() => {
+      fetchUnreadMessages();
+    }, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [fetchData, fetchUnreadMessages]);
   
   // Her 10 saniyede bir verileri otomatik güncelle
   useEffect(() => {

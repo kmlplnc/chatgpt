@@ -28,10 +28,28 @@ export default function Sidebar() {
   const [location, navigate] = useLocation();
   const { isAuthenticated, user, logout, isPremium } = useAuth();
   
+  // Okunmamış mesaj sayısını al
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ["/api/messages/unread/count"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("GET", "/api/messages/unread/count");
+        const data = await response.json();
+        return data.count;
+      } catch (error) {
+        console.error("Okunmamış mesaj sayısı alınamadı:", error);
+        return 0;
+      }
+    },
+    enabled: isAuthenticated,
+    refetchInterval: 30000 // Her 30 saniyede bir güncelle
+  });
+  
   const navItems = [
     { name: "Ana Sayfa", href: "/", icon: Home },
     { name: "Danışanlar", href: "/clients", icon: BarChart, requireAuth: true, requirePremium: true },
     { name: "Diyet Planları", href: "/diet-plans", icon: Utensils, requireAuth: true, requirePremium: true },
+    { name: "Mesajlar", href: "/messages", icon: MessageSquare, requireAuth: true, badgeCount: unreadMessages },
     { name: "Besin Veritabanı", href: "/food-database", icon: Apple, requirePremium: true },
     { name: "Sağlık Hesaplayıcı", href: "/health-calculator", icon: Search, requirePremium: true },
     { name: "Danışan Portalı", href: "/client-portal", icon: Users },
@@ -121,7 +139,16 @@ export default function Sidebar() {
                     isLocked && "opacity-75"
                   )}
                 >
-                  <item.icon className="h-5 w-5 mr-2" />
+                  <div className="relative">
+                    <item.icon className="h-5 w-5 mr-2" />
+                    {item.badgeCount > 0 && (
+                      <Badge 
+                        className="absolute -top-2 -right-1 px-1 py-0 min-w-[1rem] h-4 rounded-full flex items-center justify-center bg-red-500 border-none text-white text-[10px]"
+                      >
+                        {item.badgeCount > 99 ? "99+" : item.badgeCount}
+                      </Badge>
+                    )}
+                  </div>
                   {item.name}
                   {isLocked && (
                     <div className="absolute right-4 flex items-center justify-center">
