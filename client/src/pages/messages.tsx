@@ -433,10 +433,10 @@ export default function MessagesPage() {
                   ) : groupedMessages.length > 0 ? (
                     <div className="space-y-4">
                       {groupedMessages.map((group, groupIndex) => (
-                        <div key={group.date} className="space-y-3">
+                        <div key={group.date} className="space-y-2">
                           {/* Tarih ayırıcı */}
-                          <div className="flex justify-center my-4">
-                            <div className="bg-background/80 px-4 py-1.5 rounded-full text-xs text-muted-foreground font-medium shadow-sm">
+                          <div className="flex justify-center my-5">
+                            <div className="bg-muted/60 px-4 py-1.5 rounded-full text-xs text-muted-foreground font-medium shadow-sm border border-border/10">
                               {formatGroupDate(group.date)}
                             </div>
                           </div>
@@ -455,8 +455,8 @@ export default function MessagesPage() {
                                 <div
                                   className={`max-w-[80%] rounded-2xl px-4 py-2.5 flex flex-col 
                                     ${message.fromClient 
-                                      ? "bg-card/90 text-card-foreground border border-border/30 shadow-sm" 
-                                      : "bg-primary text-primary-foreground shadow-md"}
+                                      ? "bg-muted/70 text-foreground border border-border/20 shadow-sm" 
+                                      : "bg-primary/90 text-primary-foreground shadow-md"}
                                     ${isConsecutive
                                       ? message.fromClient 
                                         ? "rounded-tl-md" 
@@ -467,12 +467,12 @@ export default function MessagesPage() {
                                   <div className="break-words text-[15px]">
                                     {message.message}
                                   </div>
-                                  <div className={`flex justify-end items-center gap-1 mt-1 ${
+                                  <div className={`flex justify-end items-center gap-1.5 mt-1.5 ${
                                     message.fromClient 
                                       ? "text-muted-foreground/70" 
                                       : "text-primary-foreground/80"
                                   }`}>
-                                    <span className="text-xs opacity-70">
+                                    <span className="text-[11px]">
                                       {formatMessageDate(message.createdAt)}
                                     </span>
                                     {!message.fromClient && (
