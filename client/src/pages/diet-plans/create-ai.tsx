@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
-import { Sparkles, Loader2, InfoIcon } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Sparkles, Loader2, InfoIcon, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -29,13 +29,14 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import ProtectedFeature from "@/components/premium/protected-feature";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Form doğrulama şeması
 const formSchema = z.object({
@@ -85,10 +86,77 @@ const dietTypes = [
   { value: "custom", label: "Özel (Kendi makro dağılımınız)" },
 ];
 
+// Danışan seçme formu için şema
+const clientSelectSchema = z.object({
+  clientId: z.string().min(1, { message: "Lütfen bir danışan seçin" }),
+});
+
 export default function CreateAIDietPlan() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [isAdjustingMacros, setIsAdjustingMacros] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<string>("client");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClientData, setSelectedClientData] = useState<any>(null);
+
+  // Danışanları getir
+  const { data: clients, isLoading: clientsLoading } = useQuery({
+    queryKey: ["/api/clients"],
+    queryFn: getQueryFn(),
+  });
+
+  // Seçilen danışanın ölçümlerini getir
+  const { data: measurements, isLoading: measurementsLoading } = useQuery({
+    queryKey: ["/api/client-measurements", selectedClientId],
+    queryFn: getQueryFn(),
+    enabled: !!selectedClientId,
+  });
+
+  // En son ölçümü bul
+  useEffect(() => {
+    if (measurements && measurements.length > 0 && selectedClientId) {
+      const latestMeasurement = measurements.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      )[0];
+      
+      const client = clients?.find(c => c.id.toString() === selectedClientId);
+      
+      if (client && latestMeasurement) {
+        const clientInfo = {
+          name: `${client.firstName} ${client.lastName}`,
+          height: latestMeasurement.height,
+          weight: latestMeasurement.weight,
+          gender: client.gender,
+          age: client.birthDate 
+            ? Math.floor((new Date().getTime() - new Date(client.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) 
+            : 30,
+          activityLevel: latestMeasurement.activityLevel || "moderate",
+          allergies: client.allergies || "",
+          healthConditions: client.medicalConditions || "",
+        };
+
+        setSelectedClientData(clientInfo);
+        
+        // Form değerlerini güncelle
+        form.setValue("name", clientInfo.name);
+        form.setValue("height", Number(clientInfo.height));
+        form.setValue("weight", Number(clientInfo.weight));
+        form.setValue("gender", clientInfo.gender.toLowerCase() === "female" ? "female" : "male");
+        form.setValue("age", clientInfo.age);
+        form.setValue("activityLevel", clientInfo.activityLevel || "moderate");
+        form.setValue("allergies", clientInfo.allergies || "");
+        form.setValue("healthConditions", clientInfo.healthConditions || "");
+      }
+    }
+  }, [measurements, selectedClientId, clients]);
+
+  // Danışan seçme formu
+  const clientSelectForm = useForm<z.infer<typeof clientSelectSchema>>({
+    resolver: zodResolver(clientSelectSchema),
+    defaultValues: {
+      clientId: "",
+    },
+  });
 
   // Form oluşturma
   const form = useForm<z.infer<typeof formSchema>>({
@@ -112,11 +180,21 @@ export default function CreateAIDietPlan() {
       includeSnacks: true,
     },
   });
+  
+  // Danışan seçildiğinde
+  const onClientSelect = (data: z.infer<typeof clientSelectSchema>) => {
+    setSelectedClientId(data.clientId);
+  };
 
   // Diyet planı oluşturma mutation'ı
   const createDietPlanMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const response = await apiRequest("POST", "/api/generate/diet-plan", values);
+      // Eğer danışan seçildiyse, istek içerisine clientId ekle
+      const requestPayload = {
+        ...values,
+        clientId: selectedClientId || undefined
+      };
+      const response = await apiRequest("POST", "/api/generate/diet-plan", requestPayload);
       return response.json();
     },
     onSuccess: () => {
@@ -138,7 +216,13 @@ export default function CreateAIDietPlan() {
 
   // Form gönderme
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    createDietPlanMutation.mutate(values);
+    // Eğer danışan seçildiyse, istek içerisine clientId ekle
+    const requestPayload = {
+      ...values,
+      clientId: selectedClientId || undefined
+    };
+    
+    createDietPlanMutation.mutate(requestPayload);
   };
 
   // Diyet türü değiştiğinde makro besin dağılımını güncelle
@@ -214,16 +298,137 @@ export default function CreateAIDietPlan() {
           <Sparkles className="h-8 w-8 text-blue-500" />
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Diyet Planı Gereksinimleri</CardTitle>
-            <CardDescription>
-              Kişiselleştirilmiş diyet planı oluşturmak için aşağıdaki bilgileri giriniz.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+          <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto mb-6">
+            <TabsTrigger value="client" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Danışan Seç
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Manuel Giriş
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="client" className="border rounded-md p-4">
+            <h3 className="text-lg font-medium mb-4">Danışan Seçin</h3>
+            <p className="text-muted-foreground mb-6">
+              Diyet planı oluşturmak istediğiniz danışanı seçin. Son ölçüm değerleri otomatik olarak kullanılacaktır.
+            </p>
+            
+            <Form {...clientSelectForm}>
+              <form onSubmit={clientSelectForm.handleSubmit(onClientSelect)} className="space-y-6">
+                <FormField
+                  control={clientSelectForm.control}
+                  name="clientId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Danışan</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Diyet planı oluşturmak için bir danışan seçin" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {clientsLoading ? (
+                            <div className="flex items-center justify-center p-4">
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              <span>Danışanlar yükleniyor...</span>
+                            </div>
+                          ) : clients && clients.length > 0 ? (
+                            clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id.toString()}>
+                                {client.firstName} {client.lastName}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-center">Danışan bulunamadı</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button type="submit" disabled={clientsLoading}>
+                  {measurementsLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Yükleniyor...
+                    </>
+                  ) : (
+                    "Danışanı Seç"
+                  )}
+                </Button>
+              </form>
+            </Form>
+            
+            {selectedClientData && (
+              <div className="mt-6 border-t pt-4">
+                <h4 className="font-medium mb-2">Seçilen Danışan Bilgileri</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">İsim:</span>
+                    <span className="font-medium">{selectedClientData.name}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">Yaş:</span>
+                    <span className="font-medium">{selectedClientData.age}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">Boy:</span>
+                    <span className="font-medium">{selectedClientData.height} cm</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">Kilo:</span>
+                    <span className="font-medium">{selectedClientData.weight} kg</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">Cinsiyet:</span>
+                    <span className="font-medium">{selectedClientData.gender === "female" ? "Kadın" : "Erkek"}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-muted-foreground">Aktivite Seviyesi:</span>
+                    <span className="font-medium">{
+                      selectedClientData.activityLevel === "sedentary" ? "Hareketsiz" :
+                      selectedClientData.activityLevel === "light" ? "Hafif" :
+                      selectedClientData.activityLevel === "moderate" ? "Orta" :
+                      selectedClientData.activityLevel === "active" ? "Aktif" :
+                      selectedClientData.activityLevel === "very_active" ? "Çok Aktif" :
+                      "Belirtilmemiş"
+                    }</span>
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    onClick={() => setSelectedTab("manual")}
+                    className="w-full"
+                  >
+                    Devam Et ve Diyet Planı Detaylarını Ayarla
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="manual">
+            <Card>
+              <CardHeader>
+                <CardTitle>Diyet Planı Gereksinimleri</CardTitle>
+                <CardDescription>
+                  Kişiselleştirilmiş diyet planı oluşturmak için aşağıdaki bilgileri giriniz.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold">Kişisel Bilgiler</h3>
@@ -626,6 +831,8 @@ export default function CreateAIDietPlan() {
             </Form>
           </CardContent>
         </Card>
+        </TabsContent>
+        </Tabs>
       </div>
     </ProtectedFeature>
   );
