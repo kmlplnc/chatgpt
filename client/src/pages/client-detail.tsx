@@ -227,6 +227,14 @@ export default function ClientDetail() {
     }
     return response.json();
   }
+  
+  async function generateAccessCode() {
+    const response = await apiRequest("POST", `/api/clients/${id}/access-code`);
+    if (!response.ok) {
+      throw new Error("Erişim kodu oluşturulamadı");
+    }
+    return response.json();
+  }
 
   async function deleteMeasurement(measurementId: number) {
     const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
@@ -635,6 +643,32 @@ export default function ClientDetail() {
                 <div>
                   <Label>Kullanıcı ID</Label>
                   <p className="font-medium">{client.userId || "-"}</p>
+                </div>
+                <div>
+                  <Label>Danışan Portalı Erişim Kodu</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className={`font-medium ${client.accessCode ? "" : "text-muted-foreground italic"}`}>
+                      {client.accessCode || "Oluşturulmadı"}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await generateAccessCode();
+                          queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                        } catch (error: any) {
+                          toast({
+                            title: "Hata",
+                            description: error.message || "Erişim kodu oluşturulamadı",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      {client.accessCode ? "Yenile" : "Oluştur"}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
