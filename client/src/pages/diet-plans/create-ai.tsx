@@ -102,13 +102,13 @@ export default function CreateAIDietPlan() {
   // Danışanları getir
   const { data: clients, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],
-    queryFn: getQueryFn(),
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   // Seçilen danışanın ölçümlerini getir
   const { data: measurements, isLoading: measurementsLoading } = useQuery({
     queryKey: ["/api/client-measurements", selectedClientId],
-    queryFn: getQueryFn(),
+    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!selectedClientId,
   });
 
@@ -138,7 +138,7 @@ export default function CreateAIDietPlan() {
         setSelectedClientData(clientInfo);
         
         // Form değerlerini güncelle
-        form.setValue("name", clientInfo.name);
+        form.setValue("name", client.firstName + " " + client.lastName);
         form.setValue("height", Number(clientInfo.height));
         form.setValue("weight", Number(clientInfo.weight));
         form.setValue("gender", clientInfo.gender.toLowerCase() === "female" ? "female" : "male");
@@ -188,13 +188,8 @@ export default function CreateAIDietPlan() {
 
   // Diyet planı oluşturma mutation'ı
   const createDietPlanMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof formSchema>) => {
-      // Eğer danışan seçildiyse, istek içerisine clientId ekle
-      const requestPayload = {
-        ...values,
-        clientId: selectedClientId || undefined
-      };
-      const response = await apiRequest("POST", "/api/generate/diet-plan", requestPayload);
+    mutationFn: async (values: any) => {
+      const response = await apiRequest("POST", "/api/generate/diet-plan", values);
       return response.json();
     },
     onSuccess: () => {
