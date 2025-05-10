@@ -34,7 +34,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 // Mesaj tipi tanımı
 interface Message {
   id: number;
-  message: string;
+  content: string; // mesaj içeriği "content" alanında tutuluyor
   fromClient: boolean;
   createdAt: string;
   isRead?: boolean;
