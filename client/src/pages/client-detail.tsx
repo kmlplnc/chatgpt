@@ -191,6 +191,8 @@ export default function ClientDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes">('measurements');
+  const [clientNotes, setClientNotes] = useState<string>("");
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
