@@ -421,15 +421,14 @@ export default function MessagesPage() {
                                 className={`flex ${message.fromClient ? "justify-start" : "justify-end"}`}
                               >
                                 <div
-                                  className={`max-w-[80%] rounded-lg px-4 py-2 flex flex-col ${
-                                    message.fromClient 
-                                      ? "bg-slate-100 text-slate-900" 
-                                      : "bg-primary text-primary-foreground"
-                                  } ${
-                                    isConsecutive 
+                                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 flex flex-col 
+                                    ${message.fromClient 
+                                      ? "bg-card/90 text-card-foreground border border-border/30 shadow-sm" 
+                                      : "bg-primary text-primary-foreground shadow-md"}
+                                    ${isConsecutive
                                       ? message.fromClient 
-                                        ? "rounded-tl-sm" 
-                                        : "rounded-tr-sm" 
+                                        ? "rounded-tl-md" 
+                                        : "rounded-tr-md" 
                                       : ""
                                   }`}
                                 >
