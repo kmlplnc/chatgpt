@@ -13,26 +13,55 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
   next();
 };
 
-// Bildirimleri getir
+// Bildirimleri getir - sadece diyetisyenin kendi danışanları için
 notificationsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const notifications = await storage.getNotificationsByUserId(userId);
     
-    res.json(notifications);
+    // Önce tüm bildirimleri getir
+    const allNotifications = await storage.getNotificationsByUserId(userId);
+    
+    // Diyetisyenin danışanlarını getir
+    const dieticianClients = await storage.getClientsByUserId(userId);
+    const clientIds = dieticianClients.map(client => client.id);
+    
+    // Sadece diyetisyenin kendi danışanları ile ilgili bildirimleri filtrele
+    const filteredNotifications = allNotifications.filter(notification => {
+      // Eğer bildirim bir danışan ile ilgili değilse (clientId null) veya
+      // bildirim diyetisyenin kendi danışanları ile ilgiliyse göster
+      return notification.clientId === null || 
+             (notification.clientId && clientIds.includes(notification.clientId));
+    });
+    
+    res.json(filteredNotifications);
   } catch (error) {
     console.error("Notifications fetch error:", error);
     res.status(500).json({ message: "Bildirimler alınamadı" });
   }
 });
 
-// Okunmamış bildirim sayısını getir
+// Okunmamış bildirim sayısını getir - sadece diyetisyenin kendi danışanları için
 notificationsRouter.get("/unread-count", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const count = await storage.getUnreadNotificationCount(userId);
     
-    res.json({ count });
+    // Önce tüm bildirimleri getir
+    const allNotifications = await storage.getNotificationsByUserId(userId);
+    
+    // Diyetisyenin danışanlarını getir
+    const dieticianClients = await storage.getClientsByUserId(userId);
+    const clientIds = dieticianClients.map(client => client.id);
+    
+    // Sadece diyetisyenin kendi danışanları ile ilgili bildirimleri filtrele
+    const filteredNotifications = allNotifications.filter(notification => {
+      // Eğer bildirim bir danışan ile ilgili değilse (clientId null) veya
+      // bildirim diyetisyenin kendi danışanları ile ilgiliyse göster
+      return (notification.isRead === false) && 
+             (notification.clientId === null || 
+             (notification.clientId && clientIds.includes(notification.clientId)));
+    });
+    
+    res.json({ count: filteredNotifications.length });
   } catch (error) {
     console.error("Unread notification count error:", error);
     res.status(500).json({ message: "Okunmamış bildirim sayısı alınamadı" });
