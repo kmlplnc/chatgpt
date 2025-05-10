@@ -207,8 +207,8 @@ export default function CreateAIDietPlan() {
   const onClientSelect = (data: z.infer<typeof clientSelectSchema>) => {
     console.log("Danışan seçildi:", data.clientId);
     setSelectedClientId(data.clientId);
-    // Formu manual tab'a geçir, böylece danışan verileri yüklendiğinde görebiliriz
-    setSelectedTab("manual");
+    // Danışan verileri geldiğinde otomatik olarak form değişecek
+    // Ama henüz tab'ı değiştirmiyoruz, önce verileri göstermeliyiz
   };
 
   // Diyet planı oluşturma mutation'ı
@@ -389,52 +389,88 @@ export default function CreateAIDietPlan() {
             </Form>
             
             {selectedClientData && (
-              <div className="mt-6 border-t pt-4">
-                <h4 className="font-medium mb-2">Seçilen Danışan Bilgileri</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">İsim:</span>
-                    <span className="font-medium">{selectedClientData.name}</span>
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">Danışan Bilgileri</CardTitle>
+                  <CardDescription>
+                    Diyet planı oluşturulacak danışanın bilgileri
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>İsim</Label>
+                      <p className="font-medium">{selectedClientData.name}</p>
+                    </div>
+                    <div>
+                      <Label>Yaş</Label>
+                      <p className="font-medium">{selectedClientData.age} yaşında</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Yaş:</span>
-                    <span className="font-medium">{selectedClientData.age}</span>
+                  
+                  <div className="grid grid-cols-3 gap-4 mt-4">
+                    <div>
+                      <Label>Boy</Label>
+                      <p className="font-medium">{selectedClientData.height} cm</p>
+                    </div>
+                    <div>
+                      <Label>Kilo</Label>
+                      <p className="font-medium">{selectedClientData.weight} kg</p>
+                    </div>
+                    <div>
+                      <Label>Cinsiyet</Label>
+                      <p className="font-medium">{selectedClientData.gender === "female" ? "Kadın" : "Erkek"}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Boy:</span>
-                    <span className="font-medium">{selectedClientData.height} cm</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Kilo:</span>
-                    <span className="font-medium">{selectedClientData.weight} kg</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Cinsiyet:</span>
-                    <span className="font-medium">{selectedClientData.gender === "female" ? "Kadın" : "Erkek"}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Aktivite Seviyesi:</span>
-                    <span className="font-medium">{
+                  
+                  <div className="mt-4">
+                    <Label>Aktivite Seviyesi</Label>
+                    <p className="font-medium">{
                       selectedClientData.activityLevel === "sedentary" ? "Hareketsiz" :
-                      selectedClientData.activityLevel === "light" ? "Hafif" :
-                      selectedClientData.activityLevel === "moderate" ? "Orta" :
+                      selectedClientData.activityLevel === "light" ? "Hafif Hareketli" :
+                      selectedClientData.activityLevel === "moderate" ? "Orta Derecede Hareketli" :
                       selectedClientData.activityLevel === "active" ? "Aktif" :
                       selectedClientData.activityLevel === "very_active" ? "Çok Aktif" :
                       "Belirtilmemiş"
-                    }</span>
+                    }</p>
                   </div>
-                </div>
-                
-                <div className="mt-4">
-                  <Button
-                    type="button"
+                  
+                  {selectedClientData.allergies && (
+                    <div className="mt-4">
+                      <Label>Alerjiler</Label>
+                      <p className="font-medium">{selectedClientData.allergies}</p>
+                    </div>
+                  )}
+                  
+                  {selectedClientData.healthConditions && (
+                    <div className="mt-4">
+                      <Label>Sağlık Durumu</Label>
+                      <p className="font-medium">{selectedClientData.healthConditions}</p>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setSelectedClientId(null);
+                      setSelectedClientData(null);
+                      resetForm();
+                      clientSelectForm.reset();
+                    }}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    Başka Danışan Seç
+                  </Button>
+                  <Button 
                     onClick={() => setSelectedTab("manual")}
-                    className="w-full"
+                    className="ml-auto"
                   >
                     Devam Et ve Diyet Planı Detaylarını Ayarla
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-                </div>
-              </div>
+                </CardFooter>
+              </Card>
             )}
           </TabsContent>
           
