@@ -108,7 +108,9 @@ export default function Sidebar() {
                   <item.icon className="h-5 w-5 mr-2" />
                   {item.name}
                   {isLocked && (
-                    <Lock className="h-4 w-4 ml-2 text-amber-500" />
+                    <div className="absolute right-4 flex items-center justify-center">
+                      <Lock className="h-4 w-4 text-amber-500" />
+                    </div>
                   )}
                 </button>
               </li>

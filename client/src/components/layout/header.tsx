@@ -97,9 +97,8 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
       <div className="flex items-center justify-between px-6 py-4">
-        <div onClick={() => navigate('/')} className="cursor-pointer flex items-center">
-          <div className="font-bold text-primary text-2xl">DietKEM</div>
-          <p className="text-sm text-muted-foreground ml-2">Kişisel diyet asistanınız</p>
+        <div className="flex-none">
+          {/* Header DietKEM yazısı kaldırıldı */}
         </div>
         
         <div className="flex-1 max-w-md mx-4 hidden md:block">
