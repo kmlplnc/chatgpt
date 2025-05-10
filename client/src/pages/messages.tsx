@@ -250,7 +250,7 @@ export default function MessagesPage() {
     if (status === 'read' || isRead) {
       return (
         <div className="flex items-center" title="Görüldü">
-          <CheckCheck className="h-3 w-3 text-blue-500" />
+          <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
         </div>
       );
     } 
@@ -259,7 +259,7 @@ export default function MessagesPage() {
     if (status === 'delivered') {
       return (
         <div className="flex items-center" title="İletildi">
-          <Check className="h-3 w-3 text-current opacity-70" />
+          <Check className="h-3.5 w-3.5 opacity-80" />
         </div>
       );
     } 
@@ -267,7 +267,7 @@ export default function MessagesPage() {
     // Gönderildi veya varsayılan durum
     return (
       <div className="flex items-center" title="Gönderildi">
-        <Clock className="h-3 w-3 text-current opacity-70" />
+        <Clock className="h-3.5 w-3.5 opacity-70" />
       </div>
     );
   };
@@ -526,11 +526,13 @@ export default function MessagesPage() {
               </CardContent>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-medium mb-2">Mesajlaşma</h3>
-              <p className="text-muted-foreground max-w-md">
-                Sol panelden bir danışan seçerek mesajlaşmaya başlayın.
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="bg-muted/30 h-20 w-20 rounded-full flex items-center justify-center mb-6">
+                <MessageSquare className="h-10 w-10 text-primary/60" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Mesaj Kutusu</h3>
+              <p className="text-muted-foreground max-w-sm">
+                Sol panelden bir danışan seçerek mesajlaşmaya başlayabilirsiniz.
               </p>
             </div>
           )}
