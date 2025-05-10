@@ -474,6 +474,11 @@ export default function ClientDetail() {
   const bmhChange = lastMeasurement && firstMeasurement && lastMeasurement.basalMetabolicRate && firstMeasurement.basalMetabolicRate
     ? calculateChange(Math.round(lastMeasurement.basalMetabolicRate), Math.round(firstMeasurement.basalMetabolicRate))
     : { value: 0, percentage: 0 };
+    
+  // TDEE değişimi
+  const tdeeChange = lastMeasurement && firstMeasurement && lastMeasurement.totalDailyEnergyExpenditure && firstMeasurement.totalDailyEnergyExpenditure
+    ? calculateChange(Math.round(lastMeasurement.totalDailyEnergyExpenditure), Math.round(firstMeasurement.totalDailyEnergyExpenditure))
+    : { value: 0, percentage: 0 };
 
   // Yaş hesaplama
   const calculateAge = (birthDate?: string) => {
@@ -1040,6 +1045,122 @@ export default function ClientDetail() {
                   </div>
                 </CardContent>
               </Card>
+              
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>BMH Değişimi</CardTitle>
+                    <CardDescription>
+                      Bazal Metabolizma Hızı (BMH) zaman içindeki değişimi
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis 
+                            domain={['dataMin - 100', 'dataMax + 100']} 
+                            tickFormatter={(value) => `${value} kcal`}
+                          />
+                          <Tooltip formatter={(value) => [`${value} kcal`, "BMH"]} />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="bmh" 
+                            name="Bazal Metabolizma Hızı" 
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 8 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">BMH Değişimi</h4>
+                      <div className="flex space-x-4">
+                        <div className="bg-gray-100 rounded-lg p-3 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">İlk Ölçüm</p>
+                          <p className="text-lg font-bold">
+                            {firstMeasurement?.basalMetabolicRate ? Math.round(firstMeasurement.basalMetabolicRate) : "-"} kcal
+                          </p>
+                        </div>
+                        <div className="bg-gray-100 rounded-lg p-3 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">Son Ölçüm</p>
+                          <p className="text-lg font-bold">
+                            {lastMeasurement?.basalMetabolicRate ? Math.round(lastMeasurement.basalMetabolicRate) : "-"} kcal
+                          </p>
+                        </div>
+                        <div className="bg-gray-100 rounded-lg p-3 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">Değişim</p>
+                          <p className={`text-lg font-bold ${Number(bmhChange.value) > 0 ? 'text-green-600' : Number(bmhChange.value) < 0 ? 'text-red-600' : ''}`}>
+                            {bmhChange.value !== '0.00' ? `${bmhChange.value > 0 ? '+' : ''}${bmhChange.value} kcal (${bmhChange.percentage}%)` : 'Değişim yok'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>TDEE Değişimi</CardTitle>
+                    <CardDescription>
+                      Toplam Günlük Enerji Tüketimi (TDEE) zaman içindeki değişimi
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis 
+                            domain={['dataMin - 100', 'dataMax + 100']} 
+                            tickFormatter={(value) => `${value} kcal`}
+                          />
+                          <Tooltip formatter={(value) => [`${value} kcal`, "TDEE"]} />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="tdee" 
+                            name="Toplam Günlük Enerji Tüketimi" 
+                            stroke="#8b5cf6"
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 8 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">TDEE Değişimi</h4>
+                      <div className="flex space-x-4">
+                        <div className="bg-gray-100 rounded-lg p-3 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">İlk Ölçüm</p>
+                          <p className="text-lg font-bold">
+                            {firstMeasurement?.totalDailyEnergyExpenditure ? Math.round(firstMeasurement.totalDailyEnergyExpenditure) : "-"} kcal
+                          </p>
+                        </div>
+                        <div className="bg-gray-100 rounded-lg p-3 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">Son Ölçüm</p>
+                          <p className="text-lg font-bold">
+                            {lastMeasurement?.totalDailyEnergyExpenditure ? Math.round(lastMeasurement.totalDailyEnergyExpenditure) : "-"} kcal
+                          </p>
+                        </div>
+                        <div className="bg-gray-100 rounded-lg p-3 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">Değişim</p>
+                          <p className={`text-lg font-bold ${Number(tdeeChange.value) > 0 ? 'text-green-600' : Number(tdeeChange.value) < 0 ? 'text-red-600' : ''}`}>
+                            {tdeeChange.value !== '0.00' ? `${tdeeChange.value > 0 ? '+' : ''}${tdeeChange.value} kcal (${tdeeChange.percentage}%)` : 'Değişim yok'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
         </TabsContent>
