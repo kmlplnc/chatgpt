@@ -117,39 +117,48 @@ export default function ClientPortalMessages() {
   // Mesajları okundu olarak işaretle
   const markMessagesAsRead = async () => {
     try {
-      await fetch('/api/client-portal/messages/mark-as-read', {
-        method: 'POST',
-      });
-      // Okunmamış mesaj sayısını güncelle
-      queryClient.invalidateQueries({ queryKey: ['/api/client-portal/messages/unread/count'] });
+      // Diyetisyenden gelen okunmamış mesajları bul
+      const unreadMessages = messages?.filter(msg => !msg.fromClient && !msg.isRead).map(msg => msg.id) || [];
+      
+      if (unreadMessages.length > 0) {
+        // API endpoint'ine mesaj ID'lerini gönder
+        await apiRequest('POST', '/api/client-portal/messages/mark-as-read', { 
+          messageIds: unreadMessages 
+        });
+        
+        // Okunmamış mesaj sayısını güncelle
+        queryClient.invalidateQueries({ queryKey: ['/api/client-portal/messages/unread/count'] });
+        
+        // Mesajları yeniden getir
+        queryClient.invalidateQueries({ queryKey: ['/api/client-portal/messages'] });
+      }
     } catch (error) {
       console.error('Mesajlar okundu olarak işaretlenemedi:', error);
     }
   };
   
   // Mesaj durumunu görüntüle
-  const MessageStatus = ({ status }: { status: string }) => {
-    if (status === 'sent') {
-      return <Clock className="h-3 w-3 text-current opacity-70" />;
+  const MessageStatus = ({ status, isRead }: { status?: string, isRead?: boolean }) => {
+    // "Görüldü" durumunu göster
+    if (status === 'read' || isRead) {
+      return (
+        <div className="flex items-center" title="Görüldü">
+          <CheckCheck className="h-3 w-3 text-blue-400" />
+        </div>
+      );
     } 
     
+    // Teslim edildi
     if (status === 'delivered') {
       return (
-        <div className="flex items-center">
+        <div className="flex items-center" title="İletildi">
           <CheckCheck className="h-3 w-3 text-current opacity-70" />
         </div>
       );
     } 
     
-    if (status === 'read') {
-      return (
-        <div className="flex items-center">
-          <CheckCheck className="h-3 w-3 text-blue-400" />
-        </div>
-      );
-    }
-    
-    return null;
+    // Gönderildi veya varsayılan durum
+    return <Clock className="h-3 w-3 text-current opacity-70" title="Gönderildi" />;
   };
   
   // Mesaj tipi tanımı
@@ -305,7 +314,7 @@ export default function ClientPortalMessages() {
                                 {formatMessageTime(message.createdAt)}
                               </span>
                               {message.fromClient && (
-                                <MessageStatus status={message.status || 'delivered'} />
+                                <MessageStatus status={message.status} isRead={message.isRead} />
                               )}
                             </div>
                           </div>
