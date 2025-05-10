@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { 
+  ArrowLeft,
   Check, 
   CheckCheck, 
   Clock, 
@@ -29,6 +30,20 @@ export default function ClientPortalMessages() {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Okunmamış mesaj sayısını getir
+  const { data: unreadCountData } = useQuery({
+    queryKey: ['/api/client-portal/messages/unread/count'],
+    queryFn: async () => {
+      const response = await fetch('/api/client-portal/messages/unread/count');
+      if (!response.ok) {
+        return { count: 0 };
+      }
+      return response.json();
+    }
+  });
+  
+  const unreadCount = unreadCountData?.count || 0;
 
   // Mesajları getir
   const { data: messages, isLoading } = useQuery({
@@ -153,7 +168,7 @@ export default function ClientPortalMessages() {
     if (status === 'delivered') {
       return (
         <div className="flex items-center" title="İletildi">
-          <CheckCheck className="h-3 w-3 text-current opacity-70" />
+          <Check className="h-3 w-3 text-current opacity-70" />
         </div>
       );
     } 
@@ -249,11 +264,35 @@ export default function ClientPortalMessages() {
     return format(date, 'HH:mm');
   };
 
+  const [, navigate] = useLocation();
+
   return (
-    <div className="container py-6">
-      <h1 className="text-2xl font-bold mb-6">Diyetisyeninizle Mesajlaşma</h1>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Başlık ve geri düğmesi */}
+      <header className="border-b">
+        <div className="container mx-auto py-4 px-4 md:px-6 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-semibold">Mesajlar</h1>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/client-portal/dashboard')} 
+              className="text-muted-foreground hover:text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Danışan Portalına Dön
+            </Button>
+          </div>
+          {unreadCount > 0 && (
+            <Badge variant="destructive">
+              {unreadCount} Okunmamış Mesaj
+            </Badge>
+          )}
+        </div>
+      </header>
       
-      <Card className="w-full max-w-4xl mx-auto h-[70vh] flex flex-col">
+      <div className="container py-6 flex-1">
+        <Card className="w-full max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
         <CardHeader className="border-b flex flex-row items-center p-4">
           <Avatar className="h-10 w-10 mr-3">
             <AvatarFallback>{dietitian?.name ? dietitian.name.substring(0, 2).toUpperCase() : "DD"}</AvatarFallback>
@@ -369,6 +408,7 @@ export default function ClientPortalMessages() {
           </div>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }
