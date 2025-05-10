@@ -60,9 +60,9 @@ export default function MessagesPage() {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Ses efekti oluşturma
+  // Ses efekti oluşturma - daha kısa/hoş bir mesaj sesi
   useEffect(() => {
-    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3');
+    audioRef.current = new Audio('https://www.soundjay.com/misc/sounds/bell-ding-1.mp3');
   }, []);
 
   // Danışanları getir
@@ -98,8 +98,8 @@ export default function MessagesPage() {
         return [];
       }
     },
-    enabled: !!selectedClient,
-    refetchInterval: 3000 // Her 3 saniyede bir mesajları otomatik güncelle
+    refetchInterval: 1500, // Her 1.5 saniyede bir güncelle (daha hızlı)
+    enabled: !!selectedClient
   });
 
   // Okunmamış mesaj sayılarını getir

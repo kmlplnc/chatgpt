@@ -32,9 +32,9 @@ export default function ClientPortalMessages() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Ses efekti oluşturma
+  // Ses efekti oluşturma - daha kısa/hoş bir mesaj sesi
   useEffect(() => {
-    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3');
+    audioRef.current = new Audio('https://www.soundjay.com/misc/sounds/bell-ding-1.mp3');
   }, []);
   
   // Okunmamış mesaj sayısını getir
@@ -65,7 +65,7 @@ export default function ClientPortalMessages() {
       }
       return response.json();
     },
-    refetchInterval: 3000 // Her 3 saniyede bir güncelle
+    refetchInterval: 1500 // Her 1.5 saniyede bir güncelle (daha hızlı)
   });
 
   // Dietisyen ve danışan bilgilerini getir
