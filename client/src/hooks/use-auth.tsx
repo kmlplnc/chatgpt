@@ -97,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isUserPremium = (user: User): boolean => {
     if (!user) return false;
     
+    // Admin kullanıcısı doğrudan tüm özelliklere erişebilir
+    if (user.role === 'admin') return true;
+    
     // Premium planlar
     const premiumPlans = ['basic', 'premium', 'pro'];
     

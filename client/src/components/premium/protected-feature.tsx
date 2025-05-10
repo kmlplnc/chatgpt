@@ -17,9 +17,10 @@ export default function ProtectedFeature({
   featureName, 
   fallback
 }: ProtectedFeatureProps) {
-  const { isPremium } = useAuth();
+  const { isPremium, user } = useAuth();
   
-  if (isPremium) {
+  // Admin kullanıcıları veya premium kullanıcılar erişebilir
+  if (isPremium || (user && user.role === 'admin')) {
     return <>{children}</>;
   }
   
