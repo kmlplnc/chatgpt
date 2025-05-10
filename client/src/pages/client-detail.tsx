@@ -795,13 +795,13 @@ export default function ClientDetail() {
                   <CardContent>
                     <div className="flex justify-between items-center">
                       <div>
-                        <div className="mb-2">
-                          <p className="text-2xl font-bold">{lastMeasurement?.totalDailyEnergyExpenditure || "-"}</p>
-                          <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
-                        </div>
                         <div>
                           <p className="text-lg font-semibold">{lastMeasurement?.basalMetabolicRate || "-"}</p>
                           <p className="text-sm text-muted-foreground">kcal/gün (BMH)</p>
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-2xl font-bold">{lastMeasurement?.totalDailyEnergyExpenditure || "-"}</p>
+                          <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
                         </div>
                       </div>
                       <Activity className="h-8 w-8 text-primary" />
