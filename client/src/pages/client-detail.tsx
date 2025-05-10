@@ -876,9 +876,54 @@ export default function ClientDetail() {
                     <Alert>
                       <AlertTitle>Aktivite Seviyesi</AlertTitle>
                       <AlertDescription>
-                        {activityLevelDescriptions[lastMeasurement.activityLevel]}
+                        {lastMeasurement.activityLevel === "sedentary" && "Hareketsiz: Çok az veya hiç egzersiz yapmayan kişiler"}
+                        {lastMeasurement.activityLevel === "light" && "Hafif: Haftada 1-3 kez hafif egzersiz yapan kişiler"}
+                        {lastMeasurement.activityLevel === "moderate" && "Orta: Haftada 3-5 kez orta yoğunlukta egzersiz yapan kişiler"}
+                        {lastMeasurement.activityLevel === "active" && "Aktif: Haftada 5-7 kez yoğun egzersiz yapan kişiler"}
+                        {lastMeasurement.activityLevel === "very_active" && "Çok Aktif: Günde iki kez veya ekstra ağır egzersiz yapan kişiler"}
                       </AlertDescription>
                     </Alert>
+                    
+                    <Separator className="my-4" />
+                    
+                    <div>
+                      <h3 className="font-semibold mb-4">Günlük Vitamin ve Mineral İhtiyaçları</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">A vitamini</span>
+                          <span className="text-sm">900 mcg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">C vitamini</span>
+                          <span className="text-sm">90 mg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">D vitamini</span>
+                          <span className="text-sm">15 mcg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">E vitamini</span>
+                          <span className="text-sm">15 mg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">Kalsiyum</span>
+                          <span className="text-sm">1000 mg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">Demir</span>
+                          <span className="text-sm">8 mg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">Potasyum</span>
+                          <span className="text-sm">3500 mg</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-primary/5 p-2 rounded-md">
+                          <span className="text-sm font-medium">Magnezyum</span>
+                          <span className="text-sm">400 mg</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">Bu değerler ortalama bir erişkin için belirlenen günlük önerilen miktarlardır. Yaş, cinsiyet ve bireysel farklılıklara göre değişiklik gösterebilir.</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">
