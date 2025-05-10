@@ -7,8 +7,7 @@ const notificationsRouter = express.Router();
 
 // Middleware to check if user is authenticated
 const requireAuth = (req: Request, res: Response, next: Function) => {
-  // @ts-ignore
-  if (!req.session.userId) {
+  if (!req.session || !req.session.user) {
     return res.status(401).json({ message: "Oturum açmanız gerekiyor" });
   }
   next();
@@ -17,8 +16,7 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
 // Bildirimleri getir
 notificationsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
-    const userId = req.session.userId;
+    const userId = req.session.user!.id;
     const notifications = await storage.getNotificationsByUserId(userId);
     
     res.json(notifications);
@@ -31,8 +29,7 @@ notificationsRouter.get("/", requireAuth, async (req: Request, res: Response) =>
 // Okunmamış bildirim sayısını getir
 notificationsRouter.get("/unread-count", requireAuth, async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
-    const userId = req.session.userId;
+    const userId = req.session.user!.id;
     const count = await storage.getUnreadNotificationCount(userId);
     
     res.json({ count });
@@ -46,8 +43,7 @@ notificationsRouter.get("/unread-count", requireAuth, async (req: Request, res: 
 notificationsRouter.post("/:id/mark-read", requireAuth, async (req: Request, res: Response) => {
   try {
     const notificationId = parseInt(req.params.id);
-    // @ts-ignore
-    const userId = req.session.userId;
+    const userId = req.session.user!.id;
     
     if (isNaN(notificationId)) {
       return res.status(400).json({ message: "Geçersiz bildirim ID'si" });
@@ -75,8 +71,7 @@ notificationsRouter.post("/:id/mark-read", requireAuth, async (req: Request, res
 // Tüm bildirimleri okundu olarak işaretle
 notificationsRouter.post("/mark-all-read", requireAuth, async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
-    const userId = req.session.userId;
+    const userId = req.session.user!.id;
     await storage.markAllNotificationsAsRead(userId);
     
     res.status(200).json({ success: true });
