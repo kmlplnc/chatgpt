@@ -709,6 +709,114 @@ export class MemStorage implements IStorage {
     
     return createdNutrients;
   }
+  
+  // Appointment methods
+  async getAppointments(clientId?: number, userId?: number): Promise<Appointment[]> {
+    const appointments = Array.from(this.appointments.values());
+    
+    if (clientId && userId) {
+      return appointments.filter(app => app.clientId === clientId && app.userId === userId);
+    } else if (clientId) {
+      return appointments.filter(app => app.clientId === clientId);
+    } else if (userId) {
+      return appointments.filter(app => app.userId === userId);
+    }
+    
+    return appointments;
+  }
+  
+  async getAppointmentById(id: number): Promise<Appointment | undefined> {
+    return this.appointments.get(id);
+  }
+  
+  async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+    const id = this.appointmentIdCounter++;
+    const now = new Date();
+    
+    const newAppointment: Appointment = {
+      ...appointment,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.appointments.set(id, newAppointment);
+    return newAppointment;
+  }
+  
+  async updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment | undefined> {
+    const appointment = this.appointments.get(id);
+    if (!appointment) {
+      return undefined;
+    }
+    
+    const updatedAppointment: Appointment = {
+      ...appointment,
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    this.appointments.set(id, updatedAppointment);
+    return updatedAppointment;
+  }
+  
+  async deleteAppointment(id: number): Promise<boolean> {
+    return this.appointments.delete(id);
+  }
+  
+  // Message methods
+  async getMessages(clientId: number, userId: number): Promise<Message[]> {
+    const messages = Array.from(this.messages.values());
+    return messages
+      .filter(msg => msg.clientId === clientId && msg.userId === userId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+  
+  async getMessageById(id: number): Promise<Message | undefined> {
+    return this.messages.get(id);
+  }
+  
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const id = this.messageIdCounter++;
+    
+    const newMessage: Message = {
+      ...message,
+      id,
+      createdAt: new Date()
+    };
+    
+    this.messages.set(id, newMessage);
+    return newMessage;
+  }
+  
+  async markMessageAsRead(id: number): Promise<boolean> {
+    const message = this.messages.get(id);
+    if (!message) {
+      return false;
+    }
+    
+    message.isRead = true;
+    this.messages.set(id, message);
+    return true;
+  }
+  
+  async getUnreadMessages(clientId?: number, userId?: number): Promise<number> {
+    const messages = Array.from(this.messages.values());
+    
+    if (clientId && userId) {
+      return messages.filter(msg => 
+        msg.clientId === clientId && 
+        msg.userId === userId && 
+        !msg.isRead
+      ).length;
+    } else if (clientId) {
+      return messages.filter(msg => msg.clientId === clientId && !msg.isRead).length;
+    } else if (userId) {
+      return messages.filter(msg => msg.userId === userId && !msg.isRead).length;
+    }
+    
+    return messages.filter(msg => !msg.isRead).length;
+  }
 }
 
 // DatabaseStorage implementation
@@ -1084,6 +1192,124 @@ export class DatabaseStorage implements IStorage {
       .values(nutrients)
       .returning();
     return foodNutrients;
+  }
+  
+  // Appointment methods
+  async getAppointments(clientId?: number, userId?: number): Promise<Appointment[]> {
+    let query = db.select().from(appointments);
+    
+    if (clientId && userId) {
+      query = query.where(and(
+        eq(appointments.clientId, clientId),
+        eq(appointments.userId, userId)
+      ));
+    } else if (clientId) {
+      query = query.where(eq(appointments.clientId, clientId));
+    } else if (userId) {
+      query = query.where(eq(appointments.userId, userId));
+    }
+    
+    return await query.orderBy(appointments.appointmentDate);
+  }
+  
+  async getAppointmentById(id: number): Promise<Appointment | undefined> {
+    const [appointment] = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.id, id));
+    
+    return appointment;
+  }
+  
+  async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+    const [newAppointment] = await db
+      .insert(appointments)
+      .values(appointment)
+      .returning();
+    
+    return newAppointment;
+  }
+  
+  async updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment | undefined> {
+    const [updatedAppointment] = await db
+      .update(appointments)
+      .set({...updates, updatedAt: new Date()})
+      .where(eq(appointments.id, id))
+      .returning();
+    
+    return updatedAppointment;
+  }
+  
+  async deleteAppointment(id: number): Promise<boolean> {
+    const result = await db
+      .delete(appointments)
+      .where(eq(appointments.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  // Message methods
+  async getMessages(clientId: number, userId: number): Promise<Message[]> {
+    return await db
+      .select()
+      .from(messages)
+      .where(and(
+        eq(messages.clientId, clientId),
+        eq(messages.userId, userId)
+      ))
+      .orderBy(messages.createdAt);
+  }
+  
+  async getMessageById(id: number): Promise<Message | undefined> {
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, id));
+    
+    return message;
+  }
+  
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
+    
+    return newMessage;
+  }
+  
+  async markMessageAsRead(id: number): Promise<boolean> {
+    const result = await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(eq(messages.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  async getUnreadMessages(clientId?: number, userId?: number): Promise<number> {
+    let query = db.select({ count: count() }).from(messages).where(eq(messages.isRead, false));
+    
+    if (clientId && userId) {
+      query = query.where(and(
+        eq(messages.clientId, clientId),
+        eq(messages.userId, userId),
+        eq(messages.isRead, false)
+      ));
+    } else if (clientId) {
+      query = query.where(and(
+        eq(messages.clientId, clientId),
+        eq(messages.isRead, false)
+      ));
+    } else if (userId) {
+      query = query.where(and(
+        eq(messages.userId, userId),
+        eq(messages.isRead, false)
+      ));
+    }
+    
+    const result = await query;
+    return Number(result[0].count);
   }
 }
 
