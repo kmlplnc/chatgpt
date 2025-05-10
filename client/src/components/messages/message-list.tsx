@@ -45,6 +45,18 @@ export function MessageList({
     }
     return response.json();
   }
+  
+  async function markMessagesAsRead() {
+    const clientMessages = messages.filter(m => m.fromClient && !m.isRead);
+    if (clientMessages.length === 0) return;
+    
+    const messageIds = clientMessages.map(m => m.id);
+    const response = await apiRequest("PATCH", `/api/messages/mark-read`, { messageIds });
+    if (!response.ok) {
+      throw new Error("Mesajlar okundu olarak işaretlenemedi");
+    }
+    return response.json();
+  }
 
   // Mutasyonlar  
   const sendMessageMutation = useMutation({
@@ -65,6 +77,17 @@ export function MessageList({
       });
     },
   });
+  
+  const markMessagesAsReadMutation = useMutation({
+    mutationFn: markMessagesAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/messages`, clientId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/messages/unread/count'] });
+    },
+    onError: (error: any) => {
+      console.error("Mesajlar okundu olarak işaretlenemedi:", error);
+    },
+  });
 
   // Otomatik scroll
   useEffect(() => {
@@ -72,6 +95,16 @@ export function MessageList({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+  
+  // Mesajları otomatik olarak okundu olarak işaretle
+  useEffect(() => {
+    if (!isLoading && messages && messages.length > 0) {
+      const hasUnreadMessages = messages.some(m => m.fromClient && !m.isRead);
+      if (hasUnreadMessages) {
+        markMessagesAsReadMutation.mutate();
+      }
+    }
+  }, [isLoading, messages]);
 
   return (
     <div className="flex flex-col h-[400px]">

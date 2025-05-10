@@ -1338,7 +1338,7 @@ export class DatabaseStorage implements IStorage {
 
 // Import needed database functions
 import { db } from "./db";
-import { eq, like, and, desc, count } from "drizzle-orm";
+import { eq, like, and, desc, count, inArray } from "drizzle-orm";
 
 // Create and export a singleton instance
 export const storage = new DatabaseStorage();
