@@ -234,7 +234,7 @@ export default function ClientDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments" | "messages">('measurements');
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments">('measurements');
   const [clientNotes, setClientNotes] = useState<string>();
   const [clientPublicNotes, setClientPublicNotes] = useState<string>();
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
@@ -1136,7 +1136,6 @@ export default function ClientDetail() {
           <TabsTrigger value="notes">Diyetisyen Notları</TabsTrigger>
           <TabsTrigger value="clientNotes">Danışana Görünecek Notlar</TabsTrigger>
           <TabsTrigger value="appointments">Randevular</TabsTrigger>
-          <TabsTrigger value="messages">Mesajlar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes">
@@ -1349,24 +1348,7 @@ export default function ClientDetail() {
           )}
         </TabsContent>
         
-        <TabsContent value="messages">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mesajlaşma</CardTitle>
-              <CardDescription>Danışan ile yapılan mesajlaşmalar</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MessageList
-                clientId={id}
-                messages={messages || []}
-                isLoading={isMessagesLoading}
-                error={messagesError}
-                newMessage={newMessage}
-                setNewMessage={setNewMessage}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+
 
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
