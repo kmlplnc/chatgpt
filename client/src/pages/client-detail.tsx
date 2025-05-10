@@ -277,7 +277,7 @@ export default function ClientDetail() {
   async function getAppointments() {
     const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
     if (!response.ok) {
-      throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}: ${await response.text()}`);
+      throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}`);
     }
     return response.json();
   }
@@ -315,19 +315,18 @@ export default function ClientDetail() {
   async function getMessages() {
     const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
     if (!response.ok) {
-      throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}: ${await response.text()}`);
+      throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}`);
     }
     return response.json();
   }
   
   async function sendMessage(content: string) {
     const messageData = {
-      clientId: Number(id),
-      userId: client.userId,
       content,
+      clientId: Number(id),
       fromClient: false
     };
-    const response = await apiRequest("POST", "/api/messages", messageData);
+    const response = await apiRequest("POST", `/api/messages`, messageData);
     if (!response.ok) {
       throw new Error("Mesaj gönderilemedi");
     }
@@ -335,71 +334,16 @@ export default function ClientDetail() {
   }
   
   async function markMessagesAsRead(messageIds: number[]) {
-    const response = await apiRequest("PATCH", "/api/messages/mark-read", { messageIds });
-    if (!response.ok) {
-      throw new Error("Mesajlar okundu olarak işaretlenemedi");
+    // Bu versiyonu kullanalım
+    if (messageIds && messageIds.length > 0) {
+      const response = await apiRequest("PATCH", "/api/messages/mark-read", { messageIds });
+      if (!response.ok) {
+        throw new Error("Mesajlar okundu olarak işaretlenemedi");
+      }
+      return response.json();
     }
-    return response.json();
-  }
-  
-  // Randevu API fonksiyonları
-  async function getAppointments() {
-    const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
-    if (!response.ok) {
-      throw new Error("Randevular yüklenemedi");
-    }
-    return response.json();
-  }
-  
-  async function createAppointment(data: any) {
-    const response = await apiRequest("POST", `/api/appointments`, {
-      ...data,
-      clientId: parseInt(id as string)
-    });
-    if (!response.ok) {
-      throw new Error("Randevu oluşturulamadı");
-    }
-    return response.json();
-  }
-  
-  async function updateAppointment(appointmentId: number, data: any) {
-    const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}`, data);
-    if (!response.ok) {
-      throw new Error("Randevu güncellenemedi");
-    }
-    return response.json();
-  }
-  
-  async function deleteAppointment(appointmentId: number) {
-    const response = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
-    if (!response.ok) {
-      throw new Error("Randevu silinemedi");
-    }
-    return response.json();
-  }
-  
-  // Mesaj API fonksiyonları
-  async function getMessages() {
-    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
-    if (!response.ok) {
-      throw new Error("Mesajlar yüklenemedi");
-    }
-    return response.json();
-  }
-  
-  async function sendMessage(content: string) {
-    const response = await apiRequest("POST", `/api/messages`, {
-      content,
-      clientId: parseInt(id as string),
-      fromClient: false
-    });
-    if (!response.ok) {
-      throw new Error("Mesaj gönderilemedi");
-    }
-    return response.json();
-  }
-  
-  async function markMessagesAsRead() {
+    
+    // Tüm mesajlar için
     const response = await apiRequest("PATCH", `/api/messages/read?clientId=${id}`);
     if (!response.ok) {
       throw new Error("Mesajlar okundu olarak işaretlenemedi");

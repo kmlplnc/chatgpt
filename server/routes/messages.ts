@@ -14,18 +14,24 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
 };
 
 // Get messages for a specific client-user pair
-messagesRouter.get("/:clientId", requireAuth, async (req: Request, res: Response) => {
+messagesRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const clientId = Number(req.params.clientId);
+    const { clientId } = req.query;
+    
+    if (!clientId) {
+      return res.status(400).json({ message: "Danışan ID gereklidir" });
+    }
+    
+    const clientIdNum = Number(clientId);
     
     // Diyetisyenin kendi danışanı olduğunu doğrula
-    const client = await storage.getClient(clientId);
+    const client = await storage.getClient(clientIdNum);
     if (!client || (client.userId !== userId && client.userId !== null)) {
       return res.status(403).json({ message: "Bu danışana ait mesajlara erişim izniniz yok" });
     }
     
-    const messages = await storage.getMessages(clientId, userId);
+    const messages = await storage.getMessages(clientIdNum, userId);
     res.json(messages);
   } catch (error) {
     console.error("Mesajlar getirilemedi:", error);
@@ -34,23 +40,29 @@ messagesRouter.get("/:clientId", requireAuth, async (req: Request, res: Response
 });
 
 // Send a new message 
-messagesRouter.post("/:clientId", requireAuth, async (req: Request, res: Response) => {
+messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const clientId = Number(req.params.clientId);
+    const { clientId, content, fromClient = false } = req.body;
+    
+    if (!clientId) {
+      return res.status(400).json({ message: "Danışan ID gereklidir" });
+    }
+    
+    const clientIdNum = Number(clientId);
     
     // Diyetisyenin kendi danışanı olduğunu doğrula
-    const client = await storage.getClient(clientId);
+    const client = await storage.getClient(clientIdNum);
     if (!client || (client.userId !== userId && client.userId !== null)) {
       return res.status(403).json({ message: "Bu danışana mesaj gönderme izniniz yok" });
     }
     
     // Validate request body
     const messageData = insertMessageSchema.parse({
-      ...req.body,
+      content,
       userId,
-      clientId,
-      fromClient: false, // Diyetisyenden gönderilen mesaj
+      clientId: clientIdNum,
+      fromClient, // false = Diyetisyenden gönderilen mesaj
       isRead: false
     });
     
