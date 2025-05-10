@@ -114,9 +114,13 @@ export default function MessagesPage() {
   // Mesaj gönder
   const sendMessageMutation = useMutation({
     mutationFn: async (text: string) => {
+      if (!selectedClient) {
+        throw new Error('Lütfen bir danışan seçin');
+      }
+      
       const response = await apiRequest('POST', '/api/messages', {
         clientId: selectedClient.id,
-        message: text,
+        content: text,
         fromClient: false
       });
       if (!response.ok) throw new Error('Mesaj gönderilemedi');
@@ -150,9 +154,25 @@ export default function MessagesPage() {
 
   // Mesaj gönderme işlevi
   const handleSendMessage = () => {
-    if (newMessage.trim() && selectedClient) {
-      sendMessageMutation.mutate(newMessage);
+    if (!newMessage.trim()) {
+      toast({
+        title: "Uyarı",
+        description: "Lütfen bir mesaj yazın",
+        variant: "destructive",
+      });
+      return;
     }
+    
+    if (!selectedClient) {
+      toast({
+        title: "Uyarı",
+        description: "Lütfen bir danışan seçin",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    sendMessageMutation.mutate(newMessage);
   };
 
   // Enter tuşuyla mesaj gönderme
