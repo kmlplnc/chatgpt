@@ -20,7 +20,8 @@ import {
   User, 
   LogOut,
   TrendingDown,
-  TrendingUp 
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
 import { 
   FaSmile, 
