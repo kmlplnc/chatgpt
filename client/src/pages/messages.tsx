@@ -153,7 +153,10 @@ export default function MessagesPage() {
   // Mesajları gruplandır
   useEffect(() => {
     if (messages) {
-      setGroupedMessages(groupMessagesByDate(messages));
+      console.log("Mesajlar yüklendi:", messages);
+      const grouped = groupMessagesByDate(messages);
+      console.log("Gruplandırılmış mesajlar:", grouped);
+      setGroupedMessages(grouped);
     }
   }, [messages]);
 
