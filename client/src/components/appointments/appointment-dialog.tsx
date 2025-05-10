@@ -102,11 +102,22 @@ export function AppointmentDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
+    
+    // Tarihleri doğru formata dönüştür
+    const dateStr = formData.get('date') as string;
+    const startTimeStr = formData.get('startTime') as string;
+    const endTimeStr = formData.get('endTime') as string;
+    
+    // ISO formatında tam tarih-saat oluştur
+    const startDateTime = new Date(`${dateStr}T${startTimeStr}`);
+    const endDateTime = new Date(`${dateStr}T${endTimeStr}`);
+    
     const appointmentData = {
       title: formData.get('title') as string,
-      date: formData.get('date') as string,
-      startTime: `${formData.get('date')}T${formData.get('startTime')}:00`,
-      endTime: `${formData.get('date')}T${formData.get('endTime')}:00`,
+      clientId: Number(clientId),
+      date: startDateTime,
+      startTime: startDateTime,
+      endTime: endDateTime,
       status: formData.get('status') as string,
       notes: formData.get('notes') as string
     };
