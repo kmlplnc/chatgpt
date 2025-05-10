@@ -60,11 +60,19 @@ export default function MessagesPage() {
   const { toast } = useToast();
 
   // Danışanları getir
-  const { data: clients, isLoading: clientsLoading } = useQuery({
+  const { data: clients, isLoading: clientsLoading, error: clientsError } = useQuery({
     queryKey: ['/api/clients'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/clients');
-      return response.json();
+      try {
+        const response = await apiRequest('GET', '/api/clients');
+        if (!response.ok) {
+          throw new Error('Danışanlar getirilemedi');
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Danışanlar yüklenirken hata:', error);
+        return [];
+      }
     }
   });
 
@@ -73,9 +81,16 @@ export default function MessagesPage() {
     queryKey: ['/api/messages', selectedClient?.id],
     queryFn: async () => {
       if (!selectedClient) return [];
-      const response = await apiRequest('GET', `/api/messages/${selectedClient.id}`);
-      if (!response.ok) throw new Error('Mesajlar getirilemedi');
-      return response.json();
+      try {
+        const response = await apiRequest('GET', `/api/messages/${selectedClient.id}`);
+        if (!response.ok) throw new Error('Mesajlar getirilemedi');
+        const data = await response.json();
+        console.log('Yüklenen mesajlar:', data);
+        return data;
+      } catch (error) {
+        console.error('Mesajlar yüklenirken hata:', error);
+        return [];
+      }
     },
     enabled: !!selectedClient
   });
@@ -84,9 +99,14 @@ export default function MessagesPage() {
   const { data: unreadCounts, isLoading: unreadLoading } = useQuery({
     queryKey: ['/api/messages/unread/counts-by-client'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/messages/unread/counts-by-client');
-      if (!response.ok) throw new Error('Okunmamış mesaj sayıları getirilemedi');
-      return response.json();
+      try {
+        const response = await apiRequest('GET', '/api/messages/unread/counts-by-client');
+        if (!response.ok) throw new Error('Okunmamış mesaj sayıları getirilemedi');
+        return response.json();
+      } catch (error) {
+        console.error('Okunmamış mesaj sayıları yüklenirken hata:', error);
+        return [];
+      }
     },
     refetchInterval: 15000 // Her 15 saniyede bir güncelle
   });
