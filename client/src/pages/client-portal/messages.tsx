@@ -35,7 +35,9 @@ export default function ClientPortalMessages() {
   const { data: unreadCountData } = useQuery({
     queryKey: ['/api/client-portal/messages/unread/count'],
     queryFn: async () => {
-      const response = await fetch('/api/client-portal/messages/unread/count');
+      const response = await fetch('/api/client-portal/messages/unread/count', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         return { count: 0 };
       }
@@ -70,20 +72,15 @@ export default function ClientPortalMessages() {
         throw new Error('Danışan bilgileri getirilemedi');
       }
       return response.json();
-    },
-    queryFn: async () => {
-      const response = await fetch('/api/client-portal/me');
-      if (!response.ok) {
-        throw new Error('Kullanıcı bilgileri getirilemedi');
-      }
-      return response.json();
     }
   });
 
   const { data: dietitian } = useQuery({
     queryKey: ['/api/client-portal/dietitian'],
     queryFn: async () => {
-      const response = await fetch('/api/client-portal/dietitian');
+      const response = await fetch('/api/client-portal/dietitian', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Diyetisyen bilgileri getirilemedi');
       }
