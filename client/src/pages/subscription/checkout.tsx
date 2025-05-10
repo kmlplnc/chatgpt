@@ -6,8 +6,8 @@ import { useLocation } from 'wouter';
 import { CheckCircle2, CreditCard, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import Layout from '@/components/layout/layout';
 
+// NOT: Layout bileşenini kaldırdım ve doğrudan kendi UI yapımızı oluşturuyoruz
 import {
   Form,
   FormControl,
@@ -170,8 +170,8 @@ export default function CheckoutPage() {
   // Ödeme başarı durumunu gösterip ana sayfaya yönlendiriyoruz
   if (isSuccess) {
     return (
-      <Layout>
-        <div className="container mx-auto max-w-3xl py-12">
+      <div className="min-h-screen bg-background py-12">
+        <div className="container mx-auto max-w-3xl">
           <Card className="border-green-200 bg-green-50">
             <CardHeader>
               <div className="flex justify-center mb-4">
@@ -196,26 +196,24 @@ export default function CheckoutPage() {
             </CardFooter>
           </Card>
         </div>
-      </Layout>
+      </div>
     );
   }
   
   // Yükleniyor ekranı
   if (isLoading) {
     return (
-      <Layout>
-        <div className="container mx-auto max-w-3xl py-12 flex justify-center">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-        </div>
-      </Layout>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
     );
   }
   
   // Kullanıcı giriş yapmamışsa veya seçili plan yoksa
   if (!user) {
     return (
-      <Layout>
-        <div className="container mx-auto max-w-3xl py-12">
+      <div className="min-h-screen bg-background py-12">
+        <div className="container mx-auto max-w-3xl">
           <Card>
             <CardHeader>
               <CardTitle>Giriş Yapmanız Gerekiyor</CardTitle>
@@ -231,7 +229,7 @@ export default function CheckoutPage() {
             </CardFooter>
           </Card>
         </div>
-      </Layout>
+      </div>
     );
   }
   
@@ -239,8 +237,8 @@ export default function CheckoutPage() {
   if (!planFromUrl) {
     // Plan belirtilmemiş, bir plan seçmeye yönlendir
     return (
-      <Layout>
-        <div className="container mx-auto max-w-3xl py-12">
+      <div className="min-h-screen bg-background py-12">
+        <div className="container mx-auto max-w-3xl">
           <Card>
             <CardHeader>
               <CardTitle>Plan Seçimi Gerekli</CardTitle>
@@ -256,14 +254,14 @@ export default function CheckoutPage() {
             </CardFooter>
           </Card>
         </div>
-      </Layout>
+      </div>
     );
   }
   
   // Ana ödeme formu
   return (
-    <Layout>
-      <div className="container mx-auto max-w-3xl py-12">
+    <div className="min-h-screen bg-background py-12">
+      <div className="container mx-auto max-w-3xl">
         <div className="flex items-center mb-8">
           <Button 
             variant="ghost" 
@@ -414,6 +412,6 @@ export default function CheckoutPage() {
           <p>Örnek kart: 4242 4242 4242 4242 | Son Kullanma: 12/24 | CVV: 123</p>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 }
