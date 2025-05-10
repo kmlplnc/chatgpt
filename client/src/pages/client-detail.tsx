@@ -39,6 +39,16 @@ import {
   AlertTitle
 } from "@/components/ui/alert";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -276,6 +286,14 @@ export default function ClientDetail() {
     return response.json();
   }
   
+  async function deleteClient() {
+    const response = await apiRequest("DELETE", `/api/clients/${id}`);
+    if (!response.ok) {
+      throw new Error("Danışan silinemedi");
+    }
+    return true;
+  }
+  
   // Randevu API fonksiyonları
   async function getAppointments() {
     const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
@@ -432,6 +450,24 @@ export default function ClientDetail() {
         description: "Ölçüm güncellendi",
       });
       setOpenEditMeasurementDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteClientMutation = useMutation({
+    mutationFn: deleteClient,
+    onSuccess: () => {
+      toast({
+        title: "Başarılı",
+        description: "Danışan başarıyla silindi",
+      });
+      setLocation('/clients');
     },
     onError: (error: any) => {
       toast({
@@ -802,19 +838,56 @@ export default function ClientDetail() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="flex items-center mb-6">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setLocation("/clients")}
-          className="mr-4"
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Danışanlara Dön
-        </Button>
-        <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
-      </div>
+    <>
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bu danışanı silmek istediğinize emin misiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem danışanın tüm verilerini ve ölçümlerini kalıcı olarak silecektir. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteClientMutation.mutate()} 
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteClientMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setLocation("/clients")}
+              className="mr-4"
+            >
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Danışanlara Dön
+            </Button>
+            <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
+          </div>
+          
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Danışanı Sil
+          </Button>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <Card>
@@ -2183,5 +2256,6 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
