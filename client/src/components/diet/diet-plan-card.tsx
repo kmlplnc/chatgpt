@@ -41,8 +41,8 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
     mutationFn: deleteDietPlan,
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Diet plan deleted successfully",
+        title: "Başarılı",
+        description: "Diyet planı başarıyla silindi",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/diet-plans"] });
       if (onDelete) {
@@ -51,8 +51,8 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to delete diet plan: ${error instanceof Error ? error.message : "Unknown error"}`,
+        title: "Hata",
+        description: `Diyet planı silinirken hata oluştu: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         variant: "destructive",
       });
     },
@@ -63,15 +63,15 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
     mutationFn: (format: "pdf" | "json") => exportDietPlan(dietPlan.id, format),
     onSuccess: (data) => {
       toast({
-        title: "Success",
-        description: "Diet plan exported successfully",
+        title: "Başarılı",
+        description: "Diyet planı başarıyla dışa aktarıldı",
       });
       
-      // Create download link
+      // İndirme bağlantısı oluştur
       if (data.url) {
         const link = document.createElement("a");
         link.href = data.url;
-        link.download = `${dietPlan.name.replace(/\s+/g, "_")}_diet_plan.${data.format}`;
+        link.download = `${dietPlan.name.replace(/\s+/g, "_")}_diyet_plani.${data.format}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -79,8 +79,8 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to export diet plan: ${error instanceof Error ? error.message : "Unknown error"}`,
+        title: "Hata",
+        description: `Diyet planı dışa aktarılırken hata oluştu: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
         variant: "destructive",
       });
     },
@@ -95,8 +95,18 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
   
   // Handle delete button click
   const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this diet plan?")) {
-      deleteMutation.mutate(dietPlan.id);
+    if (window.confirm("Bu diyet planını silmek istediğinizden emin misiniz?")) {
+      try {
+        deleteMutation.mutate(dietPlan.id);
+        // Başarılı silme mesajı toast ile gösterilecek
+      } catch (error) {
+        console.error("Diyet planı silme hatası:", error);
+        toast({
+          title: "Hata",
+          description: `Diyet planı silinirken hata oluştu: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+          variant: "destructive",
+        });
+      }
     }
   };
   

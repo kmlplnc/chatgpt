@@ -13,8 +13,9 @@ export async function updateDietPlan(id: number, updates: Partial<DietPlan>) {
 }
 
 export async function deleteDietPlan(id: number) {
-  await apiRequest("DELETE", `/api/diet-plans/${id}`);
-  return { success: true };
+  const response = await apiRequest("DELETE", `/api/diet-plans/${id}`);
+  // 204 No Content döndüğünde JSON dönüşü beklenemez, bu nedenle success: true dönüyoruz
+  return response.status === 204 ? { success: true } : await response.json();
 }
 
 export async function exportDietPlan(id: number, format: "pdf" | "json") {
