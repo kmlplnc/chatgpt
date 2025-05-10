@@ -175,7 +175,7 @@ clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, 
     
     // Burada client.id ile ilişkilendirilmiş diyet planlarını getir
     // DietPlan modeli henüz bağlantılı olmayabilir, güncelleme gerekebilir
-    const dietPlans = await storage.getDietPlans(null, client.id);
+    const dietPlans = await storage.getDietPlans(client.userId);
     
     res.json(dietPlans);
   } catch (error) {

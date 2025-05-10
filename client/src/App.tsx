@@ -17,20 +17,34 @@ import CheckoutPage from "@/pages/subscription/checkout";
 import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
 import AdminDashboard from "@/pages/admin";
+import ClientPortalLogin from "@/pages/client-portal";
+import ClientPortalDashboard from "@/pages/client-portal/dashboard";
 import { AuthProvider } from "@/hooks/use-auth";
 
 function Router() {
   const [location] = useLocation();
   
-  // Auth sayfaları için Layout'u devre dışı bırak
+  // Auth sayfaları ve Danışan portalı için Layout'u devre dışı bırak
   const isAuthPage = location === "/login" || location === "/register";
+  const isClientPortal = location.startsWith("/client-portal");
   
-  // Auth sayfaları için doğrudan component renderla, diğerleri için Layout içinde renderla
+  // Auth sayfaları için doğrudan component renderla
   if (isAuthPage) {
     return (
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+  
+  // Danışan portalı sayfaları için doğrudan component renderla
+  if (isClientPortal) {
+    return (
+      <Switch>
+        <Route path="/client-portal" component={ClientPortalLogin} />
+        <Route path="/client-portal/dashboard" component={ClientPortalDashboard} />
         <Route component={NotFound} />
       </Switch>
     );

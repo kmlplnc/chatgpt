@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -9,442 +9,359 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, LogOut, User, LineChart, CalendarDays, Apple, MessageSquare } from 'lucide-react';
+import { 
+  BarChart, 
+  Activity, 
+  Calendar, 
+  ClipboardList, 
+  User, 
+  LogOut 
+} from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Client Portal Layout
-function ClientPortalLayout({ children }) {
-  const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const [clientInfo, setClientInfo] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    async function fetchClientInfo() {
-      try {
-        const response = await apiRequest('GET', '/api/client-portal/me');
-        
-        if (!response.ok) {
-          throw new Error('Oturum bilgileri alınamadı');
-        }
-        
-        const data = await response.json();
-        setClientInfo(data);
-      } catch (error) {
-        console.error('Error fetching client info:', error);
-        navigate('/client-portal');
-        toast({
-          title: 'Giriş yapmanız gerekiyor',
-          description: 'Lütfen erişim kodunuzla giriş yapın.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    fetchClientInfo();
-  }, [navigate, toast]);
-  
-  async function handleLogout() {
-    try {
-      await apiRequest('POST', '/api/client-portal/logout');
-      navigate('/client-portal');
-      toast({
-        title: 'Çıkış yapıldı',
-        description: 'Başarıyla çıkış yaptınız.',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      toast({
-        title: 'Çıkış yapılırken hata oluştu',
-        description: 'Lütfen tekrar deneyin.',
-        variant: 'destructive',
-      });
-    }
-  }
-  
-  if (isLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <img src="/assets/logo.png" alt="DietKEM Logo" className="w-8 h-8" />
-            <h1 className="font-bold text-lg">Danışan Portalı</h1>
-          </div>
-          
-          {clientInfo && (
-            <div className="flex items-center space-x-4">
-              <div className="text-sm font-medium">
-                {clientInfo.firstName} {clientInfo.lastName}
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-1" />
-                Çıkış
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
-      
-      <main className="container mx-auto px-4 py-6">
-        {children}
-      </main>
-    </div>
-  );
+interface ClientData {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
-// Client Dashboard
-export default function ClientDashboard() {
-  const [measurements, setMeasurements] = useState([]);
-  const [dietPlans, setDietPlans] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface Measurement {
+  id: number;
+  date: string;
+  weight: string;
+  height: string;
+  bmi: string;
+  basalMetabolicRate?: number;
+  totalDailyEnergyExpenditure?: number;
+  createdAt: string;
+}
+
+interface Recommendation {
+  id: number;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+export default function ClientPortalDashboard() {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
-  
+  const [loading, setLoading] = useState(true);
+  const [clientData, setClientData] = useState<ClientData | null>(null);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+
   useEffect(() => {
-    async function fetchClientData() {
+    async function fetchData() {
       try {
-        setIsLoading(true);
-        
-        // Ölçümleri getir
+        // Fetch client data
+        const clientResponse = await apiRequest('GET', '/api/client-portal/me');
+        if (!clientResponse.ok) {
+          throw new Error('Danışan bilgileri alınamadı');
+        }
+        const clientData = await clientResponse.json();
+        setClientData(clientData);
+
+        // Fetch measurements
         const measurementsResponse = await apiRequest('GET', '/api/client-portal/measurements');
         if (measurementsResponse.ok) {
           const measurementsData = await measurementsResponse.json();
           setMeasurements(measurementsData);
         }
-        
-        // Diyet planlarını getir
-        const dietPlansResponse = await apiRequest('GET', '/api/client-portal/diet-plans');
-        if (dietPlansResponse.ok) {
-          const dietPlansData = await dietPlansResponse.json();
-          setDietPlans(dietPlansData);
-        }
-        
-        // Tavsiyeleri getir
+
+        // Fetch recommendations
         const recommendationsResponse = await apiRequest('GET', '/api/client-portal/recommendations');
         if (recommendationsResponse.ok) {
           const recommendationsData = await recommendationsResponse.json();
           setRecommendations(recommendationsData);
         }
+
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching client data:', error);
         toast({
-          title: 'Veri yüklenirken hata',
-          description: 'Bilgileriniz yüklenirken bir sorun oluştu.',
+          title: 'Hata',
+          description: 'Veriler yüklenirken bir hata oluştu. Lütfen tekrar giriş yapın.',
           variant: 'destructive',
         });
-      } finally {
-        setIsLoading(false);
+        navigate('/client-portal');
       }
     }
-    
-    fetchClientData();
-  }, [toast]);
-  
-  // Son ölçümü göster
-  const lastMeasurement = measurements.length > 0 
-    ? measurements[measurements.length - 1] 
+
+    fetchData();
+  }, [navigate, toast]);
+
+  const handleLogout = async () => {
+    try {
+      const response = await apiRequest('POST', '/api/client-portal/logout');
+      if (response.ok) {
+        toast({
+          title: 'Çıkış yapıldı',
+          description: 'Başarıyla çıkış yaptınız.',
+        });
+        navigate('/client-portal');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: 'Hata',
+        description: 'Çıkış yapılırken bir hata oluştu.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Format a date string to a more readable format
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('tr-TR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(date);
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-background flex flex-col">
+        <header className="border-b">
+          <div className="container mx-auto py-4">
+            <Skeleton className="h-8 w-48" />
+          </div>
+        </header>
+        <main className="container mx-auto py-6 flex-1">
+          <Skeleton className="h-12 w-64 mb-6" />
+          <div className="grid gap-6">
+            <Skeleton className="h-[200px] w-full" />
+            <Skeleton className="h-[300px] w-full" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const latestMeasurement = measurements.length > 0 
+    ? measurements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     : null;
-  
+
   return (
-    <ClientPortalLayout>
-      <h1 className="text-2xl font-bold mb-6">Hoş Geldiniz</h1>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="border-b">
+        <div className="container mx-auto py-4 px-4 md:px-6 flex justify-between items-center">
+          <h1 className="text-xl font-semibold">Danışan Portalı</h1>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Çıkış Yap
+          </Button>
         </div>
-      ) : (
-        <Tabs defaultValue="overview">
-          <TabsList className="mb-4">
-            <TabsTrigger value="overview">
-              <User className="h-4 w-4 mr-2" />
-              Genel Bakış
+      </header>
+
+      <main className="container mx-auto py-6 px-4 md:px-6 flex-1">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+          <div>
+            <h2 className="text-3xl font-bold">
+              Hoşgeldiniz, {clientData?.firstName} {clientData?.lastName}
+            </h2>
+            <p className="text-muted-foreground mt-1">
+              Bu sayfadan sağlık verilerinizi takip edebilirsiniz.
+            </p>
+          </div>
+        </div>
+
+        <Tabs defaultValue="summary" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="summary">
+              <Activity className="h-4 w-4 mr-2" />
+              Özet
             </TabsTrigger>
             <TabsTrigger value="measurements">
-              <LineChart className="h-4 w-4 mr-2" />
-              Ölçümlerim
-            </TabsTrigger>
-            <TabsTrigger value="diet-plans">
-              <Apple className="h-4 w-4 mr-2" />
-              Diyet Planım
+              <BarChart className="h-4 w-4 mr-2" />
+              Ölçümler
             </TabsTrigger>
             <TabsTrigger value="recommendations">
-              <MessageSquare className="h-4 w-4 mr-2" />
+              <ClipboardList className="h-4 w-4 mr-2" />
               Tavsiyeler
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="overview">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Son Ölçümlerim</CardTitle>
-                  <CardDescription>
-                    {lastMeasurement ? (
-                      <span>
-                        {new Date(lastMeasurement.date).toLocaleDateString('tr-TR')} tarihli ölçüm
-                      </span>
-                    ) : (
-                      'Henüz ölçüm bulunmuyor'
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {lastMeasurement ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Kilo</span>
-                        <span className="font-medium">{lastMeasurement.weight} kg</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Boy</span>
-                        <span className="font-medium">{lastMeasurement.height} cm</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Vücut Kitle İndeksi (BKİ)</span>
-                        <span className="font-medium">{lastMeasurement.bmi}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bazal Metabolizma Hızı (BMH)</span>
-                        <span className="font-medium">{lastMeasurement.bmr || '-'} kcal</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Günlük Enerji İhtiyacı</span>
-                        <span className="font-medium">{lastMeasurement.totalDailyEnergyExpenditure || '-'} kcal</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-muted-foreground">
-                      Henüz ölçüm kaydınız bulunmuyor.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Diyet Planım</CardTitle>
-                  <CardDescription>
-                    {dietPlans.length > 0 ? (
-                      <span>
-                        {dietPlans.length} aktif diyet planınız var
-                      </span>
-                    ) : (
-                      'Henüz diyet planı bulunmuyor'
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {dietPlans.length > 0 ? (
-                    <div className="space-y-2">
-                      {dietPlans.slice(0, 3).map((plan) => (
-                        <div key={plan.id} className="pb-2">
-                          <div className="font-medium">{plan.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {plan.description || 'Diyet planı açıklaması'}
-                          </div>
-                        </div>
-                      ))}
-                      {dietPlans.length > 3 && (
-                        <Button variant="link" className="p-0 h-auto">
-                          {dietPlans.length - 3} diğer planı görüntüle
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-muted-foreground">
-                      Diyetisyeniniz henüz bir diyet planı oluşturmamış.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Diyetisyen Tavsiyeleri</CardTitle>
-                  <CardDescription>
-                    Sağlıklı yaşam için ipuçları
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {recommendations.length > 0 ? (
-                    <div className="space-y-2">
-                      {recommendations.map((rec) => (
-                        <div key={rec.id} className="pb-2">
-                          <div className="font-medium">{rec.title}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {rec.content}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-muted-foreground">
-                      Henüz tavsiye bulunmuyor.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="measurements">
+
+          <TabsContent value="summary" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Ölçümlerim</CardTitle>
+                <CardTitle>Mevcut Durum</CardTitle>
                 <CardDescription>
-                  Diyetisyeniniz tarafından kaydedilen tüm ölçümleriniz
+                  En son ölçüm sonuçlarınız ve sağlık verileriniz
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {latestMeasurement ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <User className="h-5 w-5 text-muted-foreground" />
+                        <h3 className="text-sm font-medium">Boy / Kilo</h3>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-2xl font-bold">{latestMeasurement.weight} kg / {latestMeasurement.height} cm</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ölçüm: {formatDate(latestMeasurement.date)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-muted-foreground" />
+                        <h3 className="text-sm font-medium">Vücut Kitle İndeksi (BKİ)</h3>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-2xl font-bold">{latestMeasurement.bmi}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ölçüm: {formatDate(latestMeasurement.date)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <BarChart className="h-5 w-5 text-muted-foreground" />
+                        <h3 className="text-sm font-medium">Bazal Metabolizma Hızı (BMH)</h3>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-2xl font-bold">
+                          {latestMeasurement.basalMetabolicRate || "N/A"} kcal
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ölçüm: {formatDate(latestMeasurement.date)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-muted-foreground">Henüz ölçüm kaydı bulunamadı.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Son Tavsiyeler</CardTitle>
+                <CardDescription>
+                  Diyetisyeninizin son tavsiyeleri
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recommendations.length > 0 ? (
+                  <div className="space-y-4">
+                    {recommendations.slice(0, 2).map(recommendation => (
+                      <div key={recommendation.id} className="p-4 border rounded-lg">
+                        <h3 className="font-medium">{recommendation.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          {recommendation.content}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {formatDate(recommendation.createdAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-muted-foreground">Henüz tavsiye bulunamadı.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="measurements" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ölçümler</CardTitle>
+                <CardDescription>
+                  Tüm ölçüm kayıtlarınız ve zaman içindeki değişim
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {measurements.length > 0 ? (
-                  <div className="rounded-md border">
-                    <table className="w-full text-sm">
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
                       <thead>
-                        <tr className="bg-muted/50 border-b">
-                          <th className="font-medium p-2 text-left">Tarih</th>
-                          <th className="font-medium p-2 text-left">Kilo (kg)</th>
-                          <th className="font-medium p-2 text-left">Boy (cm)</th>
-                          <th className="font-medium p-2 text-left">BKİ</th>
-                          <th className="font-medium p-2 text-left">BMH (kcal)</th>
-                          <th className="font-medium p-2 text-left">GDEI (kcal)</th>
+                        <tr className="bg-muted">
+                          <th className="text-left p-3 text-sm font-medium">Tarih</th>
+                          <th className="text-left p-3 text-sm font-medium">Ağırlık (kg)</th>
+                          <th className="text-left p-3 text-sm font-medium">Boy (cm)</th>
+                          <th className="text-left p-3 text-sm font-medium">BKİ</th>
+                          <th className="text-left p-3 text-sm font-medium">BMH (kcal)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {measurements.map((measurement, index) => (
-                          <tr key={measurement.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                            <td className="p-2">{new Date(measurement.date).toLocaleDateString('tr-TR')}</td>
-                            <td className="p-2">{measurement.weight}</td>
-                            <td className="p-2">{measurement.height}</td>
-                            <td className="p-2">{measurement.bmi}</td>
-                            <td className="p-2">{measurement.bmr || '-'}</td>
-                            <td className="p-2">{measurement.totalDailyEnergyExpenditure || '-'}</td>
+                        {measurements
+                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                          .map((measurement, index) => (
+                          <tr key={measurement.id} className={index % 2 === 0 ? "bg-card" : "bg-muted/30"}>
+                            <td className="p-3 text-sm">{formatDate(measurement.date)}</td>
+                            <td className="p-3 text-sm">{measurement.weight}</td>
+                            <td className="p-3 text-sm">{measurement.height}</td>
+                            <td className="p-3 text-sm">{measurement.bmi}</td>
+                            <td className="p-3 text-sm">{measurement.basalMetabolicRate || "-"}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <div className="py-4 text-center text-muted-foreground">
-                    Henüz ölçüm kaydınız bulunmuyor.
+                  <div className="text-center py-6">
+                    <p className="text-muted-foreground">Henüz ölçüm kaydı bulunamadı.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
-          
-          <TabsContent value="diet-plans">
+
+          <TabsContent value="recommendations" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Diyet Planım</CardTitle>
+                <CardTitle>Diyetisyen Tavsiyeleri</CardTitle>
                 <CardDescription>
-                  Diyetisyeniniz tarafından oluşturulan diyet planları
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dietPlans.length > 0 ? (
-                  <div className="space-y-6">
-                    {dietPlans.map((plan) => (
-                      <div key={plan.id} className="border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-2">{plan.name}</h3>
-                        <p className="text-muted-foreground mb-4">{plan.description}</p>
-                        
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <h4 className="text-sm font-medium text-muted-foreground mb-1">Kalori Hedefi</h4>
-                            <p className="font-medium">{plan.calorieGoal} kcal/gün</p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-muted-foreground mb-1">Diyet Tipi</h4>
-                            <p className="font-medium">{plan.dietType || 'Standart'}</p>
-                          </div>
-                        </div>
-                        
-                        <h4 className="text-sm font-medium text-muted-foreground mb-2">Makro Besin Dağılımı</h4>
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div>
-                            <p className="text-xs">Protein</p>
-                            <p className="font-medium">{plan.proteinPercentage}%</p>
-                          </div>
-                          <div>
-                            <p className="text-xs">Karbonhidrat</p>
-                            <p className="font-medium">{plan.carbsPercentage}%</p>
-                          </div>
-                          <div>
-                            <p className="text-xs">Yağ</p>
-                            <p className="font-medium">{plan.fatPercentage}%</p>
-                          </div>
-                        </div>
-                        
-                        <Separator className="my-4" />
-                        
-                        <div>
-                          <h4 className="text-sm font-medium mb-2">Diyet İçeriği</h4>
-                          <div className="prose prose-sm max-w-none text-foreground">
-                            {plan.content ? (
-                              <div dangerouslySetInnerHTML={{ __html: plan.content }} />
-                            ) : (
-                              <p className="text-muted-foreground">İçerik bulunmuyor.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-8 text-center text-muted-foreground">
-                    Diyetisyeniniz henüz bir diyet planı oluşturmamış.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="recommendations">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tavsiyeler</CardTitle>
-                <CardDescription>
-                  Diyetisyeniniz tarafından size özel tavsiyeler
+                  Diyetisyeninizin size özel sağlık ve beslenme tavsiyeleri
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {recommendations.length > 0 ? (
-                  <div className="space-y-4">
-                    {recommendations.map((rec) => (
-                      <div key={rec.id} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <h3 className="text-lg font-medium">{rec.title}</h3>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(rec.createdAt).toLocaleDateString('tr-TR')}
-                          </div>
-                        </div>
-                        <p className="mt-2">{rec.content}</p>
+                  <div className="space-y-6">
+                    {recommendations.map(recommendation => (
+                      <div key={recommendation.id} className="p-4 border rounded-lg">
+                        <h3 className="text-lg font-semibold">{recommendation.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {formatDate(recommendation.createdAt)}
+                        </p>
+                        <Separator className="my-3" />
+                        <p className="text-sm">{recommendation.content}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="py-8 text-center text-muted-foreground">
-                    Henüz tavsiye bulunmuyor.
+                  <div className="text-center py-6">
+                    <p className="text-muted-foreground">Henüz tavsiye bulunamadı.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-      )}
-    </ClientPortalLayout>
+      </main>
+
+      <footer className="border-t py-4 text-center text-sm text-muted-foreground">
+        <div className="container mx-auto px-4 md:px-6">
+          DietKEM Danışan Portalı &copy; {new Date().getFullYear()}
+        </div>
+      </footer>
+    </div>
   );
 }
