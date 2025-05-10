@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -172,11 +172,14 @@ export default function MessagesPage() {
 
   // Mesajları gruplandır
   useEffect(() => {
-    if (messages) {
+    if (messages && Array.isArray(messages)) {
       console.log("Mesajlar yüklendi:", messages);
       const grouped = groupMessagesByDate(messages);
       console.log("Gruplandırılmış mesajlar:", grouped);
       setGroupedMessages(grouped);
+    } else {
+      console.log("Mesajlar geçerli bir dizi değil veya boş:", messages);
+      setGroupedMessages([]);
     }
   }, [messages]);
 
@@ -188,11 +191,24 @@ export default function MessagesPage() {
   }, [groupedMessages]);
 
   // Danışanları ara
-  const filteredClients = clients
-    ? clients.filter(client => 
-        `${client.firstName} ${client.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  const filteredClients = useMemo(() => {
+    if (!clients || !Array.isArray(clients)) {
+      console.log('Danışanlar yüklenemedi veya dizi değil');
+      return [];
+    }
+    
+    if (!searchQuery.trim()) {
+      return clients;
+    }
+    
+    const searchLower = searchQuery.toLowerCase();
+    return clients.filter(client => {
+      if (!client) return false;
+      const fullName = `${client.firstName || ''} ${client.lastName || ''}`.toLowerCase();
+      const email = (client.email || '').toLowerCase();
+      return fullName.includes(searchLower) || email.includes(searchLower);
+    });
+  }, [clients, searchQuery]);
 
   // Danışanı seç
   const handleClientSelect = (client) => {
@@ -201,6 +217,9 @@ export default function MessagesPage() {
 
   // Danışan adını görüntüle
   const getClientInitials = (client: any): string => {
+    if (!client || !client.firstName || !client.lastName) {
+      return 'KD'; // "Kullanıcı Danışan" için varsayılan
+    }
     return `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`.toUpperCase();
   };
 
