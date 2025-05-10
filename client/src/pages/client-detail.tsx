@@ -743,10 +743,10 @@ export default function ClientDetail() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div>
-                  <Label>Aktivite Seviyesi</Label>
-                  <p className="font-medium">
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <Label className="text-sm text-muted-foreground">Aktivite Seviyesi</Label>
+                  <p className="text-lg font-semibold mt-1">
                     {lastMeasurement.activityLevel === 'sedentary' ? 'Hareketsiz' :
                      lastMeasurement.activityLevel === 'light' ? 'Az Hareketli' :
                      lastMeasurement.activityLevel === 'moderate' ? 'Orta Derecede Aktif' :
@@ -754,9 +754,11 @@ export default function ClientDetail() {
                      lastMeasurement.activityLevel === 'very_active' ? 'Çok Aktif' : '-'}
                   </p>
                 </div>
-                <div>
-                  <Label>Günlük Kalori İhtiyacı</Label>
-                  <p className="font-medium">{lastMeasurement.totalDailyEnergyExpenditure ? `${Math.round(lastMeasurement.totalDailyEnergyExpenditure)} kcal` : "-"}</p>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <Label className="text-sm text-muted-foreground">Günlük Kalori İhtiyacı</Label>
+                  <p className="text-lg font-semibold mt-1">
+                    {lastMeasurement.totalDailyEnergyExpenditure ? `${Math.round(lastMeasurement.totalDailyEnergyExpenditure)} kcal` : "-"}
+                  </p>
                 </div>
               </div>
             </CardContent>
