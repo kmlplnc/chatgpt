@@ -700,7 +700,19 @@ export default function ClientDetail() {
             </div>
             <div>
               <Label>Notlar</Label>
-              <p className="font-medium">{client.notes || "-"}</p>
+              <div className="relative">
+                <p className="font-medium">{client.notes || "-"}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="absolute top-0 right-0"
+                  onClick={() => {
+                    setViewedTab("notes");
+                  }}
+                >
+                  Düzenle
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
