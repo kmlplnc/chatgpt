@@ -3,13 +3,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, LineChart, ShieldCheck, Settings } from "lucide-react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import UserManagement from "./user-management";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("users");
-  const navigate = useNavigate();
+  const [_, setLocation] = useLocation();
 
   // Admin yetkisi kontrolü
   if (user?.role !== "admin") {

@@ -16,6 +16,7 @@ import SubscriptionPage from "@/pages/subscription";
 import CheckoutPage from "@/pages/subscription/checkout";
 import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
+import AdminDashboard from "@/pages/admin";
 import { AuthProvider } from "@/hooks/use-auth";
 
 function Router() {
@@ -48,6 +49,7 @@ function Router() {
         <Route path="/clients/:id" component={ClientDetail} />
         <Route path="/subscription" component={SubscriptionPage} />
         <Route path="/subscription/checkout" component={CheckoutPage} />
+        <Route path="/admin" component={AdminDashboard} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

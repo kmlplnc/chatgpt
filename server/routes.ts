@@ -15,6 +15,7 @@ import { usdaService } from "./services/usda-service";
 import { clientsRouter } from './routes/clients';
 import { authRouter } from './routes/auth';
 import { subscriptionRouter } from './routes/subscription';
+import { adminRouter } from './routes/admin';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session setup
@@ -38,6 +39,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add clients routes
   app.use('/api/clients', clientsRouter);
+  
+  // Add admin routes
+  app.use('/api/admin', adminRouter);
   
   // Error handler middleware
   const handleError = (err: any, res: Response) => {

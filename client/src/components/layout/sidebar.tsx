@@ -14,7 +14,8 @@ import {
   LogIn,
   UserPlus,
   CreditCard,
-  Lock
+  Lock,
+  ShieldCheck
 } from "lucide-react";
 
 export default function Sidebar() {
