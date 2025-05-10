@@ -433,7 +433,7 @@ export default function ClientsPage() {
                         <FormItem>
                           <FormLabel>Sağlık Durumu</FormLabel>
                           <FormControl>
-                            <Input placeholder="Mevcut sağlık durumları veya hastalıklar" {...field} />
+                            <Textarea placeholder="Mevcut sağlık durumları veya hastalıklar" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -446,7 +446,7 @@ export default function ClientsPage() {
                         <FormItem>
                           <FormLabel>Alerjiler</FormLabel>
                           <FormControl>
-                            <Input placeholder="Besin alerjileri veya intoleranslar" {...field} />
+                            <Textarea placeholder="Besin alerjileri veya intoleranslar" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -459,7 +459,7 @@ export default function ClientsPage() {
                         <FormItem>
                           <FormLabel>Notlar</FormLabel>
                           <FormControl>
-                            <Input placeholder="Diğer notlar veya bilgiler" {...field} />
+                            <Textarea placeholder="Diğer notlar veya bilgiler" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
