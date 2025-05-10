@@ -13,14 +13,26 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
   next();
 };
 
+// Admin kullanıcı olup olmadığını kontrol eder
+const isAdmin = (req: Request): boolean => {
+  return req.session?.user?.role === 'admin';
+};
+
 // Get all clients for the authenticated user
 clientsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     // Giriş yapmış kullanıcının ID'sini al
     const userId = req.session.user!.id;
     
-    // Sadece bu kullanıcıya ait danışanları getir
-    const clients = await storage.getClients(userId);
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Admin kullanıcıları tüm danışanları görebilir
+    // Normal kullanıcılar sadece kendi danışanlarını görebilir
+    const clients = admin
+      ? await storage.getClients()
+      : await storage.getClients(userId);
+    
     return res.json(clients);
   } catch (error) {
     console.error("Error fetching clients:", error);
@@ -44,8 +56,12 @@ clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Sadece kullanıcının kendi danışanlarına erişmesine izin ver
-    if (client.userId !== userId) {
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Sadece admin kullanıcıları tüm danışanları görebilir
+    // Normal kullanıcılar sadece kendi danışanlarını görebilir
+    if (!admin && client.userId !== userId) {
       return res.status(403).json({ message: "Bu danışana erişim izniniz yok" });
     }
 
@@ -100,8 +116,12 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Kullanıcının sadece kendi danışanlarını güncellemesine izin ver
-    if (client.userId !== userId) {
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Sadece admin kullanıcıları tüm danışanları güncelleyebilir
+    // Normal kullanıcılar sadece kendi danışanlarını güncelleyebilir
+    if (!admin && client.userId !== userId) {
       return res.status(403).json({ message: "Bu danışanı güncelleme yetkiniz yok" });
     }
 
@@ -139,8 +159,12 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Kullanıcının sadece kendi danışanlarını silmesine izin ver
-    if (client.userId !== userId) {
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Sadece admin kullanıcıları tüm danışanları silebilir
+    // Normal kullanıcılar sadece kendi danışanlarını silebilir
+    if (!admin && client.userId !== userId) {
       return res.status(403).json({ message: "Bu danışanı silme yetkiniz yok" });
     }
 
@@ -172,8 +196,12 @@ clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Re
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Kullanıcının sadece kendi danışanlarına ait ölçümleri görmesine izin ver
-    if (client.userId !== userId) {
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Sadece admin kullanıcıları tüm danışanların ölçümlerini görebilir
+    // Normal kullanıcılar sadece kendi danışanlarının ölçümlerini görebilir
+    if (!admin && client.userId !== userId) {
       return res.status(403).json({ message: "Bu danışanın ölçümlerine erişim izniniz yok" });
     }
 
