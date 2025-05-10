@@ -566,7 +566,11 @@ export default function MessagesPage() {
                                       {formatMessageDate(message.createdAt)}
                                     </span>
                                     {!message.fromClient && (
-                                      <MessageStatus status={message.status} isRead={message.isRead} />
+                                      <div className="flex items-center" title={message.isRead ? "Görüldü" : "Gönderildi"}>
+                                        {message.isRead ? 
+                                          <CheckCheck className="h-3.5 w-3.5 text-blue-500" /> : 
+                                          <Check className="h-3.5 w-3.5 text-muted-foreground" />}
+                                      </div>
                                     )}
                                   </div>
                                 </div>

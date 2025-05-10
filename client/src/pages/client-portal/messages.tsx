@@ -423,9 +423,7 @@ export default function ClientPortalMessages() {
                               <span className="text-xs">
                                 {formatMessageTime(message.createdAt)}
                               </span>
-                              {message.fromClient && (
-                                <MessageStatus status={message.status} isRead={message.isRead} />
-                              )}
+                              {message.fromClient && renderMessageStatus(message.status, message.isRead)}
                             </div>
                           </div>
                         </div>
