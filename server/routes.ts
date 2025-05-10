@@ -404,7 +404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Subscription kontrolü (Free kullanıcılar bu özelliği kullanamaz)
-      if (req.session.user.subscriptionStatus === "free") {
+      const user = req.session.user as any; // Tipe uygunluk için cast
+      if (user.subscriptionStatus === "free") {
         return res.status(403).json({ 
           message: "Bu özellik abonelik gerektirir. Lütfen abonelik planınızı yükseltin."
         });
