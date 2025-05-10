@@ -62,15 +62,8 @@ export default function SubscriptionPage() {
     }
     
     try {
-      await apiRequest("POST", "/api/subscription/create", { plan: selectedPlan });
-      
-      toast({
-        title: "Başarılı",
-        description: "Aboneliğiniz başarıyla oluşturuldu",
-        variant: "default"
-      });
-      
-      // Redirect to checkout page with plan parameter
+      // İlk olarak ödeme sayfasına yönlendir, API çağrısını ödeme sayfasında yap
+      // Başarılı ödeme sonrasında abonelik oluşturulacak
       navigate(`/subscription/checkout?plan=${selectedPlan}`);
     } catch (error) {
       console.error("Subscription error:", error);

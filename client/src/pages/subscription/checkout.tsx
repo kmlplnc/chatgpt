@@ -65,6 +65,11 @@ export default function CheckoutPage() {
       // Ödeme işlemini simüle et (1 saniye bekle)
       await new Promise((resolve) => setTimeout(resolve, 1000));
       
+      // Plan parametresi ile abonelik oluştur
+      if (planFromUrl) {
+        await apiRequest("POST", "/api/subscription/create", { plan: planFromUrl });
+      }
+      
       // Başarılı ödeme
       setIsSuccess(true);
       
