@@ -780,22 +780,105 @@ export default function ClientDetail() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Günlük Kalori İhtiyacı</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-2xl font-bold">
-                      {lastMeasurement?.totalDailyEnergyExpenditure || "-"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium">Günlük Kalori İhtiyacı</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-2xl font-bold">
+                          {lastMeasurement?.totalDailyEnergyExpenditure || "-"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">kcal/gün (TDEE)</p>
+                      </div>
+                      <Activity className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Kalori ve Besin Değerleri</DialogTitle>
+                  <DialogDescription>
+                    Son ölçüme göre hesaplanan günlük kalori ve makro besin ihtiyaçları
+                  </DialogDescription>
+                </DialogHeader>
+                {lastMeasurement ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Bazal Metabolizma Hızı (BMR)</Label>
+                        <p className="text-2xl font-bold">{lastMeasurement.basalMetabolicRate} kcal</p>
+                        <p className="text-sm text-muted-foreground">
+                          Hiçbir aktivite yapmadan günlük yakılan kalori miktarı
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Toplam Günlük Enerji Tüketimi (TDEE)</Label>
+                        <p className="text-2xl font-bold">{lastMeasurement.totalDailyEnergyExpenditure} kcal</p>
+                        <p className="text-sm text-muted-foreground">
+                          Aktivite seviyenize göre günlük yakılan kalori
+                        </p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <h3 className="font-semibold mb-4">Önerilen Makro Besin Dağılımı</h3>
+                      <div className="space-y-6">
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label>Protein (%30)</Label>
+                            <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 4)}g</span>
+                          </div>
+                          <Progress value={30} className="h-2" />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30)} kcal
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label>Karbonhidrat (%40)</Label>
+                            <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.40 / 4)}g</span>
+                          </div>
+                          <Progress value={40} className="h-2" />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.40)} kcal
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label>Yağ (%30)</Label>
+                            <span className="font-medium">{Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30 / 9)}g</span>
+                          </div>
+                          <Progress value={30} className="h-2" />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {Math.round(lastMeasurement.totalDailyEnergyExpenditure * 0.30)} kcal
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Alert>
+                      <AlertTitle>Aktivite Seviyesi</AlertTitle>
+                      <AlertDescription>
+                        {activityLevelDescriptions[lastMeasurement.activityLevel]}
+                      </AlertDescription>
+                    </Alert>
                   </div>
-                  <Activity className="h-8 w-8 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    Hesaplanmış kalori değeri bulunmuyor
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
 
           {measurements && measurements.length > 0 && (
