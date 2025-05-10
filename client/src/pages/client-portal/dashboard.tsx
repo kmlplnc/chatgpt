@@ -27,6 +27,7 @@ interface ClientData {
   firstName: string;
   lastName: string;
   email: string;
+  clientVisibleNotes?: string;
 }
 
 interface Measurement {
@@ -189,6 +190,22 @@ export default function ClientPortalDashboard() {
           </TabsList>
 
           <TabsContent value="summary" className="space-y-6">
+            {clientData.clientVisibleNotes && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Diyetisyen Notları</CardTitle>
+                  <CardDescription>
+                    Diyetisyeninizin size özel notları ve tavsiyeleri
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-4 border rounded-lg">
+                    <p className="whitespace-pre-line">{clientData.clientVisibleNotes}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             <Card>
               <CardHeader>
                 <CardTitle>Mevcut Durum</CardTitle>

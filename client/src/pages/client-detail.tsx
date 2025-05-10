@@ -193,6 +193,7 @@ export default function ClientDetail() {
   const { toast } = useToast();
   const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes">('measurements');
   const [clientNotes, setClientNotes] = useState<string>();
+  const [clientPublicNotes, setClientPublicNotes] = useState<string>();
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
@@ -833,19 +834,20 @@ export default function ClientDetail() {
           <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
           <TabsTrigger value="measurements">Ölçümler</TabsTrigger>
           <TabsTrigger value="analytics">Analiz</TabsTrigger>
-          <TabsTrigger value="notes">Notlar</TabsTrigger>
+          <TabsTrigger value="notes">Diyetisyen Notları</TabsTrigger>
+          <TabsTrigger value="clientNotes">Danışana Görünecek Notlar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes">
           <Card>
             <CardHeader>
-              <CardTitle>Danışan Notları</CardTitle>
-              <CardDescription>Bu alanı danışan hakkında genel notlar eklemek için kullanabilirsiniz.</CardDescription>
+              <CardTitle>Diyetisyen Notları</CardTitle>
+              <CardDescription>Bu notlar sadece sizin görebileceğiniz özel notlardır. Danışana gösterilmez.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <Textarea 
-                  placeholder="Danışan hakkında notlarınızı buraya yazın..."
+                  placeholder="Danışan hakkında özel notlarınızı buraya yazın..."
                   className="min-h-[200px]"
                   value={clientNotes === undefined ? client.notes || "" : clientNotes}
                   onChange={(e) => {
@@ -858,8 +860,49 @@ export default function ClientDetail() {
                       await apiRequest("PATCH", `/api/clients/${id}`, { notes: clientNotes });
                       queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
                       toast({
-                        title: "Notlar kaydedildi",
-                        description: "Danışan notları başarıyla güncellendi.",
+                        title: "Özel Notlar kaydedildi",
+                        description: "Diyetisyen notları başarıyla güncellendi.",
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Hata",
+                        description: "Notlar kaydedilirken bir hata oluştu.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Notları Kaydet
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="clientNotes">
+          <Card>
+            <CardHeader>
+              <CardTitle>Danışana Görünecek Notlar</CardTitle>
+              <CardDescription>Bu notlar danışan portalında görünecektir. Danışanlarınız için talimatlarınızı buraya yazabilirsiniz.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Textarea 
+                  placeholder="Danışanınızın görmesini istediğiniz notları buraya yazın..."
+                  className="min-h-[200px]"
+                  value={clientPublicNotes === undefined ? client.clientVisibleNotes || "" : clientPublicNotes}
+                  onChange={(e) => {
+                    setClientPublicNotes(e.target.value);
+                  }}
+                />
+                <Button 
+                  onClick={async () => {
+                    try {
+                      await apiRequest("PATCH", `/api/clients/${id}`, { clientVisibleNotes: clientPublicNotes });
+                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                      toast({
+                        title: "Danışan Notları Kaydedildi",
+                        description: "Danışan portalında görünecek notlar başarıyla güncellendi.",
                       });
                     } catch (error) {
                       toast({

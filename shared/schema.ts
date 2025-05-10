@@ -32,7 +32,8 @@ export const clients = pgTable("clients", {
   occupation: text("occupation"),
   medicalConditions: text("medical_conditions"),
   allergies: text("allergies"),
-  notes: text("notes"),
+  notes: text("notes"), // Diyetisyenin özel notları - sadece diyetisyen görebilir
+  clientVisibleNotes: text("client_visible_notes"), // Danışanın da görebileceği notlar
   status: text("status").default("active").notNull(), // "active", "inactive"
   startDate: date("start_date").defaultNow().notNull(),
   endDate: date("end_date"),
