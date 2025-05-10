@@ -19,7 +19,10 @@ import {
   type InsertSavedFood,
   foodNutrients,
   type FoodNutrient,
-  type InsertFoodNutrient
+  type InsertFoodNutrient,
+  clientSessions,
+  type ClientSession,
+  type InsertClientSession
 } from "@shared/schema";
 
 // Interface for storage operations
@@ -47,6 +50,17 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: number, updates: Partial<Client>): Promise<Client | undefined>;
   deleteClient(id: number): Promise<boolean>;
+  
+  // Client Portal methods
+  getClientByAccessCode(accessCode: string): Promise<Client | undefined>;
+  generateClientAccessCode(clientId: number): Promise<string>;
+  updateClientAccessCode(clientId: number, accessCode: string): Promise<boolean>;
+  
+  // Client Session management
+  createClientSession(session: InsertClientSession): Promise<ClientSession>;
+  getClientSession(sessionToken: string): Promise<ClientSession | undefined>;
+  updateClientSessionActivity(sessionToken: string): Promise<boolean>;
+  deleteClientSession(sessionToken: string): Promise<boolean>;
   
   // Measurement methods
   getMeasurements(clientId: number): Promise<Measurement[]>;

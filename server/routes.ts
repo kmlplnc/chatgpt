@@ -16,6 +16,7 @@ import { clientsRouter } from './routes/clients';
 import { authRouter } from './routes/auth';
 import { subscriptionRouter } from './routes/subscription';
 import { adminRouter } from './routes/admin';
+import clientPortalRouter from './routes/client-portal';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session setup
@@ -42,6 +43,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add admin routes
   app.use('/api/admin', adminRouter);
+  
+  // Add client portal routes
+  app.use('/api/client-portal', clientPortalRouter);
   
   // Error handler middleware
   const handleError = (err: any, res: Response) => {
