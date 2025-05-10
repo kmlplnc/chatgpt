@@ -40,6 +40,22 @@ export default function CheckoutPage() {
   const params = new URLSearchParams(location.split('?')[1] || '');
   const planFromUrl = params.get('plan');
   
+  // Plan seçilmemişse ve sayfa yeni yükleniyorsa anasayfaya yönlendir
+  useEffect(() => {
+    if (!planFromUrl) {
+      toast({
+        title: "Hata",
+        description: "Abonelik planı seçilmedi. Lütfen önce bir plan seçin.",
+        variant: "destructive"
+      });
+      
+      // Kısa bir gecikme ile yönlendir (toast'un görünmesine izin ver)
+      setTimeout(() => {
+        navigate('/subscription');
+      }, 1500);
+    }
+  }, []);
+  
   // Kullanıcı bilgilerini getir
   const { data: user, isLoading } = useQuery({ 
     queryKey: ['/api/auth/me'],
@@ -58,17 +74,26 @@ export default function CheckoutPage() {
   });
   
   const handleCreditCardPayment = async (values: PaymentFormValues) => {
+    // Plan kontrolü
+    if (!planFromUrl) {
+      toast({
+        title: "Hata",
+        description: "Abonelik planı seçilmedi. Abonelik sayfasına yönlendiriliyorsunuz.",
+        variant: "destructive",
+      });
+      setTimeout(() => navigate('/subscription'), 1500);
+      return;
+    }
+
     // Gerçek bir ödeme sistemi olmadığından, simüle ediyoruz
     setIsSubmitting(true);
     
     try {
-      // Ödeme işlemini simüle et (1 saniye bekle)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Ödeme işlemini simüle et (sadece 300ms bekle - kullanıcı deneyimini hızlandırmak için)
+      await new Promise((resolve) => setTimeout(resolve, 300));
       
       // Plan parametresi ile abonelik oluştur
-      if (planFromUrl) {
-        await apiRequest("POST", "/api/subscription/create", { plan: planFromUrl });
-      }
+      await apiRequest("POST", "/api/subscription/create", { plan: planFromUrl });
       
       // Başarılı ödeme
       setIsSuccess(true);
@@ -79,10 +104,10 @@ export default function CheckoutPage() {
         variant: "default",
       });
       
-      // 2 saniye sonra ana sayfaya yönlendir
+      // 1 saniye sonra ana sayfaya yönlendir
       setTimeout(() => {
         navigate('/');
-      }, 2000);
+      }, 1000);
     } catch (error) {
       console.error("Ödeme hatası:", error);
       toast({
