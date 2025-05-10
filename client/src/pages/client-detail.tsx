@@ -439,15 +439,16 @@ export default function ClientDetail() {
     return dateA.getTime() - dateB.getTime();
   });
 
-  // Son ölçüm
-  const lastMeasurement = measurements && measurements.length > 0 
-    ? measurements.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] 
-    : null;
-
-  // İlk ölçüm
-  const firstMeasurement = measurements && measurements.length > 0
-    ? measurements.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
-    : null;
+  // Ölçümleri tarih sırasına göre sırala (kopyasını alarak orjinal diziyi değiştirmiyoruz)
+  const sortedMeasurements = measurements && measurements.length > 0
+    ? [...measurements].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    : [];
+    
+  // İlk ölçüm (tarih sırasına göre en eski)
+  const firstMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[0] : null;
+  
+  // Son ölçüm (tarih sırasına göre en yeni)
+  const lastMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[sortedMeasurements.length - 1] : null;
 
   // Değişim hesaplama
   const calculateChange = (current: number, initial: number) => {
@@ -576,7 +577,7 @@ export default function ClientDetail() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => window.location.href = "/clients"}
+          onClick={() => setLocation("/clients")}
           className="mr-4"
         >
           <ChevronLeft className="mr-2 h-4 w-4" />
