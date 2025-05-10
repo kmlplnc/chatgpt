@@ -93,6 +93,20 @@ export interface IStorage {
   getFoodNutrients(fdcId: string): Promise<FoodNutrient[]>;
   createFoodNutrient(nutrient: InsertFoodNutrient): Promise<FoodNutrient>;
   createFoodNutrients(nutrients: InsertFoodNutrient[]): Promise<FoodNutrient[]>;
+  
+  // Appointment methods
+  getAppointments(clientId?: number, userId?: number): Promise<Appointment[]>;
+  getAppointmentById(id: number): Promise<Appointment | undefined>;
+  createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment | undefined>;
+  deleteAppointment(id: number): Promise<boolean>;
+  
+  // Message methods
+  getMessages(clientId: number, userId: number): Promise<Message[]>;
+  getMessageById(id: number): Promise<Message | undefined>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  markMessageAsRead(id: number): Promise<boolean>;
+  getUnreadMessages(clientId?: number, userId?: number): Promise<number>;
 }
 
 // In-memory storage implementation

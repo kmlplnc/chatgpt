@@ -234,8 +234,51 @@ export type InsertSavedFood = z.infer<typeof insertSavedFoodSchema>;
 export type FoodNutrient = typeof foodNutrients.$inferSelect;
 export type InsertFoodNutrient = z.infer<typeof insertFoodNutrientSchema>;
 
+// Randevular tablosu
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  date: timestamp("date").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  status: text("status").notNull().default("pending"), // pending, confirmed, cancelled, completed
+  notes: text("notes"),
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Mesajlar tablosu
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  fromClient: boolean("from_client").notNull().default(false),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type ClientSession = typeof clientSessions.$inferSelect;
 export type InsertClientSession = typeof clientSessions.$inferInsert;
+
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 // Search result type
 export interface FoodSearchResult {
