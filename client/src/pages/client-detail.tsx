@@ -1317,7 +1317,7 @@ export default function ClientDetail() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Bazal Metabolizma Hızı (BMR)</CardTitle>
+                    <CardTitle>Bazal Metabolizma Hızı (BMH)</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-72">
@@ -1328,7 +1328,7 @@ export default function ClientDetail() {
                           <YAxis />
                           <Tooltip />
                           <Legend />
-                          <Line type="monotone" dataKey="bmr" stroke="#8b5cf6" name="BMR (kcal)" strokeWidth={2} />
+                          <Line type="monotone" dataKey="bmr" stroke="#8b5cf6" name="BMH (kcal)" strokeWidth={2} />
                         </ReLineChart>
                       </ResponsiveContainer>
                     </div>
