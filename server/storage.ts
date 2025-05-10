@@ -1287,6 +1287,29 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount > 0;
   }
   
+  async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
+    const result = await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(inArray(messages.id, messageIds));
+    
+    return result.rowCount > 0;
+  }
+  
+  async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
+    const result = await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(and(
+        eq(messages.clientId, clientId),
+        eq(messages.userId, userId),
+        eq(messages.isRead, false),
+        eq(messages.fromClient, true) // Sadece danışandan gelen mesajları işaretle
+      ));
+    
+    return result.rowCount > 0;
+  }
+  
   async getUnreadMessages(clientId?: number, userId?: number): Promise<number> {
     let query = db.select({ count: count() }).from(messages).where(eq(messages.isRead, false));
     
