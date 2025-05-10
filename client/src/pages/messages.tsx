@@ -58,6 +58,12 @@ export default function MessagesPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Ses efekti oluşturma
+  useEffect(() => {
+    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3');
+  }, []);
 
   // Danışanları getir
   const { data: clients, isLoading: clientsLoading, error: clientsError } = useQuery({
@@ -77,7 +83,7 @@ export default function MessagesPage() {
   });
 
   // Seçili danışan için mesajları getir
-  const { data: messages, isLoading: messagesLoading } = useQuery({
+  const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ['/api/messages', selectedClient?.id],
     queryFn: async () => {
       if (!selectedClient) return [];
@@ -92,7 +98,8 @@ export default function MessagesPage() {
         return [];
       }
     },
-    enabled: !!selectedClient
+    enabled: !!selectedClient,
+    refetchInterval: 3000 // Her 3 saniyede bir mesajları otomatik güncelle
   });
 
   // Okunmamış mesaj sayılarını getir
@@ -108,7 +115,7 @@ export default function MessagesPage() {
         return [];
       }
     },
-    refetchInterval: 15000 // Her 15 saniyede bir güncelle
+    refetchInterval: 5000 // Her 5 saniyede bir güncelle
   });
 
   // Mesaj gönder
@@ -190,18 +197,47 @@ export default function MessagesPage() {
     }
   }, [selectedClient, messages]);
 
-  // Mesajları gruplandır
+  // Mesajları gruplandır ve yeni mesaj sesi çal
   useEffect(() => {
     if (messages && Array.isArray(messages)) {
       console.log("Mesajlar yüklendi:", messages);
       const grouped = groupMessagesByDate(messages);
       console.log("Gruplandırılmış mesajlar:", grouped);
+      
+      // Önceki mesajlar ile karşılaştır
+      if (groupedMessages.length > 0) {
+        const oldMessageCount = groupedMessages.reduce(
+          (sum, group) => sum + group.messages.length, 0
+        );
+        const newMessageCount = messages.length;
+        
+        // Yeni mesaj geldiyse ve danışandan geldiyse ses çal
+        if (newMessageCount > oldMessageCount && selectedClient) {
+          // En son eklenen mesajı bul
+          const lastMessage = messages[messages.length - 1];
+          
+          if (lastMessage.fromClient) {
+            console.log("Yeni mesaj bildirim sesi çalınıyor");
+            if (audioRef.current) {
+              audioRef.current.play().catch(err => console.error("Ses çalma hatası:", err));
+            }
+            
+            // Bildirim göster
+            toast({
+              title: "Yeni Mesaj",
+              description: `${selectedClient.firstName} ${selectedClient.lastName} yeni bir mesaj gönderdi.`,
+              duration: 3000
+            });
+          }
+        }
+      }
+      
       setGroupedMessages(grouped);
     } else {
       console.log("Mesajlar geçerli bir dizi değil veya boş:", messages);
       setGroupedMessages([]);
     }
-  }, [messages]);
+  }, [messages, groupedMessages, selectedClient, toast]);
 
   // Mesajların sonuna scroll
   useEffect(() => {

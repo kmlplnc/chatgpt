@@ -30,6 +30,12 @@ export default function ClientPortalMessages() {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Ses efekti oluşturma
+  useEffect(() => {
+    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3');
+  }, []);
   
   // Okunmamış mesaj sayısını getir
   const { data: unreadCountData } = useQuery({
