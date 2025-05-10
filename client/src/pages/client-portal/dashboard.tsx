@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'wouter';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, getQueryFn } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -26,8 +27,6 @@ import {
   ArrowLeft,
   MessageSquare
 } from 'lucide-react';
-// Mesajlar bileşenini içe aktar
-import Messages from './messages';
 import { 
   FaSmile, 
   FaSadTear, 
@@ -691,7 +690,37 @@ export default function ClientPortalDashboard() {
           </TabsContent>
           
           <TabsContent value="messages" className="space-y-6">
-            <Messages />
+            <Card>
+              <CardHeader>
+                <CardTitle>Mesajlar</CardTitle>
+                <CardDescription>
+                  Diyetisyeninizle olan mesajlarınızı görüntüleyin
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center space-y-4 py-8">
+                  <MessageSquare className="h-16 w-16 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold">Mesajlaşma Sayfası</h3>
+                  <p className="text-center text-muted-foreground max-w-md">
+                    Diyetisyeninizle özel mesajlaşma sayfanıza gitmek için aşağıdaki butona tıklayın.
+                  </p>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => navigate('/client-portal/messages')}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Mesajları Görüntüle
+                    {unreadMessages > 0 && (
+                      <Badge 
+                        className="ml-2 px-1 min-w-[1.25rem] h-5 rounded-full flex items-center justify-center bg-red-500 border-none text-white text-xs"
+                      >
+                        {unreadMessages}
+                      </Badge>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

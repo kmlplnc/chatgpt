@@ -48,7 +48,7 @@ export default function ClientPortalMessages() {
   // Mesajları getir
   const { data: messages, isLoading } = useQuery({
     queryKey: ['/api/client-portal/messages'],
-    queryFn: getQueryFn()
+    queryFn: getQueryFn({ on401: "redirect" })
   });
 
   // Dietisyen ve danışan bilgilerini getir
