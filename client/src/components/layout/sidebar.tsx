@@ -87,11 +87,12 @@ export default function Sidebar() {
         <ul className="space-y-1">
           {filteredNavItems.map((item) => {
             const isActive = location === item.href;
+            // Kilit gösterilecek durumlar:
+            // 1. Giriş yapmış kullanıcı için premium özellikler (ve premium üye değil ise)
+            // 2. Giriş yapmamış kullanıcı için Ana Sayfa dışındaki tüm sayfalar
             const isLocked = 
-              isAuthenticated && 
-              item.requirePremium && 
-              !isPremium && 
-              item.href !== "/subscription";
+              (isAuthenticated && item.requirePremium && !isPremium && item.href !== "/subscription") ||
+              (!isAuthenticated && item.href !== "/" && item.href !== "/subscription");
             
             return (
               <li key={item.name}>

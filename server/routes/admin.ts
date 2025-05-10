@@ -142,21 +142,29 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
       hasSubscriptionUpdates = true;
     }
     
-    // Kullanıcıyı güncelle
-    const updatedUser = await storage.updateUser(userId, updates);
-    
-    // Abonelik bilgilerini güncelle
-    if (hasSubscriptionUpdates) {
-      await storage.updateUserSubscription(userId, subscriptionUpdates);
-    }
-    
-    // Parola bilgisini çıkar
-    if (updatedUser) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password: _, ...safeUser } = updatedUser;
-      res.json(safeUser);
-    } else {
-      res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    try {
+      // Kullanıcıyı güncelle
+      const updatedUser = await storage.updateUser(userId, updates);
+      
+      // Abonelik bilgilerini güncelle
+      if (hasSubscriptionUpdates) {
+        await storage.updateUserSubscription(userId, subscriptionUpdates);
+      }
+      
+      // Güncel kullanıcıyı tekrar getir (çünkü abonelik bilgileri ayrı bir fonksiyonla güncellendi)
+      const refreshedUser = await storage.getUser(userId);
+      
+      // Parola bilgisini çıkar
+      if (refreshedUser) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: _, ...safeUser } = refreshedUser;
+        return res.json(safeUser);
+      } else {
+        return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+      }
+    } catch (updateError: any) {
+      console.error("Kullanıcı güncelleme hatası:", updateError);
+      return res.status(500).json({ message: "Kullanıcı güncellenirken bir hata oluştu", error: updateError.message });
     }
   } catch (error: any) {
     res.status(500).json({ message: "Kullanıcı güncellenirken bir hata oluştu", error: error.message });
