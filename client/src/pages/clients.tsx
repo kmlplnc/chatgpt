@@ -287,12 +287,10 @@ export default function ClientsPage() {
           </Dialog>
           
           <Dialog open={openNewClientDialog} onOpenChange={setOpenNewClientDialog}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <PlusCircle className="h-4 w-4" />
-                Yeni Danışan Ekle
-              </Button>
-            </DialogTrigger>
+            <Button className="flex items-center gap-2" onClick={() => setOpenNewClientDialog(true)}>
+              <PlusCircle className="h-4 w-4" />
+              Yeni Danışan Ekle
+            </Button>
             <DialogContent className="max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Yeni Danışan Ekle</DialogTitle>
