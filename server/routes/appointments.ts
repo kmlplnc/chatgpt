@@ -58,11 +58,15 @@ appointmentsRouter.get("/:id", requireAuth, async (req: Request, res: Response) 
 // Create appointment
 appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
+    console.log("Randevu verisi:", JSON.stringify(req.body, null, 2));
+    
     // Validate request body
     const appointmentData = insertAppointmentSchema.parse({
       ...req.body,
       userId: req.session.user!.id,
     });
+    
+    console.log("Onaylanmış randevu verisi:", JSON.stringify(appointmentData, null, 2));
     
     // Create appointment
     const appointment = await storage.createAppointment(appointmentData);
@@ -70,6 +74,7 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
     res.status(201).json(appointment);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("Zod Validasyon Hatası:", JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ message: "Geçersiz randevu bilgileri", errors: error.errors });
     }
     

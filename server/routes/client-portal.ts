@@ -156,6 +156,30 @@ clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Res
   }
 });
 
+// Diyetisyen bilgilerini getir
+clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    
+    // Diyetisyen bilgilerini getir
+    const dietitian = await storage.getUser(client.userId);
+    
+    if (!dietitian) {
+      return res.status(404).json({ message: 'Diyetisyen bulunamadı' });
+    }
+    
+    // Diyetisyen bilgilerini gönder (sadece gerekli alanlar)
+    res.json({
+      id: dietitian.id,
+      name: dietitian.name || dietitian.username,
+      email: dietitian.email
+    });
+  } catch (error) {
+    console.error('Get dietitian error:', error);
+    res.status(500).json({ message: 'Diyetisyen bilgileri getirilirken bir hata oluştu' });
+  }
+});
+
 // Danışanın ölçümlerini getir
 clientPortalRouter.get('/measurements', verifyClientSession, async (req: Request, res: Response) => {
   try {

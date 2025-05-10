@@ -115,12 +115,14 @@ export function AppointmentDialog({
     const appointmentData = {
       title: formData.get('title') as string,
       clientId: Number(clientId),
-      date: startDateTime,
-      startTime: startDateTime,
-      endTime: endDateTime,
-      status: formData.get('status') as string,
-      notes: formData.get('notes') as string
+      date: startDateTime.toISOString(),
+      startTime: startDateTime.toISOString(),
+      endTime: endDateTime.toISOString(),
+      status: formData.get('status') as string || "pending",
+      notes: formData.get('notes') as string || null
     };
+    
+    console.log("Gönderilen randevu verileri:", appointmentData);
     
     if (isEdit) {
       updateAppointmentMutation.mutate(appointmentData);
