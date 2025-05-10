@@ -48,12 +48,29 @@ export default function ClientPortalMessages() {
   // Mesajları getir
   const { data: messages, isLoading } = useQuery({
     queryKey: ['/api/client-portal/messages'],
-    queryFn: getQueryFn({ on401: "redirect" })
+    queryFn: async () => {
+      const response = await fetch('/api/client-portal/messages', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Mesajlar getirilemedi');
+      }
+      return response.json();
+    }
   });
 
   // Dietisyen ve danışan bilgilerini getir
   const { data: clientData } = useQuery({
     queryKey: ['/api/client-portal/me'],
+    queryFn: async () => {
+      const response = await fetch('/api/client-portal/me', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Danışan bilgileri getirilemedi');
+      }
+      return response.json();
+    },
     queryFn: async () => {
       const response = await fetch('/api/client-portal/me');
       if (!response.ok) {
