@@ -731,12 +731,18 @@ export default function ClientDetail() {
 
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div>
-                  <Label>BMR</Label>
-                  <p className="font-medium">{lastMeasurement.basalMetabolicRate || "-"} kcal</p>
+                  <Label>Aktivite Seviyesi</Label>
+                  <p className="font-medium">
+                    {lastMeasurement.activityLevel === 'sedentary' ? 'Hareketsiz' :
+                     lastMeasurement.activityLevel === 'light' ? 'Az Hareketli' :
+                     lastMeasurement.activityLevel === 'moderate' ? 'Orta Derecede Aktif' :
+                     lastMeasurement.activityLevel === 'active' ? 'Aktif' :
+                     lastMeasurement.activityLevel === 'very_active' ? 'Çok Aktif' : '-'}
+                  </p>
                 </div>
                 <div>
-                  <Label>TDEE</Label>
-                  <p className="font-medium">{lastMeasurement.totalDailyEnergyExpenditure || "-"} kcal</p>
+                  <Label>Günlük Kalori İhtiyacı</Label>
+                  <p className="font-medium">{lastMeasurement.totalDailyEnergyExpenditure ? `${Math.round(lastMeasurement.totalDailyEnergyExpenditure)} kcal` : "-"}</p>
                 </div>
               </div>
             </CardContent>
@@ -1052,8 +1058,8 @@ export default function ClientDetail() {
                   <TableHead>Vücut Yağ %</TableHead>
                   <TableHead>Bel (cm)</TableHead>
                   <TableHead>Kalça (cm)</TableHead>
-                  <TableHead>BMR (kcal)</TableHead>
-                  <TableHead>TDEE (kcal)</TableHead>
+                  <TableHead>BMH (kcal)</TableHead>
+                  <TableHead>Günlük İhtiyaç (kcal)</TableHead>
                   <TableHead>İşlemler</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1080,8 +1086,8 @@ export default function ClientDetail() {
                         </TableCell>
                         <TableCell>{measurement.waistCircumference || "-"}</TableCell>
                         <TableCell>{measurement.hipCircumference || "-"}</TableCell>
-                        <TableCell>{measurement.basalMetabolicRate || "-"}</TableCell>
-                        <TableCell>{measurement.totalDailyEnergyExpenditure || "-"}</TableCell>
+                        <TableCell>{measurement.basalMetabolicRate ? Math.round(measurement.basalMetabolicRate) : "-"}</TableCell>
+                        <TableCell>{measurement.totalDailyEnergyExpenditure ? Math.round(measurement.totalDailyEnergyExpenditure) : "-"}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button 
