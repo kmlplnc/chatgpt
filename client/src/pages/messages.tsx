@@ -23,7 +23,8 @@ import {
   Check, 
   CheckCheck, 
   Clock,
-  MessageSquare
+  MessageSquare,
+  Mail
 } from "lucide-react";
 import { format, isToday, isYesterday } from 'date-fns';
 import { tr } from 'date-fns/locale';
