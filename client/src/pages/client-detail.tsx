@@ -196,6 +196,27 @@ export default function ClientDetail() {
   const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
+  
+  // Client notes güncelleme mutasyonu
+  const updateClientNotesMutation = useMutation({
+    mutationFn: (notes: string) => {
+      return apiRequest("PATCH", `/api/clients/${id}`, { notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Danışan notları güncellendi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message || "Notlar güncellenemedi",
+        variant: "destructive",
+      });
+    }
+  });
 
   // API İstekleri
   async function getClient() {
@@ -203,7 +224,12 @@ export default function ClientDetail() {
     if (!response.ok) {
       throw new Error("Danışan bilgileri yüklenemedi");
     }
-    return response.json();
+    const clientData = await response.json();
+    // Not değerini state'e ata
+    if (clientData.notes !== undefined) {
+      setClientNotes(clientData.notes || "");
+    }
+    return clientData;
   }
 
   async function getMeasurements() {
@@ -1424,6 +1450,37 @@ export default function ClientDetail() {
               </Button>
             </div>
           )}
+        </TabsContent>
+        
+        {/* Not Düzenleme Sekmesi */}
+        <TabsContent value="notes" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Danışan Notları</CardTitle>
+              <CardDescription>
+                Danışanla ilgili özel notlarınızı burada tutabilirsiniz. Bu notlar sadece sizin tarafınızdan görülebilir, danışan portalında gösterilmez.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Danışan hakkında notlarınız..."
+                className="min-h-[200px]"
+                value={clientNotes}
+                onChange={(e) => setClientNotes(e.target.value)}
+              />
+            </CardContent>
+            <CardFooter className="flex justify-end">
+              <Button 
+                onClick={() => updateClientNotesMutation.mutate(clientNotes)}
+                disabled={updateClientNotesMutation.isPending}
+              >
+                {updateClientNotesMutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Notları Kaydet
+              </Button>
+            </CardFooter>
+          </Card>
         </TabsContent>
       </Tabs>
 
