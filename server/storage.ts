@@ -22,7 +22,13 @@ import {
   type InsertFoodNutrient,
   clientSessions,
   type ClientSession,
-  type InsertClientSession
+  type InsertClientSession,
+  appointments,
+  type Appointment,
+  type InsertAppointment,
+  messages,
+  type Message,
+  type InsertMessage
 } from "@shared/schema";
 
 // Interface for storage operations
@@ -191,6 +197,8 @@ export class MemStorage implements IStorage {
   private savedFoods: Map<number, SavedFood>;
   private foodNutrients: Map<number, FoodNutrient>;
   private clientSessions: Map<string, ClientSession>;
+  private appointments: Map<number, Appointment>;
+  private messages: Map<number, Message>;
   
   private userIdCounter: number;
   private clientIdCounter: number;
@@ -198,6 +206,8 @@ export class MemStorage implements IStorage {
   private dietPlanIdCounter: number;
   private savedFoodIdCounter: number;
   private foodNutrientIdCounter: number;
+  private appointmentIdCounter: number;
+  private messageIdCounter: number;
   private recentViews: string[];
 
   constructor() {
@@ -209,6 +219,8 @@ export class MemStorage implements IStorage {
     this.savedFoods = new Map();
     this.foodNutrients = new Map();
     this.clientSessions = new Map();
+    this.appointments = new Map();
+    this.messages = new Map();
     
     this.userIdCounter = 1;
     this.clientIdCounter = 1;
@@ -216,6 +228,8 @@ export class MemStorage implements IStorage {
     this.dietPlanIdCounter = 1;
     this.savedFoodIdCounter = 1;
     this.foodNutrientIdCounter = 1;
+    this.appointmentIdCounter = 1;
+    this.messageIdCounter = 1;
     this.recentViews = [];
   }
 
