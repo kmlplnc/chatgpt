@@ -181,9 +181,34 @@ export default function CreateAIDietPlan() {
     },
   });
   
+  // Form değerlerini sıfırla
+  const resetForm = () => {
+    form.reset({
+      name: "",
+      age: 30,
+      gender: "male",
+      height: 170,
+      weight: 70,
+      activityLevel: "moderate",
+      dietType: "balanced",
+      allergies: "",
+      healthConditions: "",
+      calorieGoal: undefined,
+      proteinPercentage: 30,
+      carbsPercentage: 40,
+      fatPercentage: 30,
+      meals: 3,
+      includeDessert: false,
+      includeSnacks: true,
+    });
+  };
+  
   // Danışan seçildiğinde
   const onClientSelect = (data: z.infer<typeof clientSelectSchema>) => {
+    console.log("Danışan seçildi:", data.clientId);
     setSelectedClientId(data.clientId);
+    // Formu manual tab'a geçir, böylece danışan verileri yüklendiğinde görebiliriz
+    setSelectedTab("manual");
   };
 
   // Diyet planı oluşturma mutation'ı
