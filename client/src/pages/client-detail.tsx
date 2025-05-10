@@ -661,19 +661,19 @@ export default function ClientDetail() {
 
         {lastMeasurement && (
           <Card>
-            <CardHeader>
-              <CardTitle>Son Ölçüm</CardTitle>
-              <CardDescription>{formatDate(lastMeasurement.date)}</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl">Son Ölçüm</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">{formatDate(lastMeasurement.date)}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Kilo</Label>
-                  <p className="text-lg font-semibold">{lastMeasurement.weight} kg</p>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <Label className="text-sm text-muted-foreground">Kilo</Label>
+                  <p className="text-2xl font-bold mt-1">{lastMeasurement.weight} <span className="text-base font-normal text-muted-foreground">kg</span></p>
                 </div>
-                <div>
-                  <Label>Boy</Label>
-                  <p className="text-lg font-semibold">{lastMeasurement.height} cm</p>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <Label className="text-sm text-muted-foreground">Boy</Label>
+                  <p className="text-2xl font-bold mt-1">{lastMeasurement.height} <span className="text-base font-normal text-muted-foreground">cm</span></p>
                 </div>
               </div>
 
