@@ -220,7 +220,7 @@ export default function CheckoutPage() {
               </CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button variant="outline" onClick={() => navigate("/login")}>
+              <Button variant="outline" onClick={() => window.location.href = "/login"}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Giriş Yap
               </Button>
@@ -245,7 +245,7 @@ export default function CheckoutPage() {
               </CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button variant="outline" onClick={() => navigate("/subscription")}>
+              <Button variant="outline" onClick={() => window.location.href = "/subscription"}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Abonelik Planlarını Görüntüle
               </Button>
@@ -260,7 +260,7 @@ export default function CheckoutPage() {
     <Layout>
       <div className="container mx-auto max-w-3xl py-12">
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => navigate("/subscription")}>
+          <Button variant="ghost" onClick={() => window.location.href = "/subscription"}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Abonelik Planlarına Dön
           </Button>
