@@ -239,43 +239,31 @@ export default function MessagesPage() {
     }
   }, [messages, groupedMessages, selectedClient, toast]);
 
-  // Yeni mesaj geldiğinde otomatik scroll (sadece yeni mesaj diyetisyenden geldiyse ya da seçili danışan değiştiğinde)
+  // Otomatik scrollu devre dışı bırakma ayarı ekliyoruz
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(false);
   const [lastMessageId, setLastMessageId] = useState<number | null>(null);
-  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
   
+  // Yeni mesaj geldiğinde son mesaj ID'sini takip et, ancak otomatik kaydırma yapma
   useEffect(() => {
-    // Mesajlar varsa, son mesajın ID'sini kaydet
     if (messages && messages.length > 0) {
       const currentLastMessageId = messages[messages.length - 1]?.id;
-      const lastMessageFromClient = messages[messages.length - 1]?.fromClient;
-      const isNewMessage = currentLastMessageId !== lastMessageId;
-      
-      // Son mesaj bizim tarafımızdan gönderildiyse her zaman aşağı kaydır
-      if (isNewMessage && !lastMessageFromClient) {
-        setShouldScrollToBottom(true);
-      } 
-      // Yeni bir mesaj yoksa veya danışandan geldiyse, scroll pozisyonunu kullanıcıya bırak
-      else if (isNewMessage && lastMessageFromClient) {
-        // Eğer kullanıcı en aşağıda ise, otomatik kaydır
-        if (messagesContainerRef.current) {
-          const container = messagesContainerRef.current as any;
-          const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-          
-          // Kullanıcı zaten en aşağıdaysa (100px tolerans) otomatik kaydır
-          setShouldScrollToBottom(scrollBottom < 100);
-        }
-      }
-      
       setLastMessageId(currentLastMessageId);
     }
-  }, [messages, lastMessageId]);
+  }, [messages]);
   
-  // Sadece gerektiğinde mesajların sonuna scroll
-  useEffect(() => {
-    if (messagesEndRef.current && shouldScrollToBottom) {
+  // Mesaj gönderildiğinde SADECE o zaman aşağı kaydır
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [groupedMessages, shouldScrollToBottom]);
+  }, []);
+  
+  // Yalnızca mesaj gönderildiğinde scroll yap
+  useEffect(() => {
+    if (sendMessageMutation.isSuccess) {
+      setTimeout(() => scrollToBottom(), 100);
+    }
+  }, [sendMessageMutation.isSuccess, scrollToBottom]);
 
   // Danışanları ara
   const filteredClients = useMemo(() => {
@@ -300,14 +288,21 @@ export default function MessagesPage() {
   // Danışanı seç
   const handleClientSelect = (client) => {
     setSelectedClient(client);
-    // Yeni danışan seçildiğinde scroll pozisyonunu sıfırla ve mesajların en altına kaydır
-    setShouldScrollToBottom(true);
-    // Yeni mesajların yüklenmesini ve kaydırma işleminin tamamlanması için timeout ekleyelim
+    // Yeni danışan seçildiğinde hemen mesajları yüklemeye başlarız
+    // Ancak ilk yükleme tamamlandıktan sonra aşağı kaydırma yapmamız gerekiyor
+    // Bu nedenle bir sonraki işlem döngüsünde timeout ile kaydırma yapıyoruz
     setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-      }
-    }, 300);
+      // eslint-disable-next-line no-unused-expressions
+      messagesContainerRef.current?.scrollTo({
+        top: 0,
+        behavior: 'auto'
+      });
+      
+      // Biraz daha bekleyip sonra aşağı kaydır (mesajların yüklenmesi için)
+      setTimeout(() => {
+        scrollToBottom();
+      }, 300);
+    }, 50);
   };
 
   // Danışan adını görüntüle
