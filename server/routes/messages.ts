@@ -268,6 +268,57 @@ messagesRouter.get("/unread/counts-by-client", requireAuth, async (req: Request,
   }
 });
 
+// Get last message for a specific client
+messagesRouter.get("/last/:clientId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const clientId = Number(req.params.clientId);
+    
+    if (isNaN(clientId)) {
+      return res.status(400).json({ message: "Geçerli bir danışan ID gereklidir" });
+    }
+    
+    // Diyetisyenin kendi danışanı olduğunu doğrula
+    const client = await storage.getClient(clientId);
+    if (!client || (client.userId !== userId && client.userId !== null)) {
+      return res.status(403).json({ message: "Bu danışana ait mesajlara erişim izniniz yok" });
+    }
+    
+    const lastMessage = await storage.getLastMessageByClient(clientId, userId);
+    res.json(lastMessage || null);
+  } catch (error) {
+    console.error("Son mesaj getirilemedi:", error);
+    res.status(500).json({ message: "Son mesaj getirilemedi" });
+  }
+});
+
+// Get last messages for all clients of a user
+messagesRouter.get("/last-messages", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    
+    // Diyetisyenin tüm danışanlarını getir
+    const clients = await storage.getClients(userId);
+    
+    // Her danışan için son mesajı al
+    const lastMessages = await Promise.all(
+      clients.map(async (client) => {
+        const lastMessage = await storage.getLastMessageByClient(client.id, userId);
+        return {
+          clientId: client.id,
+          clientName: `${client.firstName} ${client.lastName}`,
+          lastMessage: lastMessage || null
+        };
+      })
+    );
+    
+    res.json(lastMessages);
+  } catch (error) {
+    console.error("Son mesajlar getirilemedi:", error);
+    res.status(500).json({ message: "Son mesajlar getirilemedi" });
+  }
+});
+
 // Mark all messages from a client as read
 messagesRouter.post("/:clientId/mark-as-read", requireAuth, async (req: Request, res: Response) => {
   try {

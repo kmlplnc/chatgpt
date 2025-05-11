@@ -871,6 +871,24 @@ export class MemStorage implements IStorage {
     return unreadCounts.filter(item => item.count > 0); // Sadece okunmamış mesajı olanları dön
   }
   
+  async getLastMessageByClient(clientId: number, userId: number): Promise<Message | undefined> {
+    const messages = Array.from(this.messages.values());
+    
+    // Bu danışana ait mesajları filtrele
+    const clientMessages = messages.filter(msg => 
+      msg.clientId === clientId && 
+      msg.userId === userId
+    );
+    
+    // Mesajları tarihe göre sırala (en yeni en üstte)
+    clientMessages.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    // En son mesajı döndür
+    return clientMessages.length > 0 ? clientMessages[0] : undefined;
+  }
+  
   async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
     try {
       const messages = Array.from(this.messages.values());
