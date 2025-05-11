@@ -21,30 +21,30 @@ declare global {
 clientPortalRouter.post('/login', async (req: Request, res: Response) => {
   try {
     const { accessCode } = req.body;
-    
+
     if (!accessCode) {
       return res.status(400).json({ message: 'Erişim kodu gereklidir' });
     }
-    
+
     // Erişim kodu ile danışanı bul
     const client = await storage.getClientByAccessCode(accessCode);
-    
+
     if (!client) {
       return res.status(401).json({ message: 'Geçersiz erişim kodu' });
     }
-    
+
     // Oturum tokeni oluştur
     const sessionToken = randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 gün geçerli
-    
+
     // Oturumu veritabanına kaydet
     const session = await storage.createClientSession({
       clientId: client.id,
       sessionToken,
       expiresAt
     });
-    
+
     // Oturum bilgilerini cookie ile gönder (httpOnly güvenlik için)
     res.cookie('client_session', sessionToken, {
       httpOnly: true,
@@ -52,7 +52,7 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 gün
       sameSite: 'strict'
     });
-    
+
     // Danışan bilgilerini gönder - clientVisibleNotes dahil
     res.json({
       id: client.id,
@@ -61,7 +61,7 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
       email: client.email,
       clientVisibleNotes: client.clientVisibleNotes || null, // Danışana görünecek notlar
     });
-    
+
   } catch (error) {
     console.error('Client login error:', error);
     res.status(500).json({ message: 'Giriş yapılırken bir hata oluştu' });
@@ -72,15 +72,15 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
 clientPortalRouter.post('/logout', async (req: Request, res: Response) => {
   try {
     const sessionToken = req.cookies['client_session'];
-    
+
     if (sessionToken) {
       // Oturumu veritabanından sil
       await storage.deleteClientSession(sessionToken);
-      
+
       // Cookie'yi temizle
       res.clearCookie('client_session');
     }
-    
+
     res.json({ message: 'Başarıyla çıkış yapıldı' });
   } catch (error) {
     console.error('Client logout error:', error);
@@ -92,44 +92,44 @@ clientPortalRouter.post('/logout', async (req: Request, res: Response) => {
 export const verifyClientSession = async (req: Request, res: Response, next: Function) => {
   try {
     const sessionToken = req.cookies['client_session'];
-    
+
     if (!sessionToken) {
       return res.status(401).json({ message: 'Giriş yapmanız gerekiyor' });
     }
-    
+
     // Oturumu kontrol et
     const session = await storage.getClientSession(sessionToken);
-    
+
     if (!session) {
       res.clearCookie('client_session');
       return res.status(401).json({ message: 'Oturumunuz sona ermiş' });
     }
-    
+
     // Oturum süresini kontrol et
     if (new Date() > session.expiresAt) {
       await storage.deleteClientSession(sessionToken);
       res.clearCookie('client_session');
       return res.status(401).json({ message: 'Oturumunuzun süresi dolmuş' });
     }
-    
+
     // Danışan bilgilerini al
     const client = await storage.getClient(session.clientId);
-    
+
     if (!client) {
       await storage.deleteClientSession(sessionToken);
       res.clearCookie('client_session');
       return res.status(401).json({ message: 'Danışan bulunamadı' });
     }
-    
+
     // Son aktivite zamanını güncelle
     await storage.updateClientSessionActivity(sessionToken);
-    
+
     // İsteğe danışan bilgisini ekle
     req.clientSession = {
       client,
       session
     };
-    
+
     next();
   } catch (error) {
     console.error('Verify client session error:', error);
@@ -141,7 +141,7 @@ export const verifyClientSession = async (req: Request, res: Response, next: Fun
 clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     // Danışan bilgilerini gönder - clientVisibleNotes dahil
     res.json({
       id: client.id,
@@ -160,14 +160,14 @@ clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Res
 clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     // Diyetisyen bilgilerini getir
     const dietitian = await storage.getUser(client.userId);
-    
+
     if (!dietitian) {
       return res.status(404).json({ message: 'Diyetisyen bulunamadı' });
     }
-    
+
     // Diyetisyen bilgilerini gönder (sadece gerekli alanlar)
     res.json({
       id: dietitian.id,
@@ -184,9 +184,9 @@ clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, r
 clientPortalRouter.get('/measurements', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     const measurements = await storage.getMeasurements(client.id);
-    
+
     res.json(measurements);
   } catch (error) {
     console.error('Get client measurements error:', error);
@@ -198,11 +198,11 @@ clientPortalRouter.get('/measurements', verifyClientSession, async (req: Request
 clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     // Burada client.id ile ilişkilendirilmiş diyet planlarını getir
     // DietPlan modeli henüz bağlantılı olmayabilir, güncelleme gerekebilir
     const dietPlans = await storage.getDietPlans(client.userId);
-    
+
     res.json(dietPlans);
   } catch (error) {
     console.error('Get client diet plans error:', error);
@@ -214,7 +214,7 @@ clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, 
 clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     if (client.clientVisibleNotes) {
       // Diyetisyenin danışan için yazdığı notları tavsiye olarak döndür
       res.json([
@@ -239,9 +239,9 @@ clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Requ
 clientPortalRouter.get('/appointments', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     const appointments = await storage.getAppointments(client.id);
-    
+
     res.json(appointments);
   } catch (error) {
     console.error('Get client appointments error:', error);
@@ -253,10 +253,10 @@ clientPortalRouter.get('/appointments', verifyClientSession, async (req: Request
 clientPortalRouter.get('/messages', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     // Danışanın diyetisyeni ile olan mesajlarını getir
     const messages = await storage.getMessages(client.id, client.userId);
-    
+
     res.json(messages);
   } catch (error) {
     console.error('Get client messages error:', error);
@@ -269,11 +269,11 @@ clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, r
   try {
     const { client } = req.clientSession!;
     const { content } = req.body;
-    
+
     if (!content || content.trim() === '') {
       return res.status(400).json({ message: 'Mesaj içeriği boş olamaz' });
     }
-    
+
     // Mesaj oluştur
     const message = await storage.createMessage({
       clientId: client.id,
@@ -282,8 +282,11 @@ clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, r
       fromClient: true, // Danışandan gelen mesaj
       isRead: false
     });
-    
+
     res.status(201).json(message);
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ message: 'Mesaj gönderilirken bir hata oluştu' });
   }
 });
 
@@ -292,18 +295,18 @@ clientPortalRouter.delete('/messages/:messageId', verifyClientSession, async (re
   try {
     const { client } = req.clientSession!;
     const messageId = Number(req.params.messageId);
-    
+
     // Mesajı getir ve kontrol et
     const message = await storage.getMessageById(messageId);
     if (!message) {
       return res.status(404).json({ message: "Mesaj bulunamadı" });
     }
-    
+
     // Mesajın bu danışana ait olduğunu doğrula
     if (message.clientId !== client.id) {
       return res.status(403).json({ message: "Bu mesajı silme izniniz yok" });
     }
-    
+
     // Mesajı sil
     const success = await storage.deleteMessage(messageId);
     if (success) {
@@ -322,11 +325,11 @@ clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, r
   try {
     const { client } = req.clientSession!;
     const { content } = req.body;
-    
+
     if (!content || content.trim() === '') {
       return res.status(400).json({ message: 'Mesaj içeriği boş olamaz' });
     }
-    
+
     // Mesaj oluştur
     const message = await storage.createMessage({
       clientId: client.id,
@@ -335,12 +338,11 @@ clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, r
       fromClient: true, // Danışandan gelen mesaj
       isRead: false
     });
-    
+
     res.status(201).json(message);
   } catch (error) {
     console.error('Send message error:', error);
     res.status(500).json({ message: 'Mesaj gönderilirken bir hata oluştu' });
-  }
   }
 });
 
@@ -348,9 +350,9 @@ clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, r
 clientPortalRouter.get('/messages/unread/count', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
-    
+
     const unreadCount = await storage.getUnreadMessages(client.id, client.userId);
-    
+
     res.json({ count: unreadCount });
   } catch (error) {
     console.error('Get unread message count error:', error);
@@ -363,15 +365,15 @@ clientPortalRouter.post('/messages/mark-as-read', verifyClientSession, async (re
   try {
     const { client } = req.clientSession!;
     const { messageIds } = req.body;
-    
+
     if (!messageIds || !Array.isArray(messageIds)) {
       return res.status(400).json({ message: 'Geçerli mesaj ID\'leri gönderilmelidir' });
     }
-    
+
     // Her mesajı okundu olarak işaretle
     const updatePromises = messageIds.map(id => storage.markMessageAsRead(id));
     await Promise.all(updatePromises);
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Mark messages as read error:', error);
