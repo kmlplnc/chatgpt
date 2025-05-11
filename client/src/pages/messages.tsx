@@ -24,7 +24,7 @@ import {
   CheckCheck, 
   Clock,
   MessageSquare,
-  Mail
+  Mail, Settings, Trash2
 } from "lucide-react";
 import { format, isToday, isYesterday } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -591,6 +591,21 @@ export default function MessagesPage() {
                         {selectedClient.email}
                       </CardDescription>
                     </div>
+                    {/* Ayarlar butonu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0 rounded-full">
+                          <Settings className="h-4 w-4" />
+                          <span className="sr-only">Ayarlar</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[160px]">
+                        <DropdownMenuItem onClick={() => handleDeleteConversation(selectedClient)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Sohbeti Temizle</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </CardHeader>
@@ -712,17 +727,6 @@ export default function MessagesPage() {
               </p>
             </div>
           )}
-           {/* Sohbet silme butonu */}
-           {selectedClient && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => handleDeleteConversation(selectedClient)}
-              className="mt-4"
-            >
-              Sohbeti Temizle
-            </Button>
-          )}
         </Card>
       </div>
 
@@ -748,3 +752,9 @@ export default function MessagesPage() {
 }
 
 // Import should be at the top of the file, this line can be removed
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
