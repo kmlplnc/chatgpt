@@ -133,12 +133,41 @@ export interface IStorage {
   markMessageAsRead(id: number): Promise<boolean>;
   getUnreadMessages(clientId?: number, userId?: number): Promise<number>;
   getLastMessageByClient(clientId: number, userId: number): Promise<Message | undefined>;
+  getLastMessagesForAllClients(userId: number): Promise<{ clientId: number, firstName: string, lastName: string, message: Message | null }[]>;
 }
 
 // In-memory storage implementation
 export class MemStorage implements IStorage {
   private notifications = new Map<number, Notification>();
   private notificationIdCounter = 1;
+  
+  // Her danışan için son mesajları getir
+  async getLastMessagesForAllClients(userId: number): Promise<{ clientId: number, firstName: string, lastName: string, message: Message | null }[]> {
+    try {
+      // Diyetisyenin danışanlarını getir
+      const userClients = Array.from(this.clients.values())
+        .filter(client => client.userId === userId);
+      
+      // Her danışan için son mesajı getir
+      const results = await Promise.all(
+        userClients.map(async (client) => {
+          const lastMessage = await this.getLastMessageByClient(client.id, userId);
+          
+          return {
+            clientId: client.id,
+            firstName: client.firstName,
+            lastName: client.lastName,
+            message: lastMessage || null
+          };
+        })
+      );
+      
+      return results;
+    } catch (error) {
+      console.error('Son mesajlar getirilemedi:', error);
+      return [];
+    }
+  }
   // Client Portal methods
   async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
     for (const client of this.clients.values()) {
@@ -1083,6 +1112,39 @@ export class MemStorage implements IStorage {
 
 // DatabaseStorage implementation
 export class DatabaseStorage implements IStorage {
+  // Her danışan için son mesajları getir
+  async getLastMessagesForAllClients(userId: number): Promise<{ clientId: number, firstName: string, lastName: string, message: Message | null }[]> {
+    try {
+      // Danışanların listesini getir
+      const userClients = await db.select({
+        id: clients.id,
+        firstName: clients.firstName,
+        lastName: clients.lastName
+      })
+      .from(clients)
+      .where(eq(clients.userId, userId));
+      
+      // Her danışan için son mesajı getir
+      const results = await Promise.all(
+        userClients.map(async (client) => {
+          const lastMessage = await this.getLastMessageByClient(client.id, userId);
+          
+          return {
+            clientId: client.id,
+            firstName: client.firstName,
+            lastName: client.lastName,
+            message: lastMessage || null
+          };
+        })
+      );
+      
+      return results;
+    } catch (error) {
+      console.error('Son mesajlar getirilemedi:', error);
+      return [];
+    }
+  }
+  
   async getUnreadMessagesByClient(userId: number): Promise<{clientId: number, count: number}[]> {
     const result = await db.select({
       clientId: messages.clientId,

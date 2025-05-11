@@ -799,6 +799,18 @@ export default function ClientsPage() {
                       <TableCell>{client.lastMeasurement?.bmi ? parseFloat(client.lastMeasurement.bmi).toFixed(1) : '-'}</TableCell> {/* BKI değeri */}
                       <TableCell>{client.lastMeasurement?.basalMetabolicRate ? Math.round(client.lastMeasurement.basalMetabolicRate) : '-'}</TableCell>
                       <TableCell>{client.lastMeasurement?.date ? formatDate(client.lastMeasurement.date) : '-'}</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        {lastMessages?.find(msg => msg.clientId === client.id)?.message ? (
+                          <div className="truncate text-sm">
+                            <span className={`${lastMessages.find(msg => msg.clientId === client.id)?.message?.fromClient ? 'text-blue-600 font-medium' : 'text-gray-500 italic'}`}>
+                              {lastMessages.find(msg => msg.clientId === client.id)?.message?.fromClient ? 'Danışan: ' : 'Siz: '}
+                            </span>
+                            {lastMessages.find(msg => msg.clientId === client.id)?.message?.content}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm italic">Mesaj yok</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Button 
                           variant="outline" 

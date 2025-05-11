@@ -409,4 +409,19 @@ messagesRouter.delete("/conversation/:clientId", requireAuth, async (req: Reques
   }
 });
 
+// Her danışan için son mesajı getir
+messagesRouter.get("/last-messages", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    
+    // Diyetisyenin tüm danışanları için son mesajları getir
+    const lastMessages = await storage.getLastMessagesForAllClients(userId);
+    
+    res.json(lastMessages);
+  } catch (error) {
+    console.error("Son mesajlar getirilemedi:", error);
+    res.status(500).json({ message: "Son mesajlar getirilemedi" });
+  }
+});
+
 export default messagesRouter;
