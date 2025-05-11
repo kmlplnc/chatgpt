@@ -146,16 +146,44 @@ export function NotificationBell() {
       <PopoverContent className="w-80 p-0">
         <div className="flex items-center justify-between px-4 py-2 border-b">
           <h3 className="font-medium">Bildirimler</h3>
-          {notifications.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={markAllAsRead}
-            >
-              Tümünü okundu işaretle
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {notifications.length > 0 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={markAllAsRead}
+                >
+                  Okundu İşaretle
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+                  onClick={async () => {
+                    try {
+                      await apiRequest("DELETE", "/api/notifications");
+                      refetchNotifications();
+                      refetchUnreadCount();
+                      toast({
+                        title: "Bildirimler",
+                        description: "Tüm bildirimler temizlendi",
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Hata",
+                        description: "Bildirimler temizlenemedi",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Temizle
+                </Button>
+              </>
+            )}
+          </div>
         </div>
         <ScrollArea className="h-80">
           {isLoading ? (
