@@ -284,6 +284,37 @@ clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, r
     });
     
     res.status(201).json(message);
+  }
+});
+
+// Mesaj silme
+clientPortalRouter.delete('/messages/:messageId', verifyClientSession, async (req: Request, res: Response) => {
+  try {
+    const { client } = req.clientSession!;
+    const messageId = Number(req.params.messageId);
+    
+    // Mesajı getir ve kontrol et
+    const message = await storage.getMessageById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Mesaj bulunamadı" });
+    }
+    
+    // Mesajın bu danışana ait olduğunu doğrula
+    if (message.clientId !== client.id) {
+      return res.status(403).json({ message: "Bu mesajı silme izniniz yok" });
+    }
+    
+    // Mesajı sil
+    const success = await storage.deleteMessage(messageId);
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ message: "Mesaj silinemedi" });
+    }
+  } catch (error) {
+    console.error("Mesaj silme hatası:", error);
+    res.status(500).json({ message: "Mesaj silinemedi" });
+  });
   } catch (error) {
     console.error('Send message error:', error);
     res.status(500).json({ message: 'Mesaj gönderilirken bir hata oluştu' });
