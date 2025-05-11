@@ -983,6 +983,17 @@ export class MemStorage implements IStorage {
       notification.userId === userId && !notification.isRead
     ).length;
   }
+
+  async deleteAllNotifications(userId: number): Promise<boolean> {
+    try {
+      await db.delete(notifications)
+        .where(eq(notifications.userId, userId));
+      return true;
+    } catch (error) {
+      console.error("Delete all notifications error:", error);
+      return false;
+    }
+  }
   
   // Yardımcı bildirim fonksiyonları
   async createAppointmentReminder(appointmentId: number, scheduleFor: Date): Promise<Notification> {

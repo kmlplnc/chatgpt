@@ -86,4 +86,16 @@ notificationsRouter.post("/mark-all-read", requireAuth, async (req: Request, res
   }
 });
 
+// Tüm bildirimleri silme endpoint'i
+notificationsRouter.delete("/", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    await storage.deleteAllNotifications(userId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Delete all notifications error:", error);
+    res.status(500).json({ message: "Bildirimler silinemedi" });
+  }
+});
+
 export default notificationsRouter;
