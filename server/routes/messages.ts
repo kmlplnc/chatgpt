@@ -359,4 +359,54 @@ messagesRouter.post("/:clientId/mark-as-read", requireAuth, async (req: Request,
   }
 });
 
+// Delete a single message
+messagesRouter.delete("/:messageId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const messageId = Number(req.params.messageId);
+    
+    const message = await storage.getMessageById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Mesaj bulunamadı" });
+    }
+    
+    if (message.userId !== userId) {
+      return res.status(403).json({ message: "Bu mesajı silme izniniz yok" });
+    }
+    
+    const success = await storage.deleteMessage(messageId);
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ message: "Mesaj silinemedi" });
+    }
+  } catch (error) {
+    console.error("Mesaj silme hatası:", error);
+    res.status(500).json({ message: "Mesaj silinemedi" });
+  }
+});
+
+// Delete all messages in a conversation
+messagesRouter.delete("/conversation/:clientId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.user!.id;
+    const clientId = Number(req.params.clientId);
+    
+    const client = await storage.getClient(clientId);
+    if (!client || client.userId !== userId) {
+      return res.status(403).json({ message: "Bu sohbeti silme izniniz yok" });
+    }
+    
+    const success = await storage.deleteAllMessages(clientId, userId);
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ message: "Sohbet silinemedi" });
+    }
+  } catch (error) {
+    console.error("Sohbet silme hatası:", error);
+    res.status(500).json({ message: "Sohbet silinemedi" });
+  }
+});
+
 export default messagesRouter;

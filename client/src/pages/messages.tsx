@@ -30,6 +30,16 @@ import { format, isToday, isYesterday } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Mesaj tipi tanımı
 interface Message {
@@ -59,7 +69,43 @@ export default function MessagesPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedClientForDelete, setSelectedClientForDelete] = useState<any>(null);
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (clientId: any) => {
+      const response = await apiRequest("DELETE", `/api/messages/conversation/${clientId.id}`);
+      if (!response.ok) throw new Error('Sohbet silinemedi');
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/messages', selectedClient?.id] });
+      toast({
+        title: "Başarılı",
+        description: "Sohbet başarıyla silindi",
+      });
+      setDeleteDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: "Sohbet silinirken bir hata oluştu",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteConversation = (clientId: any) => {
+    setSelectedClientForDelete(clientId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedClientForDelete) {
+      deleteConversationMutation.mutate(selectedClientForDelete);
+    }
+  };
+
   // Ses efekti oluşturma - daha kısa/hoş bir mesaj sesi
   useEffect(() => {
     audioRef.current = new Audio('https://www.soundjay.com/misc/sounds/bell-ding-1.mp3');
@@ -124,7 +170,7 @@ export default function MessagesPage() {
       if (!selectedClient) {
         throw new Error('Lütfen bir danışan seçin');
       }
-      
+
       const response = await apiRequest('POST', '/api/messages', {
         clientId: selectedClient.id,
         content: text,
@@ -169,7 +215,7 @@ export default function MessagesPage() {
       });
       return;
     }
-    
+
     if (!selectedClient) {
       toast({
         title: "Uyarı",
@@ -178,7 +224,7 @@ export default function MessagesPage() {
       });
       return;
     }
-    
+
     sendMessageMutation.mutate(newMessage);
   };
 
@@ -203,25 +249,25 @@ export default function MessagesPage() {
       console.log("Mesajlar yüklendi:", messages);
       const grouped = groupMessagesByDate(messages);
       console.log("Gruplandırılmış mesajlar:", grouped);
-      
+
       // Önceki mesajlar ile karşılaştır
       if (groupedMessages.length > 0) {
         const oldMessageCount = groupedMessages.reduce(
           (sum, group) => sum + group.messages.length, 0
         );
         const newMessageCount = messages.length;
-        
+
         // Yeni mesaj geldiyse ve danışandan geldiyse ses çal
         if (newMessageCount > oldMessageCount && selectedClient) {
           // En son eklenen mesajı bul
           const lastMessage = messages[messages.length - 1];
-          
+
           if (lastMessage.fromClient) {
             console.log("Yeni mesaj bildirim sesi çalınıyor");
             if (audioRef.current) {
               audioRef.current.play().catch(err => console.error("Ses çalma hatası:", err));
             }
-            
+
             // Bildirim göster
             toast({
               title: "Yeni Mesaj",
@@ -231,7 +277,7 @@ export default function MessagesPage() {
           }
         }
       }
-      
+
       setGroupedMessages(grouped);
     } else {
       console.log("Mesajlar geçerli bir dizi değil veya boş:", messages);
@@ -242,7 +288,7 @@ export default function MessagesPage() {
   // Otomatik scrollu devre dışı bırakma ayarı ekliyoruz
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(false);
   const [lastMessageId, setLastMessageId] = useState<number | null>(null);
-  
+
   // Yeni mesaj geldiğinde son mesaj ID'sini takip et, ancak otomatik kaydırma yapma
   useEffect(() => {
     if (messages && messages.length > 0) {
@@ -250,14 +296,14 @@ export default function MessagesPage() {
       setLastMessageId(currentLastMessageId);
     }
   }, [messages]);
-  
+
   // Mesaj gönderildiğinde SADECE o zaman aşağı kaydır
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, []);
-  
+
   // Yalnızca mesaj gönderildiğinde scroll yap
   useEffect(() => {
     if (sendMessageMutation.isSuccess) {
@@ -271,11 +317,11 @@ export default function MessagesPage() {
       console.log('Danışanlar yüklenemedi veya dizi değil');
       return [];
     }
-    
+
     if (!searchQuery.trim()) {
       return clients;
     }
-    
+
     const searchLower = searchQuery.toLowerCase();
     return clients.filter(client => {
       if (!client) return false;
@@ -297,7 +343,7 @@ export default function MessagesPage() {
         top: 0,
         behavior: 'auto'
       });
-      
+
       // Biraz daha bekleyip sonra aşağı kaydır (mesajların yüklenmesi için)
       setTimeout(() => {
         scrollToBottom();
@@ -316,22 +362,22 @@ export default function MessagesPage() {
   // Mesaj tarihini formatla
   const formatMessageDate = (dateString: string): string => {
     const date = new Date(dateString);
-    
+
     if (isToday(date)) {
       return format(date, 'HH:mm');
     } else {
       return format(date, 'dd MMM HH:mm', { locale: tr });
     }
   };
-  
+
   // Mesajları günlere göre grupla
   const groupMessagesByDate = (messages: Message[]): MessageGroup[] => {
     if (!messages || messages.length === 0) return [];
-    
+
     const groups: MessageGroup[] = [];
     let currentDate: string | null = null;
     let currentGroup: Message[] = [];
-    
+
     messages.forEach(message => {
       const messageDate = new Date(message.createdAt);
       const messageDay = new Date(
@@ -339,7 +385,7 @@ export default function MessagesPage() {
         messageDate.getMonth(),
         messageDate.getDate()
       ).toISOString();
-      
+
       if (messageDay !== currentDate) {
         if (currentGroup.length > 0) {
           groups.push({
@@ -353,21 +399,21 @@ export default function MessagesPage() {
         currentGroup.push(message);
       }
     });
-    
+
     if (currentGroup.length > 0 && currentDate) {
       groups.push({
         date: currentDate,
         messages: currentGroup
       });
     }
-    
+
     return groups;
   };
-  
+
   // Tarih gösterimini formatla
   const formatGroupDate = (dateString: string): string => {
     const date = new Date(dateString);
-    
+
     if (isToday(date)) {
       return "Bugün";
     } else if (isYesterday(date)) {
@@ -387,7 +433,7 @@ export default function MessagesPage() {
         </div>
       );
     } 
-    
+
     // Teslim edildi - tek tik
     return (
       <div className="flex items-center" title="Gönderildi">
@@ -399,7 +445,7 @@ export default function MessagesPage() {
   return (
     <div className="container py-6">
       <h1 className="text-2xl font-bold mb-6">Mesajlar</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
         {/* Sol panel: Danışan Listesi */}
         <Card className="col-span-1 border h-full flex flex-col overflow-hidden bg-background shadow-md">
@@ -444,7 +490,7 @@ export default function MessagesPage() {
                         const lastMessage = lastMessageGroup 
                           ? lastMessageGroup.messages[lastMessageGroup.messages.length - 1] 
                           : null;
-                        
+
                         return (
                           <li key={client.id} className={`${
                             isActive 
@@ -524,7 +570,7 @@ export default function MessagesPage() {
             </ScrollArea>
           </CardContent>
         </Card>
-        
+
         {/* Sağ panel: Mesajlaşma Alanı */}
         <Card className="col-span-1 md:col-span-2 lg:col-span-3 h-full flex flex-col bg-background shadow-md border">
           {selectedClient ? (
@@ -548,7 +594,7 @@ export default function MessagesPage() {
                   </div>
                 </div>
               </CardHeader>
-              
+
               {/* Mesaj alanı */}
               <CardContent className="flex-1 p-0 overflow-hidden flex flex-col bg-muted/5">
                 <ScrollArea className="flex-1 p-4 px-6" ref={messagesContainerRef}>
@@ -566,13 +612,13 @@ export default function MessagesPage() {
                               {formatGroupDate(group.date)}
                             </div>
                           </div>
-                          
+
                           {/* Gün içindeki mesajlar */}
                           {group.messages.map((message, messageIndex) => {
                             // Aynı kişiden ardışık mesajları belirle
                             const isConsecutive = messageIndex > 0 && 
                               group.messages[messageIndex - 1].fromClient === message.fromClient;
-                            
+
                             return (
                               <div
                                 key={message.id}
@@ -624,7 +670,7 @@ export default function MessagesPage() {
                     </div>
                   )}
                 </ScrollArea>
-                
+
                 {/* Mesaj gönderme alanı */}
                 <div className="px-4 py-3 border-t bg-background">
                   <div className="flex items-end space-x-3">
@@ -666,8 +712,37 @@ export default function MessagesPage() {
               </p>
             </div>
           )}
+           {/* Sohbet silme butonu */}
+           {selectedClient && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleDeleteConversation(selectedClient)}
+              className="mt-4"
+            >
+              Sohbeti Temizle
+            </Button>
+          )}
         </Card>
       </div>
+
+      {/* Silme onay dialogu */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sohbeti Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu sohbetteki tüm mesajlar kalıcı olarak silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

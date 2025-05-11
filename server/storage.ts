@@ -1116,6 +1116,33 @@ export class DatabaseStorage implements IStorage {
       
     return lastMessage;
   }
+
+  async deleteMessage(id: number): Promise<boolean> {
+    try {
+      await db.delete(messages)
+        .where(eq(messages.id, id));
+      return true;
+    } catch (error) {
+      console.error("Delete message error:", error);
+      return false;
+    }
+  }
+
+  async deleteAllMessages(clientId: number, userId: number): Promise<boolean> {
+    try {
+      await db.delete(messages)
+        .where(
+          and(
+            eq(messages.clientId, clientId),
+            eq(messages.userId, userId)
+          )
+        );
+      return true;
+    } catch (error) {
+      console.error("Delete all messages error:", error);
+      return false;
+    }
+  }
   
   async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
     const result = await db
