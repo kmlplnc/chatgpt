@@ -1865,7 +1865,7 @@ export class DatabaseStorage implements IStorage {
         content = `Diyetisyeninizden yeni bir mesajınız var.`;
       } else {
         // Diyetisyene bildirimi
-        title = "Yeni Mesaj";
+        title = `${client.firstName} ${client.lastName}`;
         content = `${client.firstName} ${client.lastName} adlı danışanınızdan yeni bir mesajınız var.`;
       }
       
