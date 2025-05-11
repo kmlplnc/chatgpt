@@ -75,6 +75,14 @@ async function getClients() {
   return response.json();
 }
 
+async function getLastMessages() {
+  const response = await fetch("/api/messages/last-messages");
+  if (!response.ok) {
+    throw new Error("Son mesajlar alınamadı");
+  }
+  return response.json();
+}
+
 async function createClient(data: z.infer<typeof clientSchema>) {
   const response = await fetch("/api/clients", {
     method: "POST",
@@ -154,6 +162,13 @@ export default function ClientsPage() {
   const { data: clients, isLoading, error } = useQuery({
     queryKey: ["/api/clients"],
     queryFn: getClients,
+  });
+  
+  // Son mesajları getirme
+  const { data: lastMessages } = useQuery({
+    queryKey: ["/api/messages/last-messages"],
+    queryFn: getLastMessages,
+    refetchInterval: 10000, // 10 saniyede bir yenile
   });
   
   // Danışan oluşturma
@@ -743,6 +758,7 @@ export default function ClientsPage() {
                   <TableHead>BKİ</TableHead>
                   <TableHead>BMH (kcal)</TableHead>
                   <TableHead>Son Ölçüm</TableHead>
+                  <TableHead>Son Mesaj</TableHead>
                   <TableHead>İşlemler</TableHead>
                 </TableRow>
               </TableHeader>

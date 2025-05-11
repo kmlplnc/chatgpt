@@ -122,3 +122,22 @@ export function getBMICategory(bmi: number): string {
   if (bmi < 40) return "Obez - II";
   return "Aşırı Obez - III";
 }
+
+/**
+ * Formats a date string to a time format (HH:MM)
+ * @param dateString Date string to format
+ * @returns Formatted time string
+ */
+export function formatTime(dateString: string | Date | undefined | null): string {
+  if (!dateString) return "";
+  
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("tr-TR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  } catch (error) {
+    return "";
+  }
+}
