@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PlusCircle, Search, SlidersHorizontal } from "lucide-react";
+import { PlusCircle, Search, SlidersHorizontal, MessageCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,9 @@ import { useForm } from "react-hook-form";
 import { queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Client schema for the form
 const clientSchema = z.object({
