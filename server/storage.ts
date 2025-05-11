@@ -132,6 +132,7 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: number): Promise<boolean>;
   getUnreadMessages(clientId?: number, userId?: number): Promise<number>;
+  getLastMessageByClient(clientId: number, userId: number): Promise<Message | undefined>;
 }
 
 // In-memory storage implementation
@@ -1069,6 +1070,22 @@ export class DatabaseStorage implements IStorage {
     .groupBy(messages.clientId);
     
     return result;
+  }
+  
+  async getLastMessageByClient(clientId: number, userId: number): Promise<Message | undefined> {
+    const [lastMessage] = await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.clientId, clientId),
+          eq(messages.userId, userId)
+        )
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+      
+    return lastMessage;
   }
   
   async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
