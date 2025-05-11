@@ -24,7 +24,8 @@ import {
   CheckCheck, 
   Clock,
   MessageSquare,
-  Mail, Settings, Trash2
+  Mail, Settings, Trash2,
+  MoreVertical
 } from "lucide-react";
 import { format, isToday, isYesterday } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -165,6 +166,29 @@ export default function MessagesPage() {
   });
 
   // Mesaj gönder
+  // Mesaj silme mutation'ı
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: number) => {
+      const response = await apiRequest('DELETE', `/api/messages/${messageId}`);
+      if (!response.ok) throw new Error('Mesaj silinemedi');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/messages', selectedClient?.id] });
+      toast({
+        title: "Başarılı",
+        description: "Mesaj silindi",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Hata",
+        description: `Mesaj silinemedi: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
   const sendMessageMutation = useMutation({
     mutationFn: async (text: string) => {
       if (!selectedClient) {
@@ -663,11 +687,26 @@ export default function MessagesPage() {
                                       {formatMessageDate(message.createdAt)}
                                     </span>
                                     {!message.fromClient && (
-                                      <div className="flex items-center" title={message.isRead ? "Görüldü" : "Gönderildi"}>
-                                        {message.isRead ? 
-                                          <CheckCheck className="h-3.5 w-3.5 text-blue-500" /> : 
-                                          <Check className="h-3.5 w-3.5 text-muted-foreground" />}
-                                      </div>
+                                      <>
+                                        <div className="flex items-center" title={message.isRead ? "Görüldü" : "Gönderildi"}>
+                                          {message.isRead ? 
+                                            <CheckCheck className="h-3.5 w-3.5 text-blue-500" /> : 
+                                            <Check className="h-3.5 w-3.5 text-muted-foreground" />}
+                                        </div>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-transparent">
+                                              <MoreVertical className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" className="w-[160px]">
+                                            <DropdownMenuItem onClick={() => deleteMessageMutation.mutate(message.id)}>
+                                              <Trash2 className="mr-2 h-4 w-4" />
+                                              <span>Mesajı Sil</span>
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </>
                                     )}
                                   </div>
                                 </div>
