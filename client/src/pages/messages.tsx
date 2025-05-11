@@ -115,7 +115,7 @@ export default function MessagesPage() {
         return [];
       }
     },
-    refetchInterval: 5000 // Her 5 saniyede bir güncelle
+    refetchInterval: 1500 // Her 1.5 saniyede bir güncelle
   });
 
   // Mesaj gönder

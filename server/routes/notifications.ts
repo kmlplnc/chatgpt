@@ -21,19 +21,8 @@ notificationsRouter.get("/", requireAuth, async (req: Request, res: Response) =>
     // Önce tüm bildirimleri getir
     const allNotifications = await storage.getNotificationsByUserId(userId);
     
-    // Diyetisyenin danışanlarını getir
-    const dieticianClients = await storage.getClientsByUserId(userId);
-    const clientIds = dieticianClients.map(client => client.id);
-    
-    // Sadece diyetisyenin kendi danışanları ile ilgili bildirimleri filtrele
-    const filteredNotifications = allNotifications.filter(notification => {
-      // Eğer bildirim bir danışan ile ilgili değilse (clientId null) veya
-      // bildirim diyetisyenin kendi danışanları ile ilgiliyse göster
-      return notification.clientId === null || 
-             (notification.clientId && clientIds.includes(notification.clientId));
-    });
-    
-    res.json(filteredNotifications);
+    // Şimdilik filtrelemeyi kaldıralım
+    res.json(allNotifications);
   } catch (error) {
     console.error("Notifications fetch error:", error);
     res.status(500).json({ message: "Bildirimler alınamadı" });
@@ -45,23 +34,10 @@ notificationsRouter.get("/unread-count", requireAuth, async (req: Request, res: 
   try {
     const userId = req.session.user!.id;
     
-    // Önce tüm bildirimleri getir
-    const allNotifications = await storage.getNotificationsByUserId(userId);
+    // Basitleştirilmiş sayma işlemi
+    const count = await storage.getUnreadNotificationCount(userId);
     
-    // Diyetisyenin danışanlarını getir
-    const dieticianClients = await storage.getClientsByUserId(userId);
-    const clientIds = dieticianClients.map(client => client.id);
-    
-    // Sadece diyetisyenin kendi danışanları ile ilgili bildirimleri filtrele
-    const filteredNotifications = allNotifications.filter(notification => {
-      // Eğer bildirim bir danışan ile ilgili değilse (clientId null) veya
-      // bildirim diyetisyenin kendi danışanları ile ilgiliyse göster
-      return (notification.isRead === false) && 
-             (notification.clientId === null || 
-             (notification.clientId && clientIds.includes(notification.clientId)));
-    });
-    
-    res.json({ count: filteredNotifications.length });
+    res.json({ count });
   } catch (error) {
     console.error("Unread notification count error:", error);
     res.status(500).json({ message: "Okunmamış bildirim sayısı alınamadı" });
