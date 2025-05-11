@@ -1,3 +1,6 @@
+The code modifications involve adding message deletion functionality and updating imports to include the MoreVertical icon.
+```
+```replit_final_file
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
@@ -10,15 +13,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { 
-  ArrowLeft,
-  Check, 
-  CheckCheck, 
-  Clock, 
-  Loader2, 
-  MessageSquare, 
-  Search, 
-  Send 
-} from "lucide-react";
+    ArrowLeft,
+    Check, 
+    CheckCheck, 
+    Clock,
+    MessageSquare,
+    Mail, Settings, Trash2,
+    MoreVertical
+  } from "lucide-react";
 import { format, isToday, isYesterday, isThisWeek, isThisYear } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,12 +33,12 @@ export default function ClientPortalMessages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  
+
   // Ses efekti oluşturma - daha kısa/hoş bir mesaj sesi
   useEffect(() => {
     audioRef.current = new Audio('https://www.soundjay.com/misc/sounds/bell-ding-1.mp3');
   }, []);
-  
+
   // Okunmamış mesaj sayısını getir
   const { data: unreadCountData } = useQuery({
     queryKey: ['/api/client-portal/messages/unread/count'],
@@ -50,7 +52,7 @@ export default function ClientPortalMessages() {
       return response.json();
     }
   });
-  
+
   const unreadCount = unreadCountData?.count || 0;
 
   // Mesajları getir
@@ -104,7 +106,7 @@ export default function ClientPortalMessages() {
     }
     return response.json();
   }
-  
+
   const sendMessageMutation = useMutation({
     mutationFn: sendMessage,
     onSuccess: () => {
@@ -136,25 +138,25 @@ export default function ClientPortalMessages() {
   useEffect(() => {
     if (messages) {
       const newGroups = groupMessagesByDate(messages);
-      
+
       // Önceki mesajlar ile karşılaştır
       if (groupedMessages.length > 0) {
         const oldMessageCount = groupedMessages.reduce(
           (sum, group) => sum + group.messages.length, 0
         );
         const newMessageCount = messages.length;
-        
+
         // Yeni mesaj geldiyse ve diyetisyenden geldiyse ses çal
         if (newMessageCount > oldMessageCount) {
           // En son eklenen mesajı bul
           const lastMessage = messages[messages.length - 1];
-          
+
           if (!lastMessage.fromClient) {
             console.log("Yeni mesaj bildirim sesi çalınıyor");
             if (audioRef.current) {
               audioRef.current.play().catch(err => console.error("Ses çalma hatası:", err));
             }
-            
+
             // Bildirim göster
             toast({
               title: "Yeni Mesaj",
@@ -164,7 +166,7 @@ export default function ClientPortalMessages() {
           }
         }
       }
-      
+
       setGroupedMessages(newGroups);
     }
   }, [messages, groupedMessages, toast]);
@@ -174,28 +176,28 @@ export default function ClientPortalMessages() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-    
+
     // Mesajlar yüklendiğinde okundu olarak işaretle
     if (messages && messages.length > 0) {
       markMessagesAsRead();
     }
   }, [messages]);
-  
+
   // Mesajları okundu olarak işaretle
   const markMessagesAsRead = async () => {
     try {
       // Diyetisyenden gelen okunmamış mesajları bul
       const unreadMessages = messages?.filter(msg => !msg.fromClient && !msg.isRead).map(msg => msg.id) || [];
-      
+
       if (unreadMessages.length > 0) {
         // API endpoint'ine mesaj ID'lerini gönder
         await apiRequest('POST', '/api/client-portal/messages/mark-as-read', { 
           messageIds: unreadMessages 
         });
-        
+
         // Okunmamış mesaj sayısını güncelle
         queryClient.invalidateQueries({ queryKey: ['/api/client-portal/messages/unread/count'] });
-        
+
         // Mesajları yeniden getir
         queryClient.invalidateQueries({ queryKey: ['/api/client-portal/messages'] });
       }
@@ -203,7 +205,7 @@ export default function ClientPortalMessages() {
       console.error('Mesajlar okundu olarak işaretlenemedi:', error);
     }
   };
-  
+
   // Mesaj durumunu görüntüle
   const MessageStatus = ({ status, isRead }: { status?: string, isRead?: boolean }) => {
     // "Görüldü" durumunu göster
@@ -214,7 +216,7 @@ export default function ClientPortalMessages() {
         </div>
       );
     } 
-    
+
     // Teslim edildi
     if (status === 'delivered') {
       return (
@@ -223,11 +225,11 @@ export default function ClientPortalMessages() {
         </div>
       );
     } 
-    
+
     // Gönderildi veya varsayılan durum
     return <Clock className="h-3 w-3 text-current opacity-70" title="Gönderildi" />;
   };
-  
+
   // Mesaj tipi tanımı
   interface Message {
     id: number;
@@ -238,21 +240,21 @@ export default function ClientPortalMessages() {
     userId?: number;
     clientId?: number;
   }
-  
+
   // Grup tipi tanımı
   interface MessageGroup {
     date: string;
     messages: Message[];
   }
-  
+
   // Mesajları günlere göre grupla
   const groupMessagesByDate = (messages: Message[]): MessageGroup[] => {
     if (!messages || messages.length === 0) return [];
-    
+
     const groups: MessageGroup[] = [];
     let currentDate: string | null = null;
     let currentGroup: Message[] = [];
-    
+
     messages.forEach(message => {
       const messageDate = new Date(message.createdAt);
       const messageDay = new Date(
@@ -260,7 +262,7 @@ export default function ClientPortalMessages() {
         messageDate.getMonth(),
         messageDate.getDate()
       ).toISOString();
-      
+
       if (messageDay !== currentDate) {
         if (currentGroup.length > 0) {
           groups.push({
@@ -274,14 +276,14 @@ export default function ClientPortalMessages() {
         currentGroup.push(message);
       }
     });
-    
+
     if (currentGroup.length > 0) {
       groups.push({
         date: currentDate,
         messages: currentGroup
       });
     }
-    
+
     return groups;
   };
 
@@ -291,15 +293,15 @@ export default function ClientPortalMessages() {
     const now = new Date();
     const yesterday = new Date();
     yesterday.setDate(now.getDate() - 1);
-    
+
     const isToday = date.getDate() === now.getDate() && 
                    date.getMonth() === now.getMonth() && 
                    date.getFullYear() === now.getFullYear();
-                   
+
     const isYesterday = date.getDate() === yesterday.getDate() && 
                         date.getMonth() === yesterday.getMonth() && 
                         date.getFullYear() === yesterday.getFullYear();
-    
+
     if (isToday) {
       return "Bugün";
     } else if (isYesterday) {
@@ -314,7 +316,7 @@ export default function ClientPortalMessages() {
     const date = new Date(dateString);
     return format(date, 'HH:mm');
   };
-  
+
   // Mesaj durumunu göster için bileşen
   function renderMessageStatus(status?: string, isRead?: boolean) {
     // "Görüldü" durumunu göster - çift tik
@@ -325,7 +327,7 @@ export default function ClientPortalMessages() {
         </div>
       );
     } 
-    
+
     // Teslim edildi - tek tik
     return (
       <div className="flex items-center" title="Gönderildi">
@@ -360,7 +362,7 @@ export default function ClientPortalMessages() {
           )}
         </div>
       </header>
-      
+
       <div className="container py-6 flex-1">
         <Card className="w-full max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
         <CardHeader className="border-b flex flex-row items-center p-4">
@@ -372,7 +374,7 @@ export default function ClientPortalMessages() {
             <CardDescription>Hızlı iletişim için mesaj gönderebilirsiniz</CardDescription>
           </div>
         </CardHeader>
-        
+
         <CardContent className="flex-1 p-0 overflow-hidden flex flex-col">
           <ScrollArea className="flex-1 p-4" ref={messagesContainerRef}>
             {isLoading ? (
@@ -389,13 +391,13 @@ export default function ClientPortalMessages() {
                         {formatGroupDate(group.date)}
                       </div>
                     </div>
-                    
+
                     {/* Gün içindeki mesajlar */}
                     {group.messages.map((message, messageIndex) => {
                       // Aynı kişiden ardışık mesajları belirle
                       const isConsecutive = messageIndex > 0 && 
                         group.messages[messageIndex - 1].fromClient === message.fromClient;
-                      
+
                       return (
                         <div
                           key={message.id}
@@ -440,7 +442,7 @@ export default function ClientPortalMessages() {
               </div>
             )}
           </ScrollArea>
-          
+
           {/* Mesaj gönderme alanı */}
           <div className="px-4 py-3 border-t bg-background">
             <div className="flex items-end space-x-2">
