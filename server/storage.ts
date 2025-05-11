@@ -1941,16 +1941,21 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Danışan bulunamadı");
       }
       
+      // Mesaj içeriğini kısalt (40 karakterle sınırla)
+      const messagePreview = message.content.length > 40 
+        ? `${message.content.substring(0, 40)}...` 
+        : message.content;
+      
       let title, content;
       
       if (isClient) {
         // Danışana bildirimi
         title = "Yeni Mesaj";
-        content = `Diyetisyeninizden yeni bir mesajınız var.`;
+        content = `Diyetisyeninizden yeni bir mesajınız var: "${messagePreview}"`;
       } else {
         // Diyetisyene bildirimi
-        title = `${client.firstName} ${client.lastName}`;
-        content = `${client.firstName} ${client.lastName} adlı danışanınızdan yeni bir mesajınız var.`;
+        title = `${client.firstName} ${client.lastName}'dan Mesaj`;
+        content = `"${messagePreview}"`;
       }
       
       const notification = await this.createNotification({
