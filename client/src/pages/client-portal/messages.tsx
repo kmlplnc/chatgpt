@@ -290,54 +290,54 @@ export default function ClientPortalMessages() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-background to-slate-50 flex flex-col">
         {/* Başlık ve geri düğmesi */}
-        <header className="border-b">
+        <header className="border-b bg-white shadow-sm">
             <div className="container mx-auto py-4 px-4 md:px-6 flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-semibold">Mesajlar</h1>
+                    <h1 className="text-xl font-bold text-primary">Mesajlar</h1>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => navigate('/client-portal/dashboard')}
-                        className="text-muted-foreground hover:text-primary"
+                        className="text-muted-foreground hover:text-primary transition-colors"
                     >
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Danışan Portalına Dön
                     </Button>
                 </div>
                 {unreadCount > 0 && (
-                    <Badge variant="destructive">
+                    <Badge variant="destructive" className="animate-pulse">
                         {unreadCount} Okunmamış Mesaj
                     </Badge>
                 )}
             </div>
         </header>
-    <div className="min-h-screen bg-background">
-      <div className="container py-6 flex-1">
-        <Card className="w-full max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
-          <CardHeader className="border-b flex flex-row items-center p-4">
-            <Avatar className="h-10 w-10 mr-3">
-              <AvatarFallback>{dietitian?.name ? dietitian.name.substring(0, 2).toUpperCase() : "DD"}</AvatarFallback>
+    <div className="flex-1 py-6">
+      <div className="container mx-auto px-4 md:px-6 flex-1">
+        <Card className="w-full max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col shadow-lg border-slate-200">
+          <CardHeader className="border-b bg-slate-50 flex flex-row items-center p-4">
+            <Avatar className="h-12 w-12 mr-3 border-2 border-primary/20 shadow-sm">
+              <AvatarFallback className="bg-primary/10 text-primary font-semibold">{dietitian?.name ? dietitian.name.substring(0, 2).toUpperCase() : "DD"}</AvatarFallback>
             </Avatar>
             <div>
-              <CardTitle className="text-lg">{dietitian?.name || "Diyetisyeniniz"}</CardTitle>
-              <CardDescription>Hızlı iletişim için mesaj gönderebilirsiniz</CardDescription>
+              <CardTitle className="text-lg font-bold text-primary">{dietitian?.name || "Diyetisyeniniz"}</CardTitle>
+              <CardDescription className="text-slate-500">Hızlı iletişim için mesaj gönderebilirsiniz</CardDescription>
             </div>
           </CardHeader>
 
-          <CardContent className="flex-1 p-0 overflow-hidden flex flex-col">
+          <CardContent className="flex-1 p-0 overflow-hidden flex flex-col bg-gradient-to-br from-slate-50/50 to-white">
             <ScrollArea className="flex-1 p-4" ref={messagesContainerRef}>
               {isLoading ? (
                 <div className="flex justify-center items-center h-full">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : groupedMessages && groupedMessages.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {groupedMessages.map((group, groupIndex) => (
                     <div key={group.date} className="space-y-3">
                       <div className="flex justify-center my-4">
-                        <div className="bg-muted px-3 py-1 rounded-full text-xs text-muted-foreground">
+                        <div className="bg-primary/10 px-4 py-1.5 rounded-full text-xs font-medium text-primary shadow-sm">
                           {formatGroupDate(group.date)}
                         </div>
                       </div>
@@ -351,11 +351,18 @@ export default function ClientPortalMessages() {
                             key={message.id}
                             className={`flex ${message.fromClient ? "justify-end" : "justify-start"}`}
                           >
+                            {!message.fromClient && !isConsecutive && (
+                              <Avatar className="h-8 w-8 mr-2 mt-1 hidden sm:block">
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                  {dietitian?.name ? dietitian.name.substring(0, 2).toUpperCase() : "DD"}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
                             <div
-                              className={`relative max-w-[80%] group rounded-lg px-4 py-2 flex flex-col ${
+                              className={`relative max-w-[80%] group rounded-2xl px-4 py-2.5 flex flex-col ${
                                 message.fromClient 
-                                  ? "bg-primary text-primary-foreground" 
-                                  : "bg-slate-100 text-slate-900"
+                                  ? "bg-gradient-to-br from-primary to-primary/90 text-white shadow-md" 
+                                  : "bg-white border border-slate-200 text-slate-900 shadow-sm"
                               } ${
                                 isConsecutive 
                                   ? message.fromClient 
@@ -364,34 +371,34 @@ export default function ClientPortalMessages() {
                                   : ""
                               }`}
                             >
-                              <p className="whitespace-pre-wrap">{message.content}</p>
-                              <div className={`flex items-center space-x-2 mt-1 ${
+                              <p className="whitespace-pre-wrap text-[15px]">{message.content}</p>
+                              <div className={`flex items-center space-x-2 mt-1.5 ${
                                 message.fromClient 
-                                  ? "text-primary-foreground/80" 
+                                  ? "text-white/80" 
                                   : "text-slate-500"
                               }`}>
-                                <span className="text-xs">
+                                <span className="text-xs font-medium">
                                   {formatMessageTime(message.createdAt)}
                                 </span>
                                 {message.fromClient && (
                                   <>
                                     {message.isRead ? (
-                                      <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                                      <CheckCheck className="h-3.5 w-3.5 text-blue-300" />
                                     ) : (
-                                      <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <Check className="h-3.5 w-3.5 text-white/70" />
                                     )}
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
                                         <Button 
                                           variant="ghost" 
-                                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-white/70 hover:text-white hover:bg-primary-foreground/10"
                                         >
                                           <MoreVertical className="h-3.5 w-3.5" />
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end" className="w-[160px]">
                                         <DropdownMenuItem onClick={() => deleteMessageMutation.mutate(message.id)}>
-                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          <Trash2 className="mr-2 h-4 w-4 text-red-500" />
                                           <span>Mesajı Sil</span>
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
@@ -408,17 +415,18 @@ export default function ClientPortalMessages() {
                   <div ref={messagesEndRef} />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                  <p className="text-muted-foreground">Henüz mesaj yok.</p>
-                  <p className="text-sm">Diyetisyeninize mesaj göndererek sohbeti başlatın.</p>
+                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                  <MessageSquare className="h-12 w-12 text-primary/20 mb-4" />
+                  <p className="text-slate-600 text-lg font-medium">Henüz mesaj yok.</p>
+                  <p className="text-slate-500 mt-2">Diyetisyeninize mesaj göndererek sohbeti başlatın.</p>
                 </div>
               )}
             </ScrollArea>
 
-            <div className="px-4 py-3 border-t bg-background">
-              <div className="flex items-end space-x-2">
+            <div className="px-4 py-4 border-t bg-white shadow-sm">
+              <div className="flex items-end space-x-3">
                 <div className="relative flex-1">
-                  <Input
+                  <Textarea
                     placeholder="Mesajınızı yazın..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
@@ -429,11 +437,12 @@ export default function ClientPortalMessages() {
                       }
                     }}
                     disabled={sendMessageMutation.isPending}
-                    className="flex-1 pr-10 min-h-[48px] rounded-2xl bg-muted border-0"
+                    className="flex-1 pr-10 resize-none rounded-2xl bg-slate-50 border-slate-200 focus-visible:ring-primary/50 shadow-sm"
+                    style={{ minHeight: "52px", maxHeight: "120px" }}
                   />
-                  <div className="absolute inset-y-0 right-3 flex items-center">
+                  <div className="absolute bottom-2 right-3 flex items-center">
                     {sendMessageMutation.isPending && (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <Loader2 className="h-5 w-5 animate-spin text-primary/60" />
                     )}
                   </div>
                 </div>
@@ -441,7 +450,7 @@ export default function ClientPortalMessages() {
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || sendMessageMutation.isPending}
                   size="icon"
-                  className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="h-12 w-12 rounded-full bg-gradient-to-r from-primary to-primary/90 text-white shadow-md hover:opacity-90 transition-all"
                 >
                   <Send className="h-5 w-5" />
                 </Button>
