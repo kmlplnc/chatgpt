@@ -498,7 +498,9 @@ export default function MessagesPage() {
                                       : 'text-muted-foreground'
                                   }`}>
                                     {lastMessage 
-                                      ? (lastMessage.fromClient ? '' : 'Sen: ') + lastMessage.message
+                                      ? (lastMessage.fromClient ? '' : 'Sen: ') + (lastMessage.content && lastMessage.content.length > 25 
+                                          ? lastMessage.content.substring(0, 25) + '...' 
+                                          : lastMessage.content)
                                       : 'Henüz mesaj yok'}
                                   </p>
                                   {unreadCount > 0 && (
