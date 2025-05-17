@@ -1,0 +1,1660 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { 
+  Calendar, 
+  MessageSquare, 
+  AlertTriangle, 
+  Info, 
+  ArrowRight, 
+  Pencil, 
+  Trash2, 
+  Plus, 
+  Edit, 
+  ChevronLeft, 
+  Activity, 
+  Ruler, 
+  LineChart, 
+  Link, 
+  KeyRound, 
+  Copy,
+  Loader2
+} from "lucide-react";
+import { AppointmentDialog } from "@/components/appointments/appointment-dialog";
+import { MessageList } from "@/components/messages/message-list";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle
+} from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { format, parseISO } from "date-fns";
+import { tr } from "date-fns/locale";
+import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+
+// Recharts bileşenleri
+import {
+  LineChart as ReLineChart,
+  Line,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  ReferenceLine,
+} from "recharts";
+
+// Ölçüm şeması
+const measurementSchema = z.object({
+  date: z.string().nonempty("Tarih gereklidir"),
+  weight: z.string().nonempty("Kilo gereklidir"),
+  height: z.string().nonempty("Boy gereklidir"),
+  waistCircumference: z.string().optional().nullable(),
+  hipCircumference: z.string().optional().nullable(),
+  chestCircumference: z.string().optional().nullable(),
+  armCircumference: z.string().optional().nullable(),
+  thighCircumference: z.string().optional().nullable(),
+  calfCircumference: z.string().optional().nullable(),
+  bodyFatPercentage: z.string().optional().nullable(),
+  activityLevel: z.string().min(1, "Aktivite seviyesi seçilmelidir"),
+  notes: z.string().optional().nullable(),
+});
+
+// Randevu şeması
+const appointmentSchema = z.object({
+  date: z.string().nonempty("Tarih gereklidir"),
+  time: z.string().nonempty("Saat gereklidir"),
+  duration: z.string().default("60"),
+  notes: z.string().optional(),
+});
+
+const formatDate = (date: string | Date) => {
+  if (!date) return "-";
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return format(dateObj, "dd MMMM yyyy", { locale: tr });
+};
+
+// String tipinden verileri işleyip sayısal değerlere çeviren yardımcı fonksiyonlar
+function parseWeight(weight: string): number {
+  return parseFloat(weight) || 0;
+}
+
+function parseHeight(height: string): number {
+  return parseFloat(height) || 0;
+}
+
+// BMI hesaplama - string tipinde veriler için
+function calculateBmiFromString(weight: string, height: string): string {
+  const w = parseFloat(weight);
+  const h = parseFloat(height) / 100; // cm to m conversion
+  if (isNaN(w) || isNaN(h) || h === 0) return "0.00";
+  const bmi = w / (h * h);
+  return bmi.toFixed(2);
+}
+
+// BMR/BMH hesaplama - string tipinde veriler için
+function calculateBmrFromString(weight: string, height: string, age: number, gender: string): number {
+  const w = parseFloat(weight);
+  const h = parseFloat(height);
+
+  if (isNaN(w) || isNaN(h) || isNaN(age)) return 0;
+
+  // Harris-Benedict denklemi
+  if (gender === "male") {
+    return Math.round(88.362 + (13.397 * w) + (4.799 * h) - (5.677 * age));
+  } else {
+    return Math.round(447.593 + (9.247 * w) + (3.098 * h) - (4.330 * age));
+  }
+}
+
+// TDEE hesaplama
+function calculateTdeeFromBmr(bmr: number, activityLevel: string): number {
+  const activityMultipliers: { [key: string]: number } = {
+    sedentary: 1.2,    // Hareketsiz (ofis işi)
+    light: 1.375,      // Hafif aktivite (haftada 1-3 gün egzersiz)
+    moderate: 1.55,    // Orta aktivite (haftada 3-5 gün egzersiz)
+    active: 1.725,     // Aktif (haftada 6-7 gün egzersiz)
+    veryActive: 1.9    // Çok aktif (günde çift antrenman)
+  };
+
+  return Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
+}
+
+function getHealthStatus(bmi: number): { status: string; color: string } {
+  if (bmi < 18.5) {
+    return { status: "Zayıf", color: "text-amber-500" };
+  } else if (bmi >= 18.5 && bmi < 25) {
+    return { status: "Normal", color: "text-green-500" };
+  } else if (bmi >= 25 && bmi < 30) {
+    return { status: "Fazla Kilolu", color: "text-amber-500" };
+  } else if (bmi >= 30 && bmi < 35) {
+    return { status: "Obez (Sınıf I)", color: "text-red-500" };
+  } else if (bmi >= 35 && bmi < 40) {
+    return { status: "Obez (Sınıf II)", color: "text-red-600" };
+  } else {
+    return { status: "Aşırı Obez (Sınıf III)", color: "text-red-700" };
+  }
+}
+
+const getStatusColor = (value: number, bounds: { min: number; max: number; }): string => {
+  if (value < bounds.min) return "text-amber-500";
+  if (value > bounds.max) return "text-red-500";
+  return "text-green-500";
+};
+
+const getBMIColor = (bmi: number) => {
+  if (bmi < 18.5 || (bmi >= 25 && bmi < 30)) return "orange";
+  if (bmi >= 30) return "red";
+  return "green";
+};
+
+const getBodyFatColor = (bodyFat: number, gender: string) => {
+  if (gender === "male") {
+    if (bodyFat < 6) return "orange"; // Çok düşük
+    if (bodyFat >= 6 && bodyFat < 14) return "green"; // Atletik
+    if (bodyFat >= 14 && bodyFat < 18) return "green"; // Fit
+    if (bodyFat >= 18 && bodyFat < 25) return "orange"; // Ortalama
+    return "red"; // Obez
+  } else {
+    if (bodyFat < 16) return "orange"; // Çok düşük
+    if (bodyFat >= 16 && bodyFat < 24) return "green"; // Atletik
+    if (bodyFat >= 24 && bodyFat < 30) return "green"; // Fit
+    if (bodyFat >= 30 && bodyFat < 35) return "orange"; // Ortalama
+    return "red"; // Obez
+  }
+};
+
+export default function ClientDetail() {
+  const [_, setLocation] = useLocation();
+  const { id } = useParams();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments">('measurements');
+  const [clientNotes, setClientNotes] = useState<string>();
+  const [clientPublicNotes, setClientPublicNotes] = useState<string>();
+  const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
+  const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
+  const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  
+  // Randevu ve mesajlaşma state'leri
+  const [openNewAppointmentDialog, setOpenNewAppointmentDialog] = useState(false);
+  const [openEditAppointmentDialog, setOpenEditAppointmentDialog] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [newMessage, setNewMessage] = useState("");
+
+  // Form tanımlamaları
+  const form = useForm<z.infer<typeof measurementSchema>>({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      weight: "",
+      height: "",
+      waistCircumference: "",
+      hipCircumference: "",
+      bodyFatPercentage: "",
+      activityLevel: "light",
+      notes: "",
+    },
+  });
+
+  const editForm = useForm<z.infer<typeof measurementSchema>>({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: {
+      date: "",
+      weight: "",
+      height: "",
+      waistCircumference: "",
+      hipCircumference: "",
+      bodyFatPercentage: "",
+      activityLevel: "light",
+      notes: "",
+    },
+  });
+
+  // Randevu formları
+  const appointmentForm = useForm<z.infer<typeof appointmentSchema>>({
+    resolver: zodResolver(appointmentSchema),
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      time: "09:00",
+      duration: "60",
+      notes: "",
+    },
+  });
+
+  const editAppointmentForm = useForm<z.infer<typeof appointmentSchema>>({
+    resolver: zodResolver(appointmentSchema),
+    defaultValues: {
+      date: "",
+      time: "",
+      duration: "60",
+      notes: "",
+    },
+  });
+
+  // Form alanlarındaki tip hatalarını düzeltmek için
+  const getFieldValue = (field: { value: string | null | undefined }) => {
+    return field.value ?? '';
+  };
+
+  // API İstekleri
+  async function getClient() {
+    const response = await apiRequest("GET", `/api/clients/${id}`);
+    if (!response.ok) {
+      throw new Error("Danışan bilgileri yüklenemedi");
+    }
+    const clientData = await response.json();
+    return clientData;
+  }
+
+  async function getMeasurements() {
+    const response = await apiRequest("GET", `/api/clients/${id}/measurements`);
+    if (!response.ok) {
+      throw new Error("Ölçüm verileri yüklenemedi");
+    }
+    return response.json();
+  }
+
+  async function createMeasurement(data: any) {
+    const response = await apiRequest("POST", `/api/clients/${id}/measurements`, data);
+    if (!response.ok) {
+      throw new Error("Ölçüm kaydedilemedi");
+    }
+    return response.json();
+  }
+
+  async function updateMeasurement(measurementId: number, data: any) {
+    const response = await apiRequest("PATCH", `/api/clients/${id}/measurements/${measurementId}`, data);
+    if (!response.ok) {
+      throw new Error("Ölçüm güncellenemedi");
+    }
+    return response.json();
+  }
+  
+  async function generateAccessCode() {
+    const response = await apiRequest("POST", `/api/clients/${id}/access-code`);
+    if (!response.ok) {
+      throw new Error("Erişim kodu oluşturulamadı");
+    }
+    return response.json();
+  }
+
+  async function deleteMeasurement(measurementId: number) {
+    const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
+    if (!response.ok) {
+      throw new Error("Ölçüm silinemedi");
+    }
+    return response.json();
+  }
+  
+  async function deleteClient() {
+    const response = await apiRequest("DELETE", `/api/clients/${id}`);
+    if (!response.ok) {
+      throw new Error("Danışan silinemedi");
+    }
+    return true;
+  }
+  
+  // Randevu API fonksiyonları
+  async function getAppointments() {
+    const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}`);
+    }
+    return response.json();
+  }
+  
+  async function createAppointment(data: any) {
+    // Tarih ve saat alanlarını startTime ve endTime'a dönüştürme
+    const appointmentDate = new Date(data.date);
+    const [hours, minutes] = data.time.split(':').map(Number);
+    
+    // startTime oluştur
+    const startTime = new Date(appointmentDate);
+    startTime.setHours(hours, minutes, 0, 0);
+    
+    // endTime için seçilen süreyi kullanarak hesapla (varsayılan: 60 dk)
+    const duration = data.duration || 60;
+    const endTime = new Date(startTime);
+    endTime.setMinutes(endTime.getMinutes() + duration);
+    
+    const appointmentData = {
+      ...data,
+      clientId: Number(id),
+      userId: client.userId,
+      startTime,
+      endTime
+    };
+    
+    const response = await apiRequest("POST", "/api/appointments", appointmentData);
+    if (!response.ok) {
+      throw new Error("Randevu oluşturulamadı");
+    }
+    return response.json();
+  }
+  
+  async function updateAppointment(appointmentId: number, data: any) {
+    // Tarih ve saat alanlarını startTime ve endTime'a dönüştürme
+    const appointmentDate = new Date(data.date);
+    const [hours, minutes] = data.time.split(':').map(Number);
+    
+    // startTime oluştur
+    const startTime = new Date(appointmentDate);
+    startTime.setHours(hours, minutes, 0, 0);
+    
+    // endTime için varsayılan olarak 1 saat sonrasını ayarla
+    const endTime = new Date(startTime);
+    endTime.setHours(endTime.getHours() + 1);
+    
+    const appointmentData = {
+      ...data,
+      startTime,
+      endTime
+    };
+    
+    const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}`, appointmentData);
+    if (!response.ok) {
+      throw new Error("Randevu güncellenemedi");
+    }
+    return response.json();
+  }
+  
+  async function deleteAppointment(appointmentId: number) {
+    const response = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
+    if (!response.ok) {
+      throw new Error("Randevu silinemedi");
+    }
+    return response.json();
+  }
+  
+  // Mesaj API fonksiyonları
+  async function getMessages() {
+    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}`);
+    }
+    return response.json();
+  }
+  
+  async function sendMessage(content: string) {
+    const messageData = {
+      content,
+      clientId: Number(id),
+      fromClient: false
+    };
+    const response = await apiRequest("POST", `/api/messages`, messageData);
+    if (!response.ok) {
+      throw new Error("Mesaj gönderilemedi");
+    }
+    return response.json();
+  }
+  
+  async function markMessagesAsRead(messageIds: number[]) {
+    // Bu versiyonu kullanalım
+    if (messageIds && messageIds.length > 0) {
+      const response = await apiRequest("PATCH", "/api/messages/mark-read", { messageIds });
+      if (!response.ok) {
+        throw new Error("Mesajlar okundu olarak işaretlenemedi");
+      }
+      return response.json();
+    }
+    
+    // Tüm mesajlar için
+    const response = await apiRequest("PATCH", `/api/messages/read?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error("Mesajlar okundu olarak işaretlenemedi");
+    }
+    return response.json();
+  }
+
+  // Veri Sorgulama
+  const { 
+    data: client, 
+    isLoading: isClientLoading, 
+    error: clientError 
+  } = useQuery({
+    queryKey: [`/api/clients/${id}`],
+    queryFn: getClient,
+    retry: 1,
+  });
+
+  const { 
+    data: measurements, 
+    isLoading: isMeasurementsLoading, 
+    error: measurementsError 
+  } = useQuery({
+    queryKey: [`/api/clients/${id}/measurements`],
+    queryFn: getMeasurements,
+    retry: 1,
+  });
+  
+  // Randevu ve mesaj sorguları
+  const {
+    data: appointments,
+    isLoading: isAppointmentsLoading,
+    error: appointmentsError
+  } = useQuery({
+    queryKey: [`/api/appointments`, id],
+    queryFn: getAppointments,
+    retry: 1,
+  });
+  
+  const {
+    data: messages,
+    isLoading: isMessagesLoading,
+    error: messagesError
+  } = useQuery({
+    queryKey: [`/api/messages`, id],
+    queryFn: getMessages,
+    retry: 1,
+  });
+
+  // Mutasyonlar
+  const createMeasurementMutation = useMutation({
+    mutationFn: createMeasurement,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      toast({
+        title: "Başarılı",
+        description: "Yeni ölçüm kaydedildi",
+      });
+      setOpenNewMeasurementDialog(false);
+      form.reset({
+        date: new Date().toISOString().split('T')[0],
+        weight: "",
+        height: "",
+        activityLevel: "light",
+        notes: "",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMeasurementMutation = useMutation({
+    mutationFn: (data: any) => updateMeasurement(selectedMeasurement.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      toast({
+        title: "Başarılı",
+        description: "Ölçüm güncellendi",
+      });
+      setOpenEditMeasurementDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Not mutasyonları
+  const updatePrivateNotesMutation = useMutation({
+    mutationFn: async (notes: string) => {
+      const response = await apiRequest("PATCH", `/api/clients/${id}/notes`, { notes });
+      if (!response.ok) {
+        throw new Error("Notlar kaydedilemedi");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Notlar kaydedildi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updatePublicNotesMutation = useMutation({
+    mutationFn: async (notes: string) => {
+      const response = await apiRequest("PATCH", `/api/clients/${id}/public-notes`, { notes });
+      if (!response.ok) {
+        throw new Error("Notlar kaydedilemedi");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Notlar kaydedildi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Randevu mutasyonları
+  const createAppointmentMutation = useMutation({
+    mutationFn: createAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu oluşturuldu",
+      });
+      setOpenNewAppointmentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateAppointmentMutation = useMutation({
+    mutationFn: (data: any) => updateAppointment(selectedAppointment.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu güncellendi",
+      });
+      setOpenEditAppointmentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: (appointmentId: number) => deleteAppointment(appointmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu silindi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Danışan silme mutasyonu
+  const deleteClientMutation = useMutation({
+    mutationFn: deleteClient,
+    onSuccess: () => {
+      setLocation('/clients');
+      toast({
+        title: "Başarılı",
+        description: "Danışan silindi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Not değişikliklerini kaydetme
+  useEffect(() => {
+    if (client) {
+      setClientNotes(client.notes || '');
+      setClientPublicNotes(client.publicNotes || '');
+    }
+  }, [client]);
+
+  // Ölçümleri tarih sırasına göre sırala (kopyasını alarak orjinal diziyi değiştirmiyoruz)
+  const sortedMeasurements = measurements && measurements.length > 0
+    ? [...measurements].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    : [];
+
+  // İlk ölçüm (tarih sırasına göre en eski)
+  const firstMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[0] : null;
+
+  // Son ölçüm (tarih sırasına göre en yeni)
+  // Sadece bir ölçüm varsa ilk ve son aynı olacak, karşılaştırma yapılmayacak
+  const lastMeasurement = sortedMeasurements.length > 1 ? sortedMeasurements[sortedMeasurements.length - 1] : firstMeasurement;
+
+  // Değişim hesaplama
+  const calculateChange = (current: number, initial: number) => {
+    if (!initial || current === initial) return { value: "0", percentage: "0" };
+    const change = current - initial;
+    const percentage = (change / initial) * 100;
+    return {
+      value: change.toFixed(2),
+      percentage: percentage.toFixed(2)
+    };
+  };
+
+  // Kilo değişimi
+  const weightChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement
+    ? calculateChange(parseFloat(lastMeasurement.weight), parseFloat(firstMeasurement.weight))
+    : { value: 0, percentage: 0 };
+
+  // BKI değişimi
+  const bmiChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement
+    ? calculateChange(parseFloat(lastMeasurement.bmi), parseFloat(firstMeasurement.bmi))
+    : { value: 0, percentage: 0 };
+
+  // BMH değişimi
+  const bmhChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement && 
+      lastMeasurement.basalMetabolicRate && firstMeasurement.basalMetabolicRate
+    ? calculateChange(Math.round(lastMeasurement.basalMetabolicRate), Math.round(firstMeasurement.basalMetabolicRate))
+    : { value: 0, percentage: 0 };
+
+  // TDEE değişimi
+  const tdeeChange = lastMeasurement && firstMeasurement && lastMeasurement !== firstMeasurement && 
+      lastMeasurement.totalDailyEnergyExpenditure && firstMeasurement.totalDailyEnergyExpenditure
+    ? calculateChange(Math.round(lastMeasurement.totalDailyEnergyExpenditure), Math.round(firstMeasurement.totalDailyEnergyExpenditure))
+    : { value: 0, percentage: 0 };
+
+  // Yaş hesaplama
+  const calculateAge = (birthDate?: string) => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const clientAge = calculateAge(client?.birthDate);
+
+  // Bel-Kalça Oranı hesaplama
+  const calculateWHR = (waist?: string, hip?: string) => {
+    if (!waist || !hip) return null;
+    const w = parseFloat(waist);
+    const h = parseFloat(hip);
+    if (isNaN(w) || isNaN(h) || h === 0) return null;
+    return (w / h).toFixed(2);
+  };
+
+  const getWHRStatus = (whr: number, gender: string) => {
+    if (gender === "male") {
+      if (whr <= 0.9) return { status: "Sağlıklı", color: "text-green-500" };
+      if (whr <= 0.99) return { status: "Orta Risk", color: "text-amber-500" };
+      return { status: "Yüksek Risk", color: "text-red-500" };
+    } else {
+      if (whr <= 0.8) return { status: "Sağlıklı", color: "text-green-500" };
+      if (whr <= 0.89) return { status: "Orta Risk", color: "text-amber-500" };
+      return { status: "Yüksek Risk", color: "text-red-500" };
+    }
+  };
+
+  const whr = lastMeasurement ? calculateWHR(lastMeasurement.waistCircumference, lastMeasurement.hipCircumference) : null;
+  const whrStatus = whr && client ? getWHRStatus(parseFloat(whr), client.gender) : null;
+
+  // Vücut Yağ Oranı Durumu
+  const getBodyFatStatus = (bf: number, gender: string) => {
+    if (gender === "male") {
+      if (bf < 6) return { status: "Çok Düşük", color: "text-amber-500" };
+      if (bf >= 6 && bf < 14) return { status: "Atletik", color: "text-green-500" };
+      if (bf >= 14 && bf < 18) return { status: "Fit", color: "text-green-500" };
+      if (bf >= 18 && bf < 25) return { status: "Normal", color: "text-green-500" };
+      return { status: "Yüksek", color: "text-red-500" };
+    } else {
+      if (bf < 16) return { status: "Çok Düşük", color: "text-amber-500" };
+      if (bf >= 16 && bf < 24) return { status: "Atletik", color: "text-green-500" };
+      if (bf >= 24 && bf < 30) return { status: "Fit", color: "text-green-500" };
+      if (bf >= 30 && bf < 32) return { status: "Normal", color: "text-green-500" };
+      return { status: "Yüksek", color: "text-red-500" };
+    }
+  };
+
+  const bodyFatStatus = lastMeasurement && lastMeasurement.bodyFatPercentage && client
+    ? getBodyFatStatus(parseFloat(lastMeasurement.bodyFatPercentage), client.gender)
+    : null;
+
+  // Hata ve yükleme durumlarını kontrol et
+  if (isClientLoading || isMeasurementsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (clientError || !client) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Hata</AlertTitle>
+          <AlertDescription>
+            Danışan bilgileri yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      {/* Üst Başlık */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setLocation('/clients')}>
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Geri
+          </Button>
+          <h1 className="text-2xl font-bold">{client.name}</h1>
+          <Badge>{client.status}</Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setLocation(`/clients/${id}/edit`)}>
+            <Pencil className="w-4 h-4 mr-2" />
+            Düzenle
+          </Button>
+          <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Sil
+          </Button>
+        </div>
+      </div>
+
+      {/* Ana İçerik */}
+      <Tabs value={viewedTab} onValueChange={(value: any) => setViewedTab(value)}>
+        <TabsList>
+          <TabsTrigger value="measurements">
+            <Ruler className="w-4 h-4 mr-2" />
+            Ölçümler
+          </TabsTrigger>
+          <TabsTrigger value="health">
+            <Activity className="w-4 h-4 mr-2" />
+            Sağlık Durumu
+          </TabsTrigger>
+          <TabsTrigger value="appointments">
+            <Calendar className="w-4 h-4 mr-2" />
+            Randevular
+          </TabsTrigger>
+          <TabsTrigger value="notes">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Notlar
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="measurements" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Ölçüm Geçmişi</h2>
+            <Button onClick={() => setOpenNewMeasurementDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Ölçüm
+            </Button>
+          </div>
+
+          {measurements && measurements.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {measurements.map((measurement: any) => (
+                <Card key={measurement.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center">
+                      <span>{formatDate(measurement.date)}</span>
+                      <Button variant="ghost" size="icon" onClick={() => {
+                        setSelectedMeasurement(measurement);
+                        setOpenEditMeasurementDialog(true);
+                      }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Kilo:</span>
+                        <span className="font-medium">{measurement.weight} kg</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Boy:</span>
+                        <span className="font-medium">{measurement.height} cm</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">VKİ:</span>
+                        <span className="font-medium">{measurement.bmi}</span>
+                      </div>
+                      {measurement.bodyFatPercentage && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Vücut Yağı:</span>
+                          <span className="font-medium">%{measurement.bodyFatPercentage}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <Info className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground text-center">Henüz ölçüm kaydı bulunmuyor.</p>
+                <Button className="mt-4" onClick={() => setOpenNewMeasurementDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  İlk Ölçümü Ekle
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="health" className="space-y-4">
+          {lastMeasurement ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vücut Kitle İndeksi (VKİ)</CardTitle>
+                  <CardDescription>Son ölçüm değerleri</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span>VKİ Değeri:</span>
+                      <span className={getHealthStatus(parseFloat(lastMeasurement.bmi)).color}>
+                        {lastMeasurement.bmi}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Durum:</span>
+                      <span className={getHealthStatus(parseFloat(lastMeasurement.bmi)).color}>
+                        {getHealthStatus(parseFloat(lastMeasurement.bmi)).status}
+                      </span>
+                    </div>
+                    {bmiChange.value !== "0" && (
+                      <div className="flex justify-between items-center">
+                        <span>Değişim:</span>
+                        <span className={Number(bmiChange.value) < 0 ? "text-green-500" : "text-red-500"}>
+                          {bmiChange.value} ({bmiChange.percentage}%)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Metabolik Değerler</CardTitle>
+                  <CardDescription>Günlük kalori ihtiyacı</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span>BMR:</span>
+                      <span>{Math.round(lastMeasurement.basalMetabolicRate)} kcal</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>TDEE:</span>
+                      <span>{Math.round(lastMeasurement.totalDailyEnergyExpenditure)} kcal</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Aktivite Seviyesi:</span>
+                      <span className="capitalize">{lastMeasurement.activityLevel}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {lastMeasurement.bodyFatPercentage && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vücut Kompozisyonu</CardTitle>
+                    <CardDescription>Yağ oranı ve ölçümler</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span>Vücut Yağ Oranı:</span>
+                        <span className={bodyFatStatus?.color}>
+                          %{lastMeasurement.bodyFatPercentage}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Durum:</span>
+                        <span className={bodyFatStatus?.color}>
+                          {bodyFatStatus?.status}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {whr && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bel-Kalça Oranı</CardTitle>
+                    <CardDescription>Metabolik risk değerlendirmesi</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span>WHR:</span>
+                        <span className={whrStatus?.color}>{whr}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Durum:</span>
+                        <span className={whrStatus?.color}>
+                          {whrStatus?.status}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <Info className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground text-center">Sağlık durumu bilgilerini görüntülemek için ölçüm ekleyin.</p>
+                <Button className="mt-4" onClick={() => setOpenNewMeasurementDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ölçüm Ekle
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="appointments" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Randevular</h2>
+            <Button onClick={() => setOpenNewAppointmentDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Randevu
+            </Button>
+          </div>
+
+          {appointments && appointments.length > 0 ? (
+            <div className="space-y-4">
+              {appointments.map((appointment: any) => (
+                <Card key={appointment.id}>
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center">
+                      <span>{formatDate(appointment.startTime)}</span>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setSelectedAppointment(appointment);
+                          setOpenEditAppointmentDialog(true);
+                        }}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Saat:</span>
+                        <span className="font-medium">
+                          {format(new Date(appointment.startTime), 'HH:mm')} - 
+                          {format(new Date(appointment.endTime), 'HH:mm')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Durum:</span>
+                        <Badge>{appointment.status}</Badge>
+                      </div>
+                      {appointment.notes && (
+                        <div className="mt-2">
+                          <span className="text-muted-foreground">Notlar:</span>
+                          <p className="mt-1">{appointment.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <Info className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground text-center">Henüz randevu bulunmuyor.</p>
+                <Button className="mt-4" onClick={() => setOpenNewAppointmentDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  İlk Randevuyu Ekle
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="notes" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Özel Notlar</CardTitle>
+                <CardDescription>Sadece sizin görebileceğiniz notlar</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={clientNotes}
+                  onChange={(e) => setClientNotes(e.target.value)}
+                  placeholder="Danışan hakkında özel notlarınızı buraya ekleyin..."
+                  className="min-h-[200px]"
+                />
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  className="ml-auto" 
+                  onClick={() => updatePrivateNotesMutation.mutate(clientNotes || '')}
+                  disabled={updatePrivateNotesMutation.isPending}
+                >
+                  {updatePrivateNotesMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Kaydet
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Danışan Notları</CardTitle>
+                <CardDescription>Danışanın da görebileceği notlar</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={clientPublicNotes}
+                  onChange={(e) => setClientPublicNotes(e.target.value)}
+                  placeholder="Danışanınızla paylaşmak istediğiniz notları buraya ekleyin..."
+                  className="min-h-[200px]"
+                />
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  className="ml-auto" 
+                  onClick={() => updatePublicNotesMutation.mutate(clientPublicNotes || '')}
+                  disabled={updatePublicNotesMutation.isPending}
+                >
+                  {updatePublicNotesMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Kaydet
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Diyaloglar */}
+      <Dialog open={openNewMeasurementDialog} onOpenChange={setOpenNewMeasurementDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Yeni Ölçüm Ekle</DialogTitle>
+            <DialogDescription>
+              Danışanın yeni ölçüm değerlerini girin.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((data) => createMeasurementMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarih</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="weight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kilo (kg)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="height"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Boy (cm)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="waistCircumference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bel Çevresi (cm)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="hipCircumference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kalça Çevresi (cm)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="bodyFatPercentage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="activityLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aktivite Seviyesi</FormLabel>
+                    <Select onValueChange={field.onChange} value={getFieldValue(field)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Aktivite seviyesi seçin" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="sedentary">Hareketsiz</SelectItem>
+                        <SelectItem value="light">Hafif Aktif</SelectItem>
+                        <SelectItem value="moderate">Orta Aktif</SelectItem>
+                        <SelectItem value="active">Aktif</SelectItem>
+                        <SelectItem value="veryActive">Çok Aktif</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Günlük aktivite seviyesini seçin
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notlar</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit" disabled={createMeasurementMutation.isPending}>
+                  {createMeasurementMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Kaydet
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditMeasurementDialog} onOpenChange={setOpenEditMeasurementDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ölçüm Düzenle</DialogTitle>
+            <DialogDescription>
+              Ölçüm değerlerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => updateMeasurementMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarih</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="weight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kilo (kg)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="height"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Boy (cm)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="waistCircumference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bel Çevresi (cm)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="hipCircumference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kalça Çevresi (cm)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="bodyFatPercentage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="activityLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aktivite Seviyesi</FormLabel>
+                    <Select onValueChange={field.onChange} value={getFieldValue(field)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Aktivite seviyesi seçin" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="sedentary">Hareketsiz</SelectItem>
+                        <SelectItem value="light">Hafif Aktif</SelectItem>
+                        <SelectItem value="moderate">Orta Aktif</SelectItem>
+                        <SelectItem value="active">Aktif</SelectItem>
+                        <SelectItem value="veryActive">Çok Aktif</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Günlük aktivite seviyesini seçin
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notlar</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit" disabled={updateMeasurementMutation.isPending}>
+                  {updateMeasurementMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Güncelle
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Danışanı Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem geri alınamaz. Danışan ve ilgili tüm veriler kalıcı olarak silinecektir.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteClientMutation.mutate()}>
+              {deleteClientMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={openNewAppointmentDialog} onOpenChange={setOpenNewAppointmentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Yeni Randevu</DialogTitle>
+            <DialogDescription>
+              Yeni randevu oluşturun.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...appointmentForm}>
+            <form onSubmit={appointmentForm.handleSubmit((data) => createAppointmentMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={appointmentForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarih</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={appointmentForm.control}
+                name="time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Saat</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={appointmentForm.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Süre (dakika)</FormLabel>
+                    <Select onValueChange={field.onChange} value={getFieldValue(field)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Randevu süresini seçin" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="30">30 dakika</SelectItem>
+                        <SelectItem value="45">45 dakika</SelectItem>
+                        <SelectItem value="60">1 saat</SelectItem>
+                        <SelectItem value="90">1.5 saat</SelectItem>
+                        <SelectItem value="120">2 saat</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={appointmentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notlar</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit" disabled={createAppointmentMutation.isPending}>
+                  {createAppointmentMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Kaydet
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditAppointmentDialog} onOpenChange={setOpenEditAppointmentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Randevu Düzenle</DialogTitle>
+            <DialogDescription>
+              Randevu bilgilerini güncelleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editAppointmentForm}>
+            <form onSubmit={editAppointmentForm.handleSubmit((data) => updateAppointmentMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editAppointmentForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarih</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editAppointmentForm.control}
+                name="time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Saat</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editAppointmentForm.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Süre (dakika)</FormLabel>
+                    <Select onValueChange={field.onChange} value={getFieldValue(field)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Randevu süresini seçin" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="30">30 dakika</SelectItem>
+                        <SelectItem value="45">45 dakika</SelectItem>
+                        <SelectItem value="60">1 saat</SelectItem>
+                        <SelectItem value="90">1.5 saat</SelectItem>
+                        <SelectItem value="120">2 saat</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editAppointmentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notlar</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={getFieldValue(field)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit" disabled={updateAppointmentMutation.isPending}>
+                  {updateAppointmentMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Güncelle
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

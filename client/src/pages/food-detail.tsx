@@ -42,7 +42,7 @@ export default function FoodDetailPage() {
   };
   
   return (
-    <div className="space-y-6">
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 animate-page-transition">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Food Details</h1>
         <Button variant="outline" onClick={handleBack}>

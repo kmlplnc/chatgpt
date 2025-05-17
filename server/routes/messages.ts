@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { insertMessageSchema } from "@shared/schema";
+import { NotificationType } from "./notifications";
 
 const messagesRouter = Router();
 
@@ -48,6 +49,9 @@ messagesRouter.get("/", requireAuth, async (req: Request, res: Response) => {
     }
     
     const clientIdNum = Number(clientId);
+    if (isNaN(clientIdNum)) {
+      return res.status(400).json({ message: "Geçerli bir danışan ID gereklidir" });
+    }
     
     // Diyetisyenin kendi danışanı olduğunu doğrula
     const client = await storage.getClient(clientIdNum);
@@ -86,8 +90,18 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
     
     // Diyetisyenin kendi danışanı olduğunu doğrula
     const client = await storage.getClient(clientIdNum);
-    if (!client || (client.userId !== userId && client.userId !== null)) {
-      return res.status(403).json({ message: "Bu danışana mesaj gönderme izniniz yok" });
+    // Giriş yapanın portal türüne göre izin kontrolü
+    const isClientPortal = !!clientId; // Danışan portalı ise true
+    if (isClientPortal) {
+      // Danışan portalı: sadece kendi client kaydına erişebilir
+      if (!client || client.id !== clientId) {
+        return res.status(403).json({ message: "Bu danışana mesaj gönderme izniniz yok" });
+      }
+    } else {
+      // Diyetisyen portalı: sadece kendi danışanına erişebilir
+      if (!client || (client.userId !== null && client.userId !== userId)) {
+        return res.status(403).json({ message: "Bu danışana mesaj gönderme izniniz yok" });
+      }
     }
     
     // Validate request body
@@ -95,7 +109,7 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
       content: messageContent,
       userId,
       clientId: clientIdNum,
-      fromClient, // false = Diyetisyenden gönderilen mesaj
+      fromClient,
       isRead: false
     });
     
@@ -105,17 +119,43 @@ messagesRouter.post("/", requireAuth, async (req: Request, res: Response) => {
     
     // Mesaj gönderildikten sonra ilgili kişiye bildirim gönder
     try {
+      const notificationData = {
+        type: NotificationType.MESSAGE,
+        title: fromClient ? "Yeni Danışan Mesajı" : "Yeni Diyetisyen Mesajı",
+        content: messageContent,
+        data: {
+          messageId: newMessage.id,
+          clientId: clientIdNum,
+          fromClient
+        },
+        priority: 'high'
+      };
       if (fromClient) {
-        // Eğer mesaj danışandan geldiyse, diyetisyene bildirim gönder
-        await storage.createMessageNotification(newMessage.id, userId, false);
+        // Danışan yazdıysa, bildirimi diyetisyene gönder (sadece userId dolu)
+        console.log('BİLDİRİM: Sadece userId:', userId, 'clientId:', clientIdNum);
+        await storage.createNotification({
+          ...notificationData,
+          userId: userId,
+          isRead: false
+        });
       } else {
-        // Eğer mesaj diyetisyenden geldiyse ve danışanın bir user hesabı varsa bildirim gönder
-        if (client.userId) {
-          await storage.createMessageNotification(newMessage.id, client.userId, true);
+        // Diyetisyen yazdıysa, bildirimi danışana gönder (sadece clientId dolu)
+        console.log('BİLDİRİM: Sadece clientId:', clientIdNum, 'userId:', userId);
+        await storage.createNotification({
+          ...notificationData,
+          clientId: clientIdNum,
+          isRead: false
+        });
+      }
+      // WebSocket ile gerçek zamanlı bildirim
+      if (req.app.get('io')) {
+        const targetUserId = fromClient ? userId : client.userId;
+        if (targetUserId) {
+          req.app.get('io').to(`user:${targetUserId}`).emit('new_message', newMessage);
         }
       }
     } catch (notifError) {
-      console.error("Mesaj bildirimi oluşturulamadı:", notifError);
+      console.error('BİLDİRİM: Bildirim oluşturulamadı:', notifError);
       // Bildirim oluşturulamazsa bile mesaj gönderilmiş sayılır
     }
     
@@ -238,14 +278,17 @@ messagesRouter.get("/unread/count", requireAuth, async (req: Request, res: Respo
   try {
     const userId = req.session.user!.id;
     const { clientId } = req.query;
-    
+    const clientSessionId = (req.session as any).clientId;
     let unreadCount;
-    if (clientId) {
+    if (clientSessionId) {
+      // Danışan portalı: diyetisyenden gelen okunmamış mesajlar
+      unreadCount = await storage.getUnreadMessages(Number(clientSessionId), undefined, true);
+    } else if (clientId) {
+      // Diyetisyen portalı: danışandan gelen okunmamış mesajlar
       unreadCount = await storage.getUnreadMessages(Number(clientId), userId);
     } else {
       unreadCount = await storage.getUnreadMessages(undefined, userId);
     }
-    
     res.json({ count: unreadCount });
   } catch (error) {
     console.error("Okunmamış mesaj sayısı getirilemedi:", error);
@@ -297,20 +340,8 @@ messagesRouter.get("/last-messages", requireAuth, async (req: Request, res: Resp
   try {
     const userId = req.session.user!.id;
     
-    // Diyetisyenin tüm danışanlarını getir
-    const clients = await storage.getClients(userId);
-    
-    // Her danışan için son mesajı al
-    const lastMessages = await Promise.all(
-      clients.map(async (client) => {
-        const lastMessage = await storage.getLastMessageByClient(client.id, userId);
-        return {
-          clientId: client.id,
-          clientName: `${client.firstName} ${client.lastName}`,
-          lastMessage: lastMessage || null
-        };
-      })
-    );
+    // Diyetisyenin tüm danışanları için son mesajları getir
+    const lastMessages = await storage.getLastMessagesForAllClients(userId);
     
     res.json(lastMessages);
   } catch (error) {
@@ -374,12 +405,8 @@ messagesRouter.delete("/:messageId", requireAuth, async (req: Request, res: Resp
       return res.status(403).json({ message: "Bu mesajı silme izniniz yok" });
     }
     
-    const success = await storage.deleteMessage(messageId);
-    if (success) {
-      res.json({ success: true });
-    } else {
-      res.status(500).json({ message: "Mesaj silinemedi" });
-    }
+    await storage.deleteMessage(messageId);
+    res.json({ success: true });
   } catch (error) {
     console.error("Mesaj silme hatası:", error);
     res.status(500).json({ message: "Mesaj silinemedi" });
@@ -406,21 +433,6 @@ messagesRouter.delete("/conversation/:clientId", requireAuth, async (req: Reques
   } catch (error) {
     console.error("Sohbet silme hatası:", error);
     res.status(500).json({ message: "Sohbet silinemedi" });
-  }
-});
-
-// Her danışan için son mesajı getir
-messagesRouter.get("/last-messages", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = req.session.user!.id;
-    
-    // Diyetisyenin tüm danışanları için son mesajları getir
-    const lastMessages = await storage.getLastMessagesForAllClients(userId);
-    
-    res.json(lastMessages);
-  } catch (error) {
-    console.error("Son mesajlar getirilemedi:", error);
-    res.status(500).json({ message: "Son mesajlar getirilemedi" });
   }
 });
 

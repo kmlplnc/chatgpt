@@ -1,0 +1,13 @@
+{
+  "out": "./drizzle",
+  "schema": "./schema.ts",
+  "driver": "pg",
+  "dialect": "postgresql",
+  "dbCredentials": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "socialmediamaster",
+    "user": "postgres",
+    "password": "postgres"
+  }
+} 

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useEffect, useRef } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,22 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Send } from "lucide-react";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import type { Message } from "@/types/client";
 
 interface MessageListProps {
-  clientId: string | number;
-  messages: any[];
+  clientId: string;
+  messages: Message[];
   isLoading: boolean;
-  error: Error | null;
+  error: any;
   newMessage: string;
-  setNewMessage: (value: string) => void;
+  setNewMessage: (message: string) => void;
+  onSendMessage: (message: string) => void;
 }
 
 export function MessageList({
@@ -27,6 +35,7 @@ export function MessageList({
   error,
   newMessage,
   setNewMessage,
+  onSendMessage,
 }: MessageListProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -89,13 +98,14 @@ export function MessageList({
     },
   });
 
-  // Otomatik scroll
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    scrollToBottom();
   }, [messages]);
-  
+
   // Mesajları otomatik olarak okundu olarak işaretle
   useEffect(() => {
     if (!isLoading && messages && messages.length > 0) {
@@ -106,82 +116,90 @@ export function MessageList({
     }
   }, [isLoading, messages]);
 
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Mesajlar yükleniyor...</CardTitle>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Mesajlar yüklenirken bir hata oluştu</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-500">{error.message}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-[400px]">
-      {isLoading ? (
-        <div className="flex items-center justify-center p-4 flex-1">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin size-5 border-2 border-primary border-t-transparent rounded-full"></div>
-            <span>Mesajlar yükleniyor...</span>
-          </div>
-        </div>
-      ) : error ? (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Hata</AlertTitle>
-          <AlertDescription>
-            Mesajlar yüklenirken bir hata oluştu: {error.message}
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 border rounded-lg">
-            {messages && messages.length > 0 ? (
-              messages.map((message: any) => (
-                <div 
-                  key={message.id} 
-                  className={`flex ${message.fromClient ? 'justify-start' : 'justify-end'}`}
+    <Card className="h-[600px] flex flex-col">
+      <CardHeader>
+        <CardTitle>Mesajlar</CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col">
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${
+                  message.fromClient ? "justify-start" : "justify-end"
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.fromClient
+                      ? "bg-gray-100"
+                      : "bg-blue-500 text-white"
+                  }`}
                 >
-                  <div 
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.fromClient 
-                        ? 'bg-slate-100 text-slate-900' 
-                        : 'bg-primary text-primary-foreground'
+                  <p className="text-sm">{message.content}</p>
+                  <p
+                    className={`text-xs mt-1 ${
+                      message.fromClient ? "text-gray-500" : "text-blue-100"
                     }`}
                   >
-                    <p>{message.content}</p>
-                    <p className="text-xs mt-1 opacity-70">
-                      {new Date(message.createdAt).toLocaleString('tr-TR')}
-                    </p>
-                  </div>
+                    {format(new Date(message.createdAt), "d MMMM yyyy HH:mm", {
+                      locale: tr,
+                    })}
+                  </p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center text-muted-foreground p-4">
-                <p>Henüz mesaj yok</p>
-                <p className="text-sm">Danışan ile mesajlaşmaya başlamak için bir mesaj gönderin.</p>
               </div>
-            )}
+            ))}
             <div ref={messagesEndRef} />
           </div>
-          
-          <div className="flex gap-2">
-            <Textarea 
-              placeholder="Mesajınızı yazın..." 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="flex-1"
-            />
-            <Button 
-              onClick={() => {
-                if (newMessage.trim()) {
-                  sendMessageMutation.mutate(newMessage);
-                }
-              }}
-              disabled={sendMessageMutation.isPending || !newMessage.trim()}
-            >
-              {sendMessageMutation.isPending ? (
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin size-4 border-2 border-current border-t-transparent rounded-full"></div>
-                  <span>Gönderiliyor</span>
-                </div>
-              ) : (
-                <span>Gönder</span>
-              )}
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
+        </ScrollArea>
+        <div className="mt-4 flex gap-2">
+          <Input
+            placeholder="Mesajınızı yazın..."
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === "Enter" && newMessage.trim()) {
+                onSendMessage(newMessage);
+              }
+            }}
+          />
+          <Button
+            onClick={() => {
+              if (newMessage.trim()) {
+                onSendMessage(newMessage);
+              }
+            }}
+            disabled={!newMessage.trim()}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,6 +1,23 @@
+@import './styles/animations.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Page transition animation */
+@keyframes fadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-transition {
+  animation: fadeSlideIn 0.5s ease-out forwards;
+}
 
 :root {
   --background: 146 43% 98%;
@@ -75,11 +92,11 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-gray-200;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased;
   }
 }
 
@@ -91,5 +108,127 @@
 }
 
 .nutrient-badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary bg-opacity-10 text-primary;
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-opacity-10;
+}
+
+/* Chat specific styles */
+html, body, #root {
+  @apply h-full w-full bg-[hsl(var(--background))] text-foreground dark:bg-neutral-900 dark:text-white;
+}
+
+.chat-container {
+  @apply h-full flex flex-col;
+}
+
+.chat-messages {
+  @apply flex-1 overflow-y-auto;
+}
+
+.chat-input-container {
+  @apply flex-none border-t bg-background;
+}
+
+/* Ensure proper height calculations */
+.h-full {
+  height: 100%;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.flex-none {
+  flex: none;
+}
+
+.min-h-0 {
+  min-height: 0;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+/* Koyu modda özel hex override kaldırıldı, Tailwind'in kendi neutral-900 tonu kullanılacak */
+
+html.dark, body.dark, #root.dark {
+  background-color: #171717 !important; /* Tailwind neutral-900 */
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+.animate-bounce-slow {
+  animation: bounce 2.2s infinite cubic-bezier(.68,-0.55,.27,1.55);
+}
+
+@keyframes scrollDown {
+  0% { transform: translateY(0); }
+  80% { transform: translateY(40px); }
+  100% { transform: translateY(0); }
+}
+.animate-scroll-down {
+  animation: scrollDown 8s linear infinite;
+}
+
+/* Message typography styles */
+.message-content {
+  @apply text-[15px] leading-[1.6] tracking-[-0.011em] font-normal;
+}
+
+.message-timestamp {
+  @apply text-[11px] tracking-[-0.006em] font-medium opacity-75;
+}
+
+.message-header {
+  @apply text-xl font-semibold tracking-[-0.014em];
+}
+
+.message-input {
+  @apply text-[15px] leading-[1.5] tracking-[-0.011em] font-normal;
+}
+
+.empty-messages {
+  @apply text-base font-medium tracking-[-0.011em] text-muted-foreground;
+}
+
+.empty-messages-subtitle {
+  @apply text-sm font-normal tracking-normal text-muted-foreground/80;
+}
+
+.back-button-text {
+  @apply text-sm font-medium tracking-[-0.006em];
+}
+
+/* Blob animations */
+@keyframes blob {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
 }

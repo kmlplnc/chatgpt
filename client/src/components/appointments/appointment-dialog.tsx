@@ -1,4 +1,7 @@
-import { Button } from "@/components/ui/button";
+import React from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogContent,
@@ -7,260 +10,154 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import type { Appointment } from "@/types/client";
+
+const appointmentSchema = z.object({
+  date: z.string(),
+  time: z.string(),
+  duration: z.string(),
+  type: z.string(),
+  notes: z.string().optional(),
+});
+
+type AppointmentFormValues = z.infer<typeof appointmentSchema>;
 
 interface AppointmentDialogProps {
-  clientId: string | number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedAppointment?: any;
-  isEdit?: boolean;
+  onSubmit: (data: AppointmentFormValues) => void;
+  appointment?: Appointment;
+  isLoading?: boolean;
 }
 
 export function AppointmentDialog({
-  clientId,
   open,
   onOpenChange,
-  selectedAppointment,
-  isEdit = false,
+  onSubmit,
+  appointment,
+  isLoading,
 }: AppointmentDialogProps) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  // API fonksiyonları
-  async function createAppointment(data: any) {
-    // String tarihleri olduğu gibi gönder, sunucu tarafında Date'e dönüştürülecek
-    const appointmentData = {
-      ...data,
-      clientId: Number(clientId),
-    };
-    
-    console.log("Sunucuya gönderilen randevu verisi:", appointmentData);
-    
-    const response = await apiRequest("POST", "/api/appointments", appointmentData);
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Randevu oluşturma hatası:", errorData);
-      throw new Error("Randevu oluşturulamadı: " + (errorData.message || ''));
-    }
-    return response.json();
-  }
-
-  async function updateAppointment(data: any) {
-    // String tarihleri olduğu gibi gönder, sunucu tarafında Date'e dönüştürülecek
-    const appointmentData = {
-      ...data
-    };
-    
-    console.log("Sunucuya gönderilen güncelleme verisi:", appointmentData);
-    
-    const response = await apiRequest("PATCH", `/api/appointments/${selectedAppointment.id}`, appointmentData);
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Randevu güncelleme hatası:", errorData);
-      throw new Error("Randevu güncellenemedi: " + (errorData.message || ''));
-    }
-    return response.json();
-  }
-
-  // Mutasyonlar
-  const createAppointmentMutation = useMutation({
-    mutationFn: createAppointment,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, clientId] });
-      toast({
-        title: "Başarılı",
-        description: "Yeni randevu oluşturuldu",
-      });
-      onOpenChange(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+  const form = useForm<AppointmentFormValues>({
+    resolver: zodResolver(appointmentSchema),
+    defaultValues: {
+      date: appointment?.date || format(new Date(), "yyyy-MM-dd"),
+      time: appointment?.time || "",
+      duration: appointment?.duration?.toString() || "60",
+      type: appointment?.type || "",
+      notes: appointment?.notes || "",
     },
   });
-
-  const updateAppointmentMutation = useMutation({
-    mutationFn: updateAppointment,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, clientId] });
-      toast({
-        title: "Başarılı",
-        description: "Randevu güncellendi",
-      });
-      onOpenChange(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget as HTMLFormElement);
-    
-    // Tarihleri doğru formata dönüştür
-    const dateStr = formData.get('date') as string;
-    const startTimeStr = formData.get('startTime') as string;
-    const endTimeStr = formData.get('endTime') as string;
-    
-    // ISO formatında tam tarih-saat oluştur
-    const startDateTime = new Date(`${dateStr}T${startTimeStr}`);
-    const endDateTime = new Date(`${dateStr}T${endTimeStr}`);
-    
-    const appointmentData = {
-      title: formData.get('title') as string,
-      clientId: Number(clientId),
-      date: startDateTime.toISOString(),
-      startTime: startDateTime.toISOString(),
-      endTime: endDateTime.toISOString(),
-      status: formData.get('status') as string || "pending",
-      notes: formData.get('notes') as string || null
-    };
-    
-    console.log("Gönderilen randevu verileri:", appointmentData);
-    
-    if (isEdit) {
-      updateAppointmentMutation.mutate(appointmentData);
-    } else {
-      createAppointmentMutation.mutate(appointmentData);
-    }
-  };
-
-  // Formatla saat değerlerini
-  const formatTimeForInput = (timeString: string) => {
-    try {
-      const time = new Date(timeString);
-      const hours = time.getHours().toString().padStart(2, '0');
-      const minutes = time.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
-    } catch (error) {
-      return '';
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Randevu Düzenle' : 'Yeni Randevu Oluştur'}</DialogTitle>
+          <DialogTitle>{appointment ? "Randevu Düzenle" : "Yeni Randevu"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Randevu bilgilerini düzenleyin.' : 'Danışan için yeni bir randevu oluşturun.'}
+            {appointment ? "Randevu bilgilerini düzenleyin." : "Yeni bir randevu oluşturun."}
           </DialogDescription>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="title">Başlık</Label>
-              <Input 
-                id="title" 
-                name="title" 
-                defaultValue={isEdit ? selectedAppointment?.title : ''} 
-                placeholder="Randevu başlığı" 
-                required 
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="date">Tarih</Label>
-              <Input 
-                id="date" 
-                name="date" 
-                type="date" 
-                defaultValue={isEdit && selectedAppointment?.date 
-                  ? new Date(selectedAppointment.date).toISOString().split('T')[0] 
-                  : new Date().toISOString().split('T')[0]} 
-                required 
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="startTime">Başlangıç Saati</Label>
-                <Input 
-                  id="startTime" 
-                  name="startTime" 
-                  type="time" 
-                  defaultValue={isEdit && selectedAppointment?.startTime 
-                    ? formatTimeForInput(selectedAppointment.startTime)
-                    : ''}
-                  required 
-                />
-              </div>
-              <div>
-                <Label htmlFor="endTime">Bitiş Saati</Label>
-                <Input 
-                  id="endTime" 
-                  name="endTime" 
-                  type="time" 
-                  defaultValue={isEdit && selectedAppointment?.endTime 
-                    ? formatTimeForInput(selectedAppointment.endTime)
-                    : ''}
-                  required 
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="status">Durum</Label>
-              <Select name="status" defaultValue={isEdit ? selectedAppointment?.status : 'pending'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Durum seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Beklemede</SelectItem>
-                  <SelectItem value="confirmed">Onaylandı</SelectItem>
-                  <SelectItem value="cancelled">İptal Edildi</SelectItem>
-                  <SelectItem value="completed">Tamamlandı</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="notes">Notlar</Label>
-              <Textarea 
-                id="notes" 
-                name="notes" 
-                defaultValue={isEdit ? selectedAppointment?.notes : ''} 
-                placeholder="Randevu hakkında notlar" 
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              İptal
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={isEdit ? updateAppointmentMutation.isPending : createAppointmentMutation.isPending}
-            >
-              {isEdit 
-                ? (updateAppointmentMutation.isPending ? "Güncelleniyor..." : "Güncelle") 
-                : (createAppointmentMutation.isPending ? "Oluşturuluyor..." : "Randevu Oluştur")}
-            </Button>
-          </DialogFooter>
-        </form>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tarih</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Saat</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="duration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Süre (dakika)</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Randevu Tipi</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notlar</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Kaydediliyor
+                  </>
+                ) : (
+                  "Kaydet"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

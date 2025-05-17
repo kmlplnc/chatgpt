@@ -9,16 +9,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { SubscriptionPlans } from '@/components/auth/subscription-plans';
 import { apiRequest } from '@/lib/queryClient';
 
+type User = {
+  subscriptionStatus?: string;
+  subscriptionStartDate?: string;
+  subscriptionEndDate?: string;
+  subscriptionPlan?: string;
+  [key: string]: any;
+};
+
 export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   
   // Fetch current user
-  const { data: user, isLoading } = useQuery({ 
+  const { data: userRaw, isLoading } = useQuery({ 
     queryKey: ['/api/auth/me'],
     staleTime: 1000 * 60
   });
+  const user = userRaw as User;
   
   // Format date
   const formatDate = (dateString: string | null) => {
@@ -38,8 +47,8 @@ export default function SubscriptionPage() {
   const isSubscriptionExpired = user?.subscriptionStatus === 'expired';
   
   // Get formatted dates
-  const startDate = formatDate(user?.subscriptionStartDate);
-  const endDate = formatDate(user?.subscriptionEndDate);
+  const startDate = formatDate(user?.subscriptionStartDate ?? null);
+  const endDate = formatDate(user?.subscriptionEndDate ?? null);
   
   // Handle plan purchase
   const handlePurchase = () => {
@@ -125,87 +134,79 @@ export default function SubscriptionPage() {
   }
   
   return (
-    <div className="container mx-auto max-w-6xl py-8">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Abonelik Planları</h1>
-        <p className="text-muted-foreground">
+    <div className="w-full min-h-screen bg-background dark:bg-neutral-900 pt-10">
+      <div className="w-full max-w-6xl mx-auto px-4 ml-8 md:ml-24">
+        <h1 className="text-3xl font-bold mb-2 text-center">Abonelik Planları</h1>
+        <p className="text-muted-foreground text-center mb-8">
           DietKEM'in sunduğu tüm özelliklere erişmek için aşağıdaki planlardan birini seçin
         </p>
-      </div>
-      
-      {/* Current subscription info */}
-      {user && (isActiveSubscription || isCanceledSubscription) && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <CalendarClock className="mr-2 h-5 w-5" />
-              Mevcut Abonelik Durumu
-            </CardTitle>
-            <CardDescription>
-              Abonelik bilgileriniz ve durumunuz aşağıda gösterilmektedir
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium">Durum:</p>
-                <p className="flex items-center">
-                  {isActiveSubscription ? (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                      <span className="text-green-600 font-medium">Aktif</span>
-                    </>
-                  ) : (
-                    <span className="text-yellow-600 font-medium">İptal Edildi (Süre sonuna kadar kullanılabilir)</span>
-                  )}
-                </p>
-              </div>
-              
-              <div>
-                <p className="text-sm font-medium">Plan:</p>
-                <p className="font-medium capitalize">{user.subscriptionPlan}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm font-medium">Başlangıç Tarihi:</p>
-                <p>{startDate}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm font-medium">Bitiş Tarihi:</p>
-                <p>{endDate}</p>
-              </div>
-            </div>
-            
-            <div className="flex justify-end mt-6">
-              {isActiveSubscription && (
-                <Button variant="destructive" onClick={handleCancel}>
-                  Aboneliği İptal Et
-                </Button>
-              )}
-              
-              {isCanceledSubscription && (
-                <div className="text-muted-foreground text-sm">
-                  Aboneliğiniz süre sonunda otomatik olarak sona erecektir
+        {user && (isActiveSubscription || isCanceledSubscription) && (
+          <Card className="mb-8 mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CalendarClock className="mr-2 h-5 w-5" />
+                Mevcut Abonelik Durumu
+              </CardTitle>
+              <CardDescription>
+                Abonelik bilgileriniz ve durumunuz aşağıda gösterilmektedir
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium">Durum:</p>
+                  <p className="flex items-center">
+                    {isActiveSubscription ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                        <span className="text-green-600 font-medium">Aktif</span>
+                      </>
+                    ) : (
+                      <span className="text-yellow-600 font-medium">İptal Edildi (Süre sonuna kadar kullanılabilir)</span>
+                    )}
+                  </p>
                 </div>
-              )}
+                <div>
+                  <p className="text-sm font-medium">Plan:</p>
+                  <p className="font-medium capitalize">{user.subscriptionPlan}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Başlangıç Tarihi:</p>
+                  <p>{startDate}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Bitiş Tarihi:</p>
+                  <p>{endDate}</p>
+                </div>
+              </div>
+              <div className="flex justify-end mt-6">
+                {isActiveSubscription && (
+                  <Button variant="destructive" onClick={handleCancel}>
+                    Aboneliği İptal Et
+                  </Button>
+                )}
+                {isCanceledSubscription && (
+                  <div className="text-muted-foreground text-sm">
+                    Aboneliğiniz süre sonunda otomatik olarak sona erecektir
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {(!isActiveSubscription || isSubscriptionExpired) && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 mt-8">
+              <SubscriptionPlans onSelectPlan={(plan) => setSelectedPlan(plan)} selectedPlan={selectedPlan || undefined} />
             </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Subscription plans */}
-      {(!isActiveSubscription || isSubscriptionExpired) && (
-        <>
-          <SubscriptionPlans onSelectPlan={(plan) => setSelectedPlan(plan)} selectedPlan={selectedPlan || undefined} />
-          
-          <div className="mt-8 flex justify-center">
-            <Button size="lg" onClick={handlePurchase} disabled={!selectedPlan}>
-              {isSubscriptionExpired ? 'Aboneliği Yenile' : 'Aboneliği Başlat'}
-            </Button>
-          </div>
-        </>
-      )}
+            <div className="flex justify-center mt-8 w-full">
+              <Button size="lg" onClick={handlePurchase} disabled={!selectedPlan}>
+                {isSubscriptionExpired ? 'Aboneliği Yenile' : 'Aboneliği Başlat'}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

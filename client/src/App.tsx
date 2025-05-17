@@ -23,6 +23,7 @@ import ClientPortalLogin from "@/pages/client-portal";
 import ClientPortalDashboard from "@/pages/client-portal/dashboard";
 import ClientPortalMessages from "@/pages/client-portal/messages";
 import { AuthProvider } from "@/hooks/use-auth";
+import SettingsPage from "@/pages/settings";
 
 function Router() {
   const [location] = useLocation();
@@ -65,11 +66,12 @@ function Router() {
         <Route path="/food/:id" component={FoodDetail} />
         <Route path="/health-calculator" component={HealthCalculator} />
         <Route path="/clients" component={ClientsPage} />
-        <Route path="/client/:id" component={ClientDetail} />
+        <Route path="/clients/:id" component={ClientDetail} />
         <Route path="/messages" component={Messages} />
         <Route path="/subscription" component={SubscriptionPage} />
         <Route path="/subscription/checkout" component={CheckoutPage} />
         <Route path="/admin" component={AdminDashboard} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

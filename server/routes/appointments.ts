@@ -17,13 +17,15 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
 appointmentsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const { clientId } = req.query;
+    const clientId = req.query.clientId ? Number(req.query.clientId) : undefined;
     
     let appointments;
     if (clientId) {
-      appointments = await storage.getAppointments(Number(clientId), userId);
+      // Belirli bir danışanın randevuları 
+      appointments = await storage.getAppointments(clientId);
     } else {
-      appointments = await storage.getAppointments(undefined, userId);
+      // Kullanıcının tüm randevuları
+      appointments = await storage.getAppointments();
     }
     
     res.json(appointments);
@@ -37,7 +39,7 @@ appointmentsRouter.get("/", requireAuth, async (req: Request, res: Response) => 
 appointmentsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const appointmentId = Number(req.params.id);
-    const appointment = await storage.getAppointmentById(appointmentId);
+    const appointment = await storage.getAppointment(appointmentId);
     
     if (!appointment) {
       return res.status(404).json({ message: "Randevu bulunamadı" });
@@ -80,23 +82,46 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
     // Randevu oluşturulduktan sonra hatırlatma bildirimleri için zamanlanmış görevler oluştur
     try {
       const appointmentDate = new Date(appointment.date);
+      const client = await storage.getClient(appointment.clientId);
       
-      // 1 gün öncesi için hatırlatma
-      const oneDayBefore = new Date(appointmentDate);
-      oneDayBefore.setDate(oneDayBefore.getDate() - 1);
-      
-      // Şimdiki zamandan sonra ise bildirimi oluştur
-      if (oneDayBefore > new Date()) {
-        await storage.createAppointmentReminder(appointment.id, oneDayBefore);
-      }
-      
-      // 1 saat öncesi için hatırlatma
-      const oneHourBefore = new Date(appointmentDate);
-      oneHourBefore.setHours(oneHourBefore.getHours() - 1);
-      
-      // Şimdiki zamandan sonra ise bildirimi oluştur
-      if (oneHourBefore > new Date()) {
-        await storage.createAppointmentReminder(appointment.id, oneHourBefore);
+      if (!client) {
+        console.warn(`Client with ID ${appointment.clientId} not found for appointment reminders`);
+      } else {
+        // 1 gün öncesi için hatırlatma
+        const oneDayBefore = new Date(appointmentDate);
+        oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+        
+        // Şimdiki zamandan sonra ise bildirimi oluştur
+        if (oneDayBefore > new Date()) {
+          await storage.createNotification({
+            userId: appointment.userId,
+            clientId: appointment.clientId,
+            title: "Randevu Hatırlatması",
+            content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
+            type: "appointment",
+            relatedId: appointment.id,
+            isRead: false,
+            scheduledFor: oneDayBefore
+          });
+        }
+        
+        // 1 saat öncesi için hatırlatma
+        const oneHourBefore = new Date(appointmentDate);
+        oneHourBefore.setHours(oneHourBefore.getHours() - 1);
+        
+        // Şimdiki zamandan sonra ise bildirimi oluştur
+        if (oneHourBefore > new Date()) {
+          await storage.createNotification({
+            userId: appointment.userId,
+            clientId: appointment.clientId,
+            title: "Randevu Hatırlatması",
+            content: `${client.firstName} ${client.lastName} ile bugün ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
+            type: "appointment",
+            relatedId: appointment.id,
+            isRead: false,
+            scheduledFor: oneHourBefore
+          });
+        }
       }
     } catch (notifError) {
       console.error("Randevu hatırlatma bildirimleri oluşturulamadı:", notifError);
@@ -119,7 +144,7 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
 appointmentsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const appointmentId = Number(req.params.id);
-    const appointment = await storage.getAppointmentById(appointmentId);
+    const appointment = await storage.getAppointment(appointmentId);
     
     if (!appointment) {
       return res.status(404).json({ message: "Randevu bulunamadı" });
@@ -158,20 +183,21 @@ appointmentsRouter.patch("/:id", requireAuth, async (req: Request, res: Response
 appointmentsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const appointmentId = Number(req.params.id);
-    const appointment = await storage.getAppointmentById(appointmentId);
+    
+    // Önce randevuyu bul
+    const appointment = await storage.getAppointment(appointmentId);
     
     if (!appointment) {
       return res.status(404).json({ message: "Randevu bulunamadı" });
     }
     
-    // Sadece randevuyu oluşturan kullanıcı silebilir
+    // Kullanıcının sadece kendi randevularına erişimi olmalı
     if (appointment.userId !== req.session.user!.id) {
       return res.status(403).json({ message: "Bu randevuyu silme izniniz yok" });
     }
     
     await storage.deleteAppointment(appointmentId);
-    
-    res.status(204).end();
+    res.json({ message: "Randevu başarıyla silindi" });
   } catch (error) {
     console.error("Randevu silinemedi:", error);
     res.status(500).json({ message: "Randevu silinemedi" });

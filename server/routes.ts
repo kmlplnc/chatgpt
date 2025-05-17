@@ -21,12 +21,39 @@ import clientPortalRouter from './routes/client-portal';
 import appointmentsRouter from './routes/appointments';
 import messagesRouter from './routes/messages';
 import notificationsRouter from './routes/notifications';
+import pgSession from "connect-pg-simple";
+import { Pool } from "pg";
+import { fatsecretRouter } from './routes/fatsecret';
+import { hashPassword } from "./utils/password-utils";
+import userRouter from './routes/user';
+
+// Admin kontrolü için yardımcı fonksiyon
+function isAdmin(req: Request): boolean {
+  return req.session?.user?.role === "admin";
+}
+
+// Auth middleware
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session setup
   app.use(cookieParser());
+  const pgSessionStore = pgSession(session);
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
   app.use(session({
-    secret: "dietkem-secret-key",
+    store: new pgSessionStore({
+      pool: pool,
+      tableName: 'session'
+    }),
+    secret: process.env.SESSION_SECRET || "dietkem-secret-key",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -59,6 +86,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add notifications routes
   app.use('/api/notifications', notificationsRouter);
+  
+  // Add fatsecret routes
+  app.use('/api/fatsecret', fatsecretRouter);
+  
+  // Add user routes
+  app.use('/api/user', userRouter);
   
   // Error handler middleware
   const handleError = (err: any, res: Response) => {
@@ -443,6 +476,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(savedPlan);
     } catch (err) {
       handleError(err, res);
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/users", requireAuth, async (req, res) => {
+    try {
+      // Admin kontrolü
+      if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Tüm kullanıcıları getir
+      const users = await storage.getAllUsers();
+      
+      // Kullanıcıları düzenle (hassas bilgileri kaldır)
+      const sanitizedUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionPlan: user.subscriptionPlan,
+        createdAt: user.createdAt
+      }));
+
+      return res.json(sanitizedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/admin/users", requireAuth, async (req, res) => {
+    try {
+      if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+        email,
+        name,
+        role: role || "user"
+      });
+
+      // Remove password from response
+      const { password: _, ...safeUser } = user;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", requireAuth, async (req, res) => {
+    try {
+      // Admin kontrolü
+      if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const userId = parseInt(req.params.id);
+      const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
+      
+      // Kullanıcının var olup olmadığını kontrol et
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+      }
+      
+      // Kullanıcı adı benzersiz olmalı
+      if (username && username !== user.username) {
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser) {
+          return res.status(400).json({ message: "Bu kullanıcı adı zaten kullanılıyor" });
+        }
+      }
+      
+      // Güncellenecek alanları hazırla
+      const updates: any = {};
+      
+      if (username) updates.username = username;
+      if (email) updates.email = email;
+      if (name !== undefined) updates.name = name;
+      if (role) updates.role = role;
+      
+      // Parola güncellemesi
+      if (password && password.trim() !== "") {
+        updates.password = await hashPassword(password);
+      }
+      
+      // Abonelik bilgileri
+      const subscriptionUpdates: any = {};
+      let hasSubscriptionUpdates = false;
+      
+      if (subscriptionStatus) {
+        subscriptionUpdates.subscriptionStatus = subscriptionStatus;
+        hasSubscriptionUpdates = true;
+      }
+      
+      if (subscriptionPlan !== undefined) {
+        subscriptionUpdates.subscriptionPlan = subscriptionPlan || null;
+        hasSubscriptionUpdates = true;
+      }
+      
+      try {
+        // Kullanıcıyı güncelle
+        const updatedUser = await storage.updateUser(userId, updates);
+        
+        // Abonelik bilgilerini güncelle
+        if (hasSubscriptionUpdates) {
+          await storage.updateUserSubscription(userId, subscriptionUpdates);
+        }
+        
+        // Güncel kullanıcıyı tekrar getir
+        const refreshedUser = await storage.getUser(userId);
+        
+        // Parola bilgisini çıkar
+        if (refreshedUser) {
+          const { password: _, ...safeUser } = refreshedUser;
+          return res.json(safeUser);
+        } else {
+          return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+        }
+      } catch (updateError) {
+        console.error("Kullanıcı güncelleme hatası:", updateError);
+        return res.status(500).json({ message: "Kullanıcı güncellenirken bir hata oluştu" });
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", requireAuth, async (req, res) => {
+    try {
+      // Admin kontrolü
+      if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const userId = parseInt(req.params.id);
+      
+      // Admin kendisini silmeye çalışıyorsa engelle
+      if (req.session?.user?.id === userId) {
+        return res.status(400).json({ message: "Kendi hesabınızı silemezsiniz" });
+      }
+      
+      // Kullanıcının var olup olmadığını kontrol et
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+      }
+      
+      // Kullanıcıyı sil
+      const success = await storage.deleteUser(userId);
+      
+      if (success) {
+        res.status(200).json({ message: "Kullanıcı başarıyla silindi" });
+      } else {
+        res.status(500).json({ message: "Kullanıcı silinirken bir hata oluştu" });
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 

@@ -57,7 +57,7 @@ export function SubscriptionPlans({ onSelectPlan, selectedPlan }: SubscriptionPl
   ];
 
   return (
-    <div className="grid gap-6 md:grid-cols-3 lg:gap-8 py-8">
+    <>
       {plans.map((plan) => (
         <Card 
           key={plan.id} 
@@ -105,6 +105,6 @@ export function SubscriptionPlans({ onSelectPlan, selectedPlan }: SubscriptionPl
           </CardFooter>
         </Card>
       ))}
-    </div>
+    </>
   );
 }
