@@ -73,13 +73,39 @@ export default function UserManagement() {
   }
 
   // Kullanıcıları getir
-  const { data: users = [], isLoading } = useQuery<User[]>({
+  const { data: users = [], isLoading, error } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/users");
-      return response.json();
+      try {
+        const response = await apiRequest("GET", "/api/admin/users");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log("Fetched users:", data); // Debug için
+        return data;
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        throw error;
+      }
     }
   });
+
+  // Hata durumunu göster
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Card className="w-[350px]">
+          <CardHeader>
+            <CardTitle className="text-center text-destructive">Hata</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center">Kullanıcılar yüklenirken bir hata oluştu: {error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Kullanıcı güncelleme mutation
   const updateUserMutation = useMutation({
@@ -276,7 +302,7 @@ export default function UserManagement() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -636,6 +662,6 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

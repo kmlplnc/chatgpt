@@ -12,13 +12,14 @@ import { apiRequest } from "@/lib/queryClient";
 // Admin İstatistikler Bileşeni
 function AdminStats() {
   // Tüm kullanıcıları getir
-  const { data: users = [] } = useQuery({
+  const { data: usersRaw = [] } = useQuery({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/admin/users");
       return response.json();
     }
   });
+  const users = usersRaw as AdminUser[];
 
   // İstatistikler
   const totalUsers = users.length;
@@ -198,6 +199,13 @@ function AdminStats() {
   );
 }
 
+type AdminUser = {
+  subscriptionStatus?: string;
+  subscriptionPlan?: string;
+  createdAt?: string;
+  [key: string]: any;
+};
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("stats");
@@ -255,40 +263,42 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-3xl">Yönetim Paneli</CardTitle>
-          <CardDescription>
-            Sistem yönetimi ve kullanıcı kontrolü için gelişmiş yönetici araçları
-          </CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="w-full min-h-screen bg-background dark:bg-neutral-900 pt-10">
+      <div className="w-full max-w-6xl mx-auto px-4 ml-8 md:ml-24">
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-3xl">Yönetim Paneli</CardTitle>
+            <CardDescription>
+              Sistem yönetimi ve kullanıcı kontrolü için gelişmiş yönetici araçları
+            </CardDescription>
+          </CardHeader>
+        </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-4 gap-4">
-          <TabsTrigger value="users" className="flex items-center gap-1">
-            <Users className="w-4 h-4" />
-            <span>Kullanıcılar</span>
-          </TabsTrigger>
-          <TabsTrigger value="stats" className="flex items-center gap-1">
-            <LineChart className="w-4 h-4" />
-            <span>İstatistikler</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-1">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Güvenlik</span>
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-1">
-            <Settings className="w-4 h-4" />
-            <span>Ayarlar</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value={activeTab}>
-          {renderTabContent()}
-        </TabsContent>
-      </Tabs>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid grid-cols-4 gap-4">
+            <TabsTrigger value="users" className="flex items-center gap-1">
+              <Users className="w-4 h-4" />
+              <span>Kullanıcılar</span>
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-1">
+              <LineChart className="w-4 h-4" />
+              <span>İstatistikler</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Güvenlik</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-1">
+              <Settings className="w-4 h-4" />
+              <span>Ayarlar</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value={activeTab}>
+            {renderTabContent()}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

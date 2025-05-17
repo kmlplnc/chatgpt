@@ -116,7 +116,7 @@ const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, strin
       };
     });
   
-  // Bir önceki ölçümden fark hesaplama işlevi basitleştirildi
+  // Bir önceki ölçümden fark hesaplama işlevi
   const calculateChange = (dataKey: string, currentValue: number) => {
     try {
       // Tüm grafik verilerini al
@@ -130,23 +130,25 @@ const CustomBarTooltip = ({ active, payload, label }: TooltipProps<number, strin
       
       if (currentIndex < 0 || currentIndex >= chartData.length - 1) return null;
       
-      // Önceki ölçüm verisi
-      const previousData = chartData[currentIndex + 1];
-      if (!previousData) return null;
+      // Sonraki ölçüm verisi (tarihsel olarak daha eski)
+      const nextIndex = currentIndex + 1;
+      if (nextIndex >= chartData.length) return null;
       
-      const previousValue = previousData[dataKey];
-      if (previousValue === undefined || previousValue === null || isNaN(Number(previousValue))) {
+      const nextData = chartData[nextIndex];
+      if (!nextData) return null;
+      
+      const nextValue = nextData[dataKey];
+      if (nextValue === undefined || nextValue === null || isNaN(Number(nextValue))) {
         return null;
       }
       
-      // Değişimi hesapla
-      const prevNumericValue = Number(previousValue);
-      const change = currentValue - prevNumericValue;
+      // Değişimi hesapla (şimdiki değer - bir önceki değer)
+      const nextNumericValue = Number(nextValue);
+      const change = currentValue - nextNumericValue;
       const isPositive = change > 0;
       
       // Metriğe göre olumlu/olumsuz değişimleri belirle
       // Not: Kilo, BMI ve çevre ölçümlerinde azalma genelde olumludur
-      // Kas kütlesi gibi ölçümler eklenirse burada özelleştirme gerekebilir
       const isDesirable = !isPositive;
       
       return {
@@ -206,61 +208,19 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
     }
   }, [metricKey]);
   
-  // En yeni tarihten en eskiye doğru sırala
-  const sortedMeasurements = [...measurements].sort((a, b) => {
-    return new Date(b.date).getTime() - new Date(a.date).getTime();
-  });
-  
-  // Son 12 ölçümü al ve grafikte kullanmak için ters çevir (en eskiden en yeniye)
-  const chartData = [...sortedMeasurements]
-    .slice(0, 12)
-    .reverse()
+  // En eski solda, en yeni sağda olacak şekilde sırala
+  const chartData = [...measurements]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-12)
     .map((m) => {
-      // Metrikleri sayısal değere dönüştür
       const numericData: any = {};
-      
-      // Temel alanları kopyala - grafik için gerekli
       numericData.date = m.date;
       numericData.displayDate = formatDate(m.date);
       numericData.id = m.id;
-      
-      // Önce grafik verilerini konsolda göster (hata ayıklama için)
-      console.log("Orijinal ölçüm verisi:", JSON.stringify(m, null, 2));
-      
-      // Tüm ölçüm metriklerini dönüştür
       metricOptions.forEach(metric => {
         const value = m[metric.id];
-        
-        // String, sayı veya null/undefined olabilir, güvenli şekilde dönüştür
-        if (value !== null && value !== undefined && value !== '') {
-          // String içindeki sayıyı al
-          let numValue = 0;
-          
-          try {
-            numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
-            
-            // Geçerli bir sayı ise ekle
-            if (!isNaN(numValue)) {
-              numericData[metric.id] = numValue;
-            } else {
-              console.warn(`Metrik ${metric.id} için NaN değeri (${value})`);
-              numericData[metric.id] = 0; // NaN yerine 0 kullan
-            }
-          } catch (error) {
-            console.error(`Metrik dönüşüm hatası (${metric.id})`, error);
-            numericData[metric.id] = 0; // Hata durumunda 0 kullan
-          }
-        } else {
-          // Değer yoksa, 0 olarak ekle (undefined değil)
-          // Recharts ile çizim sorunlarını önlemek için
-          numericData[metric.id] = 0;
-        }
+        numericData[metric.id] = value !== null && value !== undefined && value !== '' ? Number(value) || 0 : 0;
       });
-      
-      // Her kayıt için değer olup olmadığını konsolda görüntüle
-      console.log(`Dönüştürülen ölçüm (${formatDate(m.date)}) değerleri: `, 
-        metricOptions.map(m => `${m.id}: ${numericData[m.id]}`).join(', '));
-      
       return numericData;
     });
   
@@ -292,15 +252,28 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
   }
   
   // Tablo verisini konsolda göster
-  console.log("Grafik verisi:", chartData);
+  console.log("Grafik verisi (en yeniden en eskiye):", chartData);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md">
+      <CardHeader className="border-b border-blue-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <CardTitle>{title}</CardTitle>
+            <CardTitle className="text-blue-800">{title}</CardTitle>
             <CardDescription>Danışanın ölçüm değişimleri</CardDescription>
+            {chartData.length > 1 && (
+              <div className="mt-1">
+                <p className="text-xs text-muted-foreground">
+                  Ölçümler sıralaması: 
+                  <span className="font-semibold text-blue-700 ml-1">
+                    {formatDate(chartData[0].date)} (en yeni) 
+                    <span className="mx-1">→</span> 
+                    {formatDate(chartData[chartData.length-1].date)} (daha eski)
+                  </span>
+                </p>
+                <p className="text-xs italic text-slate-500">Grafiğin sol tarafında en yeni ölçümler, sağa doğru daha eski ölçümler gösterilir</p>
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col gap-2">
@@ -342,11 +315,13 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis
                     dataKey="displayDate"
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 12, fill: '#2563eb' }}
                     tickFormatter={(value) => value?.split(' ')?.[0] || ''}
                     height={50}
+                    label={{ value: 'EN YENİ → DAHA ESKİ', position: 'insideBottom', offset: -5, fontSize: 11, fill: '#2563eb', fontWeight: 'bold' }}
                   />
-                  <YAxis 
+                  <YAxis
+                    dataKey={selectedMetrics[0]}
                     width={50}
                     domain={[0, 'auto']}
                   />
@@ -383,11 +358,13 @@ export default function MeasurementChart({ measurements, title = "Ölçüm Grafi
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis
                     dataKey="displayDate"
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 12, fill: '#2563eb' }}
                     tickFormatter={(value) => value?.split(' ')?.[0] || ''}
                     height={50}
+                    label={{ value: 'EN YENİ → DAHA ESKİ', position: 'insideBottom', offset: -5, fontSize: 11, fill: '#2563eb', fontWeight: 'bold' }}
                   />
-                  <YAxis 
+                  <YAxis
+                    dataKey={selectedMetrics[0]}
                     width={50}
                     domain={[0, 'auto']}
                   />

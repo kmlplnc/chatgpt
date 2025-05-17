@@ -1,5 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, date, numeric, unique, foreignKey, json } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
@@ -28,16 +28,18 @@ export const clients = pgTable("clients", {
   email: text("email").notNull(),
   phone: text("phone"),
   birthDate: date("birth_date"),
-  gender: text("gender").notNull(), // "male", "female", "other"
+  gender: text("gender").notNull(), // "male", "female"
+  height: numeric("height", { precision: 5, scale: 2 }), // cm cinsinden boy
   occupation: text("occupation"),
   medicalConditions: text("medical_conditions"),
   allergies: text("allergies"),
-  notes: text("notes"), // Diyetisyenin özel notları - sadece diyetisyen görebilir
-  clientVisibleNotes: text("client_visible_notes"), // Danışanın da görebileceği notlar
-  status: text("status").default("active").notNull(), // "active", "inactive"
+  medications: text("medications"),
+  notes: text("notes"),
+  clientVisibleNotes: text("client_visible_notes"),
+  status: text("status").default("active").notNull(),
   startDate: date("start_date").defaultNow().notNull(),
   endDate: date("end_date"),
-  accessCode: text("access_code").unique(), // Danışan portalı erişim kodu
+  accessCode: text("access_code").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -195,14 +197,28 @@ export const insertFoodNutrientSchema = createInsertSchema(foodNutrients).omit({
 });
 
 // Create Client schema
-export const insertClientSchema = createInsertSchema(clients).omit({
+export const insertClientSchema = createInsertSchema(clients, {
+  height: z.number().min(100).max(250),
+  gender: z.enum(["male", "female"]),
+  status: z.enum(["active", "inactive"]),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  startDate: true,
-  endDate: true,
   userId: true,
 });
+
+// Update Client schema
+export const updateClientSchema = createSelectSchema(clients, {
+  height: z.string().or(z.number()).transform(val => String(val)),
+  gender: z.enum(["male", "female"]),
+  status: z.enum(["active", "inactive"]),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  userId: true,
+}).partial();
 
 // Create Measurement schema
 export const insertMeasurementSchema = createInsertSchema(measurements).omit({
@@ -283,7 +299,7 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 // Bildirimler tablosu
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id),
   clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   content: text("content").notNull(),

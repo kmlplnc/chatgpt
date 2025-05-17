@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertClientSchema, insertMeasurementSchema } from "@shared/schema";
+import { insertClientSchema, insertMeasurementSchema, updateClientSchema } from "@shared/schema";
 
 const clientsRouter = Router();
 
@@ -33,10 +33,52 @@ clientsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
       ? await storage.getClients()
       : await storage.getClients(userId);
     
-    return res.json(clients);
+    // Her danışan için son ölçümü ekle
+    const clientsWithLastMeasurement = await Promise.all(
+      clients.map(async (client) => {
+        const lastMeasurement = await storage.getLastMeasurement(client.id);
+        return {
+          ...client,
+          lastMeasurement,
+        };
+      })
+    );
+    
+    return res.json(clientsWithLastMeasurement);
   } catch (error) {
     console.error("Error fetching clients:", error);
     return res.status(500).json({ message: "Failed to fetch clients" });
+  }
+});
+
+// Admin - Get all users
+clientsRouter.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
+  try {
+    // Admin kontrolü
+    if (!isAdmin(req)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Tüm kullanıcıları getir (mevcut kullanıcı dahil)
+    const users = await storage.getAllUsers();
+    console.log("Fetched users in route:", users); // Debug için
+    
+    // Kullanıcıları düzenle (hassas bilgileri kaldır)
+    const sanitizedUsers = users.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      subscriptionStatus: user.subscriptionStatus,
+      subscriptionPlan: user.subscriptionPlan,
+      createdAt: user.createdAt
+    }));
+
+    return res.json(sanitizedUsers);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return res.status(500).json({ message: "Failed to fetch users" });
   }
 });
 
@@ -125,20 +167,41 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
       return res.status(403).json({ message: "Bu danışanı güncelleme yetkiniz yok" });
     }
 
-    const validatedData = insertClientSchema.partial().parse(req.body);
+    // Log incoming data
+    console.log("Route - Gelen ham veri:", req.body);
+    console.log("Route - Gelen boy değeri tipi:", typeof req.body.height);
+    console.log("Route - Gelen boy değeri:", req.body.height);
+
+    // Convert height to string with correct precision if provided
+    const requestData = {
+      ...req.body,
+      height: req.body.height ? String(Number(req.body.height).toFixed(2)) : undefined
+    };
+
+    // Log converted data
+    console.log("Route - Dönüştürülmüş veri:", requestData);
+    console.log("Route - Dönüştürülmüş boy değeri tipi:", typeof requestData.height);
+    console.log("Route - Dönüştürülmüş boy değeri:", requestData.height);
+
+    // Validate data with updateClientSchema
+    const validatedData = updateClientSchema.parse(requestData);
     
+    // Log validated data
+    console.log("Route - Doğrulanmış veri:", validatedData);
+    console.log("Route - Doğrulanmış boy değeri tipi:", typeof validatedData.height);
+    console.log("Route - Doğrulanmış boy değeri:", validatedData.height);
+    
+    // Update client with validated data
     const updatedClient = await storage.updateClient(id, validatedData);
+
+    // Log updated client
+    console.log("Route - Güncellenmiş danışan:", updatedClient);
+    console.log("Route - Güncellenmiş boy değeri:", updatedClient.height);
+
     return res.json(updatedClient);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: error.errors 
-      });
-    }
-    
-    console.error("Error updating client:", error);
-    return res.status(500).json({ message: "Failed to update client" });
+    console.error("Route - Güncelleme hatası:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
 
@@ -183,33 +246,26 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
 // Get measurements for a client
 clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
   try {
-    const clientId = parseInt(req.params.id);
-    if (isNaN(clientId)) {
-      return res.status(400).json({ message: "Invalid client ID" });
-    }
-    
-    // Kullanıcının ID'sini al
+    const clientId = Number(req.params.id);
     const userId = req.session.user!.id;
-
+    
+    // Danışanın kullanıcıya ait olup olmadığını kontrol et (admin değilse)
     const client = await storage.getClient(clientId);
     if (!client) {
-      return res.status(404).json({ message: "Client not found" });
+      return res.status(404).json({ message: "Danışan bulunamadı" });
     }
     
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
-    
-    // Sadece admin kullanıcıları tüm danışanların ölçümlerini görebilir
-    // Normal kullanıcılar sadece kendi danışanlarının ölçümlerini görebilir
-    if (!admin && client.userId !== userId) {
-      return res.status(403).json({ message: "Bu danışanın ölçümlerine erişim izniniz yok" });
+    if (client.userId !== userId && !isAdmin(req)) {
+      return res.status(403).json({ message: "Bu danışanın verilerine erişim izniniz yok" });
     }
-
-    const measurements = await storage.getMeasurements(clientId);
-    return res.json(measurements);
+    
+    // Danışanın ölçümlerini getir
+    const clientMeasurements = await storage.getMeasurements(clientId);
+    
+    res.json(clientMeasurements);
   } catch (error) {
     console.error("Error fetching client measurements:", error);
-    return res.status(500).json({ message: "Failed to fetch client measurements" });
+    res.status(500).json({ message: "Failed to fetch client measurements" });
   }
 });
 

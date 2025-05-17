@@ -20,16 +20,21 @@ declare global {
 // Danışan girişi için endpoint
 clientPortalRouter.post('/login', async (req: Request, res: Response) => {
   try {
+    console.log("Login endpoint hit, body:", req.body);
+
     const { accessCode } = req.body;
 
     if (!accessCode) {
+      console.error("No accessCode provided");
       return res.status(400).json({ message: 'Erişim kodu gereklidir' });
     }
 
     // Erişim kodu ile danışanı bul
     const client = await storage.getClientByAccessCode(accessCode);
+    console.log("Client found:", client);
 
     if (!client) {
+      console.error("No client found for accessCode:", accessCode);
       return res.status(401).json({ message: 'Geçersiz erişim kodu' });
     }
 
@@ -44,6 +49,7 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
       sessionToken,
       expiresAt
     });
+    console.log("Session created:", session);
 
     // Oturum bilgilerini cookie ile gönder (httpOnly güvenlik için)
     res.cookie('client_session', sessionToken, {

@@ -1,0 +1,1234 @@
+import React, { useState } from "react";
+import { useParams, useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { 
+  Calendar, 
+  MessageSquare, 
+  AlertTriangle, 
+  Info, 
+  ArrowRight, 
+  Pencil, 
+  Trash2, 
+  Plus, 
+  Edit, 
+  ChevronLeft, 
+  Activity, 
+  Ruler, 
+  LineChart, 
+  Link, 
+  KeyRound, 
+  Copy,
+  Loader2
+} from "lucide-react";
+import { AppointmentDialog } from "@/components/appointments/appointment-dialog";
+import { MessageList } from "@/components/messages/message-list";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { useClientApi } from "@/hooks/use-client-api";
+import type { Client, Measurement, Appointment, Message, AppointmentFormValues } from "@/types/client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle
+} from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { format, parseISO, differenceInYears } from "date-fns";
+import { tr } from "date-fns/locale";
+import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+
+// Recharts components
+import {
+  LineChart as ReLineChart,
+  Line,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  ReferenceLine,
+} from "recharts";
+
+import { HealthMetrics } from "@/components/clients/health-metrics";
+import { 
+  calculateBMI, 
+  calculateBMR, 
+  calculateTDEE, 
+  calculateWHR 
+} from "@/components/clients/health-metrics";
+
+// Measurement schema
+const measurementSchema = z.object({
+  date: z.string(),
+  weight: z.string(),
+  height: z.string(),
+  waistCircumference: z.string().optional(),
+  hipCircumference: z.string().optional(),
+  chestCircumference: z.string().optional(),
+  armCircumference: z.string().optional(),
+  thighCircumference: z.string().optional(),
+  calfCircumference: z.string().optional(),
+  bodyFatPercentage: z.string().optional(),
+  activityLevel: z.enum(["sedentary", "light", "moderate", "active", "veryActive"]),
+  notes: z.string().optional(),
+});
+
+const formatDate = (date: string | Date) => {
+  if (!date) return "-";
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return format(dateObj, "dd MMMM yyyy", { locale: tr });
+};
+
+// Helper functions for numerical calculations
+function parseWeight(weight: string): number {
+  return parseFloat(weight) || 0;
+}
+
+function parseHeight(height: string): number {
+  return parseFloat(height) || 0;
+}
+
+function calculateBmiFromString(weight: string, height: string): string {
+  const w = parseFloat(weight);
+  const h = parseFloat(height) / 100; // cm to m conversion
+  if (isNaN(w) || isNaN(h) || h === 0) return "0.00";
+  const bmi = w / (h * h);
+  return bmi.toFixed(2);
+}
+
+function calculateBmrFromString(weight: string, height: string, age: number, gender: string): number {
+  const w = parseFloat(weight);
+  const h = parseFloat(height);
+
+  if (isNaN(w) || isNaN(h) || isNaN(age)) return 0;
+
+  // Harris-Benedict equation
+  if (gender === "male") {
+    return Math.round(88.362 + (13.397 * w) + (4.799 * h) - (5.677 * age));
+  } else {
+    return Math.round(447.593 + (9.247 * w) + (3.098 * h) - (4.330 * age));
+  }
+}
+
+function calculateTdeeFromBmr(bmr: number, activityLevel: string): number {
+  const activityMultipliers: { [key: string]: number } = {
+    sedentary: 1.2,    // Sedentary (office work)
+    light: 1.375,      // Light activity (1-3 days exercise/week)
+    moderate: 1.55,    // Moderate activity (3-5 days exercise/week)
+    active: 1.725,     // Active (6-7 days exercise/week)
+    veryActive: 1.9    // Very active (twice daily training)
+  };
+
+  return Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
+}
+
+function getHealthStatus(bmi: number): { status: string; color: string } {
+  if (bmi < 18.5) {
+    return { status: "Zayıf", color: "text-amber-500" };
+  } else if (bmi >= 18.5 && bmi < 25) {
+    return { status: "Normal", color: "text-green-500" };
+  } else if (bmi >= 25 && bmi < 30) {
+    return { status: "Fazla Kilolu", color: "text-amber-500" };
+  } else if (bmi >= 30 && bmi < 35) {
+    return { status: "Obez (Sınıf I)", color: "text-red-500" };
+  } else if (bmi >= 35 && bmi < 40) {
+    return { status: "Obez (Sınıf II)", color: "text-red-600" };
+  } else {
+    return { status: "Obez (Sınıf III)", color: "text-red-700" };
+  }
+}
+
+function getStatusColor(value: number, bounds: { min: number; max: number; }): string {
+  if (value < bounds.min) return "text-amber-500";
+  if (value > bounds.max) return "text-red-500";
+  return "text-green-500";
+}
+
+function getBMIColor(bmi: number): string {
+  if (bmi < 18.5) return "text-amber-500";
+  if (bmi > 25) return "text-red-500";
+  return "text-green-500";
+}
+
+function getBodyFatColor(bodyFat: number, gender: string): string {
+  const bounds = gender === "male" 
+    ? { essential: 2, athletic: 6, fitness: 13, acceptable: 17, obese: 25 }
+    : { essential: 10, athletic: 14, fitness: 21, acceptable: 25, obese: 32 };
+
+  if (bodyFat < bounds.essential) return "text-red-500";
+  if (bodyFat <= bounds.athletic) return "text-green-500";
+  if (bodyFat <= bounds.fitness) return "text-green-400";
+  if (bodyFat <= bounds.acceptable) return "text-amber-500";
+  if (bodyFat <= bounds.obese) return "text-red-400";
+  return "text-red-500";
+}
+
+interface ClientApi {
+  getClient: () => Promise<Client>;
+  getMeasurements: () => Promise<Measurement[]>;
+  getAppointments: () => Promise<Appointment[]>;
+  getMessages: () => Promise<Message[]>;
+  createMeasurement: (data: Partial<Measurement>) => Promise<Measurement>;
+  updateMeasurement: (id: number, data: Partial<Measurement>) => Promise<Measurement>;
+  deleteMeasurement: (id: string) => Promise<void>;
+  updateClient: (data: Partial<Client>) => Promise<Client>;
+  deleteClient: () => Promise<void>;
+  generateAccessCode: () => Promise<string>;
+}
+
+interface AppointmentData {
+  id?: string;
+  date: string;
+  time: string;
+  duration: number;
+  type: string;
+  notes?: string;
+}
+
+interface AppointmentDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit?: (data: AppointmentData) => void;
+  appointment?: AppointmentData;
+  isLoading?: boolean;
+}
+
+interface MessageListProps {
+  clientId?: string;
+  messages?: any[];
+  isLoading?: boolean;
+  error?: any;
+  newMessage?: string;
+  setNewMessage?: (message: string) => void;
+}
+
+interface Measurement {
+  id: number;
+  date: string;
+  weight: number;
+  height: number;
+  waistCircumference?: number;
+  hipCircumference?: number;
+  chestCircumference?: number;
+  armCircumference?: number;
+  thighCircumference?: number;
+  calfCircumference?: number;
+  bodyFatPercentage?: number;
+  activityLevel: "sedentary" | "light" | "moderate" | "active" | "veryActive";
+  notes?: string;
+  bmi: number;
+  basalMetabolicRate: number;
+  totalDailyEnergyExpenditure: number;
+}
+
+export default function ClientDetail() {
+  // Router and utility hooks
+  const [_, setLocation] = useLocation();
+  const params = useParams<{ id?: string }>();
+  const id = params?.id;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Early return if no id
+  if (!id) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2">Client ID Required</h2>
+          <p className="text-gray-600">Please provide a valid client ID</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get API functions
+  const api = useClientApi(id);
+
+  // Form handling
+  const form = useForm<z.infer<typeof measurementSchema>>({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: {
+      date: format(new Date(), "yyyy-MM-dd"),
+      weight: "",
+      height: "",
+      waistCircumference: "",
+      hipCircumference: "",
+      chestCircumference: "",
+      armCircumference: "",
+      thighCircumference: "",
+      calfCircumference: "",
+      bodyFatPercentage: "",
+      activityLevel: "sedentary",
+      notes: "",
+    },
+  });
+
+  // State declarations
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments" | "messages">('measurements');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [confirmDeleteMeasurementOpen, setConfirmDeleteMeasurementOpen] = useState(false);
+  const [deleteMeasurementConfirmText, setDeleteMeasurementConfirmText] = useState("");
+  const [selectedMeasurementToDelete, setSelectedMeasurementToDelete] = useState<number | null>(null);
+  const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
+  const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
+  const [selectedMeasurement, setSelectedMeasurement] = useState<Measurement | null>(null);
+  const [openNewAppointmentDialog, setOpenNewAppointmentDialog] = useState(false);
+  const [openEditAppointmentDialog, setOpenEditAppointmentDialog] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [newMessage, setNewMessage] = useState("");
+  const [clientNotes, setClientNotes] = useState<string>();
+  const [clientPublicNotes, setClientPublicNotes] = useState<string>();
+  const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+  const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
+
+  // Data fetching queries
+  const {
+    data: client,
+    isLoading: isClientLoading,
+    error: clientError
+  } = useQuery<Client>({
+    queryKey: [`/api/clients/${id}`],
+    queryFn: api.getClient,
+    retry: 1,
+    enabled: !!id
+  });
+
+  const {
+    data: measurements = [],
+    isLoading: isMeasurementsLoading,
+    error: measurementsError
+  } = useQuery<Measurement[]>({
+    queryKey: [`/api/clients/${id}/measurements`],
+    queryFn: api.getMeasurements,
+    retry: 1,
+    enabled: !!id
+  });
+
+  const {
+    data: appointments = [],
+    isLoading: isAppointmentsLoading,
+    error: appointmentsError
+  } = useQuery<Appointment[]>({
+    queryKey: [`/api/appointments?clientId=${id}`],
+    queryFn: api.getAppointments,
+    retry: 1,
+    enabled: !!id
+  });
+
+  const {
+    data: messages = [],
+    isLoading: isLoadingMessages,
+    error: messagesError
+  } = useQuery<Message[]>({
+    queryKey: [`/api/messages?clientId=${id}`],
+    queryFn: api.getMessages,
+    retry: 1,
+    enabled: !!id
+  });
+
+  // Mutations
+  const createMeasurementMutation = useMutation({
+    mutationFn: api.createMeasurement,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      toast({
+        title: "Başarılı",
+        description: "Yeni ölçüm kaydedildi",
+      });
+      setOpenNewMeasurementDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMeasurementMutation = useMutation({
+    mutationFn: (data: any) => api.updateMeasurement(selectedMeasurement?.id || 0, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      toast({
+        title: "Başarılı",
+        description: "Ölçüm güncellendi",
+      });
+      setOpenEditMeasurementDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMeasurementMutation = useMutation({
+    mutationFn: (id: number) => api.deleteMeasurement(id.toString()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      toast({
+        title: "Başarılı",
+        description: "Ölçüm silindi",
+      });
+      setConfirmDeleteMeasurementOpen(false);
+      setDeleteMeasurementConfirmText("");
+      setSelectedMeasurementToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createAppointmentMutation = useMutation({
+    mutationFn: api.createAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments?clientId=${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Yeni randevu oluşturuldu",
+      });
+      setOpenNewAppointmentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateAppointmentMutation = useMutation({
+    mutationFn: (data: any) => api.updateAppointment(selectedAppointment?.id || 0, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments?clientId=${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu güncellendi",
+      });
+      setOpenEditAppointmentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: api.deleteAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments?clientId=${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu silindi",
+      });
+      setConfirmDeleteOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: api.sendMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/messages?clientId=${id}`] });
+      setNewMessage("");
+      toast({
+        title: "Başarılı",
+        description: "Mesaj gönderildi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Event handlers
+  const onSubmit = async (values: z.infer<typeof measurementSchema>) => {
+    try {
+      if (!client) {
+        throw new Error("Client data not available");
+      }
+
+      const age = differenceInYears(new Date(), new Date(client.birthDate));
+      const bmi = calculateBMI(parseFloat(values.weight), parseFloat(values.height));
+      const bmr = calculateBMR(
+        parseFloat(values.weight),
+        parseFloat(values.height),
+        age,
+        client.gender
+      );
+      const tdee = calculateTDEE(bmr, values.activityLevel);
+
+      const measurementData = {
+        ...values,
+        bmi,
+        basalMetabolicRate: bmr,
+        totalDailyEnergyExpenditure: tdee,
+      };
+
+      if (selectedMeasurement) {
+        await api.updateMeasurement(selectedMeasurement.id, measurementData);
+        toast({
+          title: "Ölçüm güncellendi",
+          description: "Ölçüm başarıyla güncellendi.",
+          variant: "default",
+        });
+      } else {
+        await api.createMeasurement(measurementData);
+        toast({
+          title: "Ölçüm kaydedildi",
+          description: "Yeni ölçüm başarıyla kaydedildi.",
+          variant: "default",
+        });
+      }
+
+      setOpenNewMeasurementDialog(false);
+      setOpenEditMeasurementDialog(false);
+      await queryClient.invalidateQueries({ queryKey: ["measurements", id] });
+      form.reset();
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Ölçüm kaydedilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onEditSubmit = (data: z.infer<typeof measurementSchema>) => {
+    updateMeasurementMutation.mutate(data);
+  };
+
+  const handleEditMeasurement = (measurement: any) => {
+    setSelectedMeasurement(measurement);
+    form.reset({
+      date: format(new Date(measurement.date), "yyyy-MM-dd"),
+      weight: measurement.weight.toString(),
+      height: measurement.height.toString(),
+      waistCircumference: measurement.waistCircumference?.toString() || "",
+      hipCircumference: measurement.hipCircumference?.toString() || "",
+      chestCircumference: measurement.chestCircumference?.toString() || "",
+      armCircumference: measurement.armCircumference?.toString() || "",
+      thighCircumference: measurement.thighCircumference?.toString() || "",
+      calfCircumference: measurement.calfCircumference?.toString() || "",
+      bodyFatPercentage: measurement.bodyFatPercentage?.toString() || "",
+      activityLevel: measurement.activityLevel || "sedentary",
+      notes: measurement.notes || "",
+    });
+    setOpenEditMeasurementDialog(true);
+  };
+
+  const handleDeleteMeasurement = (measurementId: number) => {
+    setSelectedMeasurementToDelete(measurementId);
+    setConfirmDeleteMeasurementOpen(true);
+  };
+
+  const calculateChange = (current: number, initial: number) => {
+    if (!current || !initial) return null;
+    const change = current - initial;
+    const percentage = (change / initial) * 100;
+    return {
+      absolute: change.toFixed(1),
+      percentage: percentage.toFixed(1),
+      isPositive: change > 0,
+    };
+  };
+
+  const calculateAge = (birthDate?: string) => {
+    if (!birthDate) return 0;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const calculateWHR = (waist?: string, hip?: string) => {
+    if (!waist || !hip) return null;
+    const w = parseFloat(waist);
+    const h = parseFloat(hip);
+    if (isNaN(w) || isNaN(h) || h === 0) return null;
+    return (w / h).toFixed(2);
+  };
+
+  const getWHRStatus = (whr: number, gender: string) => {
+    if (gender === "male") {
+      if (whr <= 0.85) return { status: "Düşük Risk", color: "text-green-500" };
+      if (whr <= 0.90) return { status: "Orta Risk", color: "text-amber-500" };
+      if (whr <= 0.95) return { status: "Yüksek Risk", color: "text-red-500" };
+      return { status: "Çok Yüksek Risk", color: "text-red-700" };
+    } else {
+      if (whr <= 0.75) return { status: "Düşük Risk", color: "text-green-500" };
+      if (whr <= 0.80) return { status: "Orta Risk", color: "text-amber-500" };
+      if (whr <= 0.85) return { status: "Yüksek Risk", color: "text-red-500" };
+      return { status: "Çok Yüksek Risk", color: "text-red-700" };
+    }
+  };
+
+  const getBodyFatStatus = (bf: number, gender: string) => {
+    if (gender === "male") {
+      if (bf < 2) return { status: "Tehlikeli Düşük", color: "text-red-500" };
+      if (bf <= 6) return { status: "Atletik", color: "text-green-500" };
+      if (bf <= 13) return { status: "Fitness", color: "text-green-400" };
+      if (bf <= 17) return { status: "Kabul Edilebilir", color: "text-amber-500" };
+      if (bf <= 25) return { status: "Yüksek", color: "text-red-400" };
+      return { status: "Obez", color: "text-red-500" };
+    } else {
+      if (bf < 10) return { status: "Tehlikeli Düşük", color: "text-red-500" };
+      if (bf <= 14) return { status: "Atletik", color: "text-green-500" };
+      if (bf <= 21) return { status: "Fitness", color: "text-green-400" };
+      if (bf <= 25) return { status: "Kabul Edilebilir", color: "text-amber-500" };
+      if (bf <= 32) return { status: "Yüksek", color: "text-red-400" };
+      return { status: "Obez", color: "text-red-500" };
+    }
+  };
+
+  // Add appointment handling functions
+  const handleCreateAppointment = async (data: AppointmentFormValues) => {
+    try {
+      setIsCreatingAppointment(true);
+      const response = await api.createAppointment({
+        ...data,
+        clientId: Number(id),
+        duration: parseInt(data.duration, 10),
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments?clientId=${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu oluşturuldu",
+      });
+      setOpenNewAppointmentDialog(false);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingAppointment(false);
+    }
+  };
+
+  const handleUpdateAppointment = async (data: AppointmentFormValues) => {
+    try {
+      if (!selectedAppointment) return;
+      
+      setIsUpdatingAppointment(true);
+      const response = await api.updateAppointment(selectedAppointment.id, {
+        ...data,
+        clientId: Number(id),
+        duration: parseInt(data.duration, 10),
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments?clientId=${id}`] });
+      toast({
+        title: "Başarılı",
+        description: "Randevu güncellendi",
+      });
+      setOpenEditAppointmentDialog(false);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingAppointment(false);
+    }
+  };
+
+  const handleSendMessage = async (content: string) => {
+    try {
+      const response = await api.sendMessage(content);
+      queryClient.invalidateQueries({ queryKey: [`/api/messages?clientId=${id}`] });
+      setNewMessage("");
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Loading state
+  if (isClientLoading || isMeasurementsLoading || isAppointmentsLoading || isLoadingMessages) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2">Loading...</h2>
+          <p className="text-gray-600">Please wait while we fetch the client data</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (clientError || measurementsError || appointmentsError || messagesError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2 text-red-600">Error</h2>
+          <p className="text-gray-600">
+            {(clientError || measurementsError || appointmentsError || messagesError)?.message}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // No client found
+  if (!client) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2">Client Not Found</h2>
+          <p className="text-gray-600">The requested client could not be found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">
+            {client.firstName} {client.lastName}
+          </h1>
+          <p className="text-gray-500">
+            {client.email} • {client.phone}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setLocation('/clients')}>
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Geri Dön
+          </Button>
+          <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Sil
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Kişisel Bilgiler</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-2">
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Email</dt>
+                <dd>{client.email}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Telefon</dt>
+                <dd>{client.phone}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Doğum Tarihi</dt>
+                <dd>{formatDate(client.birthDate)} ({calculateAge(client.birthDate)} yaş)</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Cinsiyet</dt>
+                <dd>{client.gender === 'male' ? 'Erkek' : 'Kadın'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Meslek</dt>
+                <dd>{client.occupation}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sağlık Bilgileri</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-2">
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Sağlık Durumu</dt>
+                <dd>{client.medicalConditions || "-"}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Alerjiler</dt>
+                <dd>{client.allergies || "-"}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">İlaçlar</dt>
+                <dd>{client.medications || "-"}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Durum</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-2">
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Başlangıç Tarihi</dt>
+                <dd>{formatDate(client.startDate)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Bitiş Tarihi</dt>
+                <dd>{client.endDate ? formatDate(client.endDate) : "-"}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Durum</dt>
+                <dd>
+                  <Badge variant={client?.status === "active" ? "default" : "secondary"}>
+                    {client?.status === "active" ? "Aktif" : "Pasif"}
+                  </Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Erişim Kodu</dt>
+                <dd className="flex items-center gap-2">
+                  {client.accessCode ? (
+                    <>
+                      <code className="bg-muted px-2 py-1 rounded">{client.accessCode}</code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(client.accessCode || "");
+                          toast({
+                            title: "Kopyalandı",
+                            description: "Erişim kodu panoya kopyalandı",
+                          });
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => api.generateAccessCode()}>
+                      <KeyRound className="w-4 h-4 mr-2" />
+                      Kod Oluştur
+                    </Button>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs value={viewedTab} onValueChange={(value: any) => setViewedTab(value)} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="measurements">
+            <Ruler className="w-4 h-4 mr-2" />
+            Ölçümler
+          </TabsTrigger>
+          <TabsTrigger value="health">
+            <Activity className="w-4 h-4 mr-2" />
+            Sağlık Takibi
+          </TabsTrigger>
+          <TabsTrigger value="appointments">
+            <Calendar className="w-4 h-4 mr-2" />
+            Randevular
+          </TabsTrigger>
+          <TabsTrigger value="messages">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Mesajlar
+          </TabsTrigger>
+          <TabsTrigger value="notes">
+            <Info className="w-4 h-4 mr-2" />
+            Notlar
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="measurements" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-semibold">Ölçümler</h2>
+            <Button onClick={() => setOpenNewMeasurementDialog(true)}>
+              Yeni Ölçüm
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {measurements.map((measurement) => (
+              <Card key={measurement.id}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle>{format(new Date(measurement.date), 'dd MMMM yyyy', { locale: tr })}</CardTitle>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditMeasurement(measurement)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteMeasurement(measurement.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <dl className="space-y-2">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Kilo</dt>
+                      <dd>{measurement.weight} kg</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Boy</dt>
+                      <dd>{measurement.height} cm</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">BMI</dt>
+                      <dd>{measurement.bmi}</dd>
+                    </div>
+                    {measurement.bodyFatPercentage && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Vücut Yağ Oranı</dt>
+                        <dd>{measurement.bodyFatPercentage}%</dd>
+                      </div>
+                    )}
+                  </dl>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="health" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Sağlık Takibi</h2>
+            <Button onClick={() => setOpenNewMeasurementDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Ölçüm
+            </Button>
+          </div>
+
+          {measurements.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Henüz ölçüm yok</CardTitle>
+                <CardDescription>
+                  Sağlık takibi için önce ölçüm kaydetmeniz gerekmektedir.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            <HealthMetrics 
+              measurements={measurements}
+              client={client}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="appointments" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Randevular</h2>
+            <Button onClick={() => setOpenNewAppointmentDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Yeni Randevu
+            </Button>
+          </div>
+
+          {appointments.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Henüz randevu yok</CardTitle>
+                <CardDescription>
+                  Danışan için randevu oluşturmak için "Yeni Randevu" butonuna tıklayın.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {appointments.map((appointment) => (
+                <Card key={appointment.id} className="cursor-pointer hover:bg-gray-50" onClick={() => {
+                  setSelectedAppointment(appointment);
+                  setOpenEditAppointmentDialog(true);
+                }}>
+                  <CardHeader>
+                    <CardTitle>{appointment.type}</CardTitle>
+                    <CardDescription>
+                      {format(new Date(appointment.date), "d MMMM yyyy")} - {appointment.time}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {appointment.notes && (
+                      <p className="text-sm text-gray-500">{appointment.notes}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <AppointmentDialog
+            open={openNewAppointmentDialog}
+            onOpenChange={setOpenNewAppointmentDialog}
+            onSubmit={handleCreateAppointment}
+            isLoading={isCreatingAppointment}
+          />
+
+          <AppointmentDialog
+            open={openEditAppointmentDialog}
+            onOpenChange={setOpenEditAppointmentDialog}
+            appointment={selectedAppointment}
+            onSubmit={handleUpdateAppointment}
+            isLoading={isUpdatingAppointment}
+          />
+        </TabsContent>
+
+        <TabsContent value="messages" className="space-y-4">
+          <MessageList
+            clientId={client?.id || ""}
+            messages={messages}
+            isLoading={isLoadingMessages}
+            error={messagesError}
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            onSendMessage={handleSendMessage}
+          />
+        </TabsContent>
+
+        <TabsContent value="notes" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Notlar</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Özel Notlar</CardTitle>
+                <CardDescription>
+                  Bu notlar sadece sizin tarafınızdan görülebilir.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    api.updateClient({ notes: clientNotes }).then(() => {
+                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                      toast({
+                        title: "Başarılı",
+                        description: "Notlar kaydedildi",
+                      });
+                    });
+                  }}
+                >
+                  <div className="space-y-4">
+                    <Textarea
+                      value={clientNotes}
+                      onChange={(e) => setClientNotes(e.target.value)}
+                      placeholder="Özel notlarınızı buraya yazın..."
+                      rows={10}
+                    />
+                    <Button type="submit">Kaydet</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Danışan Notları</CardTitle>
+                <CardDescription>
+                  Bu notlar danışan tarafından da görülebilir.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    api.updateClient({ clientVisibleNotes: clientPublicNotes }).then(() => {
+                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                      toast({
+                        title: "Başarılı",
+                        description: "Notlar kaydedildi",
+                      });
+                    });
+                  }}
+                >
+                  <div className="space-y-4">
+                    <Textarea
+                      value={clientPublicNotes}
+                      onChange={(e) => setClientPublicNotes(e.target.value)}
+                      placeholder="Danışan notlarını buraya yazın..."
+                      rows={10}
+                    />
+                    <Button type="submit">Kaydet</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Danışanı Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem geri alınamaz. Danışanın tüm verileri silinecektir.
+              Silmek için danışanın adını yazın: <strong>{client.firstName} {client.lastName}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Danışanın adını yazın"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteConfirmText !== `${client.firstName} ${client.lastName}`}
+              onClick={() => {
+                api.deleteClient().then(() => {
+                  toast({
+                    title: "Başarılı",
+                    description: "Danışan silindi",
+                  });
+                  setLocation('/clients');
+                });
+              }}
+            >
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteMeasurementOpen} onOpenChange={setConfirmDeleteMeasurementOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ölçümü Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem geri alınamaz. Ölçüm verisi tamamen silinecektir.
+              Silmek için "EMİNİM" yazın.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <Input
+              value={deleteMeasurementConfirmText}
+              onChange={(e) => setDeleteMeasurementConfirmText(e.target.value)}
+              placeholder='Silmek için "EMİNİM" yazın'
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMeasurementConfirmText !== "EMİNİM"}
+              onClick={() => {
+                if (selectedMeasurementToDelete !== null) {
+                  deleteMeasurementMutation.mutate(selectedMeasurementToDelete);
+                }
+              }}
+            >
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+} 
