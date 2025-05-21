@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: 'index.html',
-      external: ['@hookform/resolvers/zod'],
+      external: ['@hookform/resolvers/zod', 'date-fns'],
       output: {
         manualChunks: {
           'vendor': [
