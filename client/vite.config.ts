@@ -22,6 +22,7 @@ export default defineConfig({
             '@tanstack/react-query',
             '@hookform/resolvers',
             'zod',
+            'date-fns',
             '@radix-ui/react-accordion',
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-aspect-ratio',
