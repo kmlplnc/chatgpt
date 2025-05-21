@@ -19,6 +19,8 @@ export default defineConfig({
             'react',
             'react-dom',
             '@tanstack/react-query',
+            '@hookform/resolvers',
+            'zod',
             '@radix-ui/react-accordion',
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-aspect-ratio',
