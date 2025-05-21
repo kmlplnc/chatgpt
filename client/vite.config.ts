@@ -11,8 +11,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      input: 'index.html',
-      external: ['@hookform/resolvers/zod', 'class-variance-authority'],
+      input: path.resolve(__dirname, 'index.html'),
       output: {
         manualChunks: {
           'vendor': [
