@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: 'index.html',
-      external: ['@hookform/resolvers/zod', 'date-fns'],
+      external: ['@hookform/resolvers/zod', 'date-fns', 'class-variance-authority'],
       output: {
         manualChunks: {
           'vendor': [
@@ -23,6 +23,7 @@ export default defineConfig({
             '@hookform/resolvers',
             'zod',
             'date-fns',
+            'class-variance-authority',
             '@radix-ui/react-accordion',
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-aspect-ratio',
