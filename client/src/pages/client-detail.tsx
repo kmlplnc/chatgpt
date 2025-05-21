@@ -247,42 +247,76 @@ const appointmentFormSchema = z.object({
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
 
 export default function ClientDetail() {
-  // 1. API fonksiyonları
+  const { id } = useParams<{ id: string }>();
+  if (!id) {
+    return <div>Danışan ID'si bulunamadı</div>;
+  }
+
+  // API functions
   const getClient = async () => {
     const response = await apiRequest("GET", `/api/clients/${id}`);
-    if (!response.ok) throw new Error("Danışan bilgileri yüklenemedi");
+    if (!response.ok) {
+      throw new Error("Danışan bilgileri yüklenemedi");
+    }
     return response.json();
   };
+
   const getMeasurements = async () => {
     const response = await apiRequest("GET", `/api/clients/${id}/measurements`);
-    if (!response.ok) throw new Error("Ölçüm verileri yüklenemedi");
+    if (!response.ok) {
+      throw new Error("Ölçüm verileri yüklenemedi");
+    }
     return response.json();
   };
-  const createMeasurement = async (data: any) => {
-    const response = await apiRequest("POST", `/api/clients/${id}/measurements`, data);
-    if (!response.ok) throw new Error("Ölçüm kaydedilemedi");
-    return response.json();
-  };
-  const updateMeasurement = async (measurementId: number, data: any) => {
-    const response = await apiRequest("PATCH", `/api/clients/${id}/measurements/${measurementId}`, data);
-    if (!response.ok) throw new Error("Ölçüm güncellenemedi");
-    return response.json();
-  };
-  const deleteClient = async () => {
-    const response = await apiRequest("DELETE", `/api/clients/${id}`);
-    if (!response.ok) throw new Error("Danışan silinemedi");
-    return true;
-  };
-  const deleteMeasurement = async (measurementId: number) => {
-    const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
-    if (!response.ok) throw new Error("Ölçüm silinemedi");
-    return response.json();
-  };
+
   const getAppointments = async () => {
     const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
-    if (!response.ok) throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}`);
+    }
     return response.json();
   };
+
+  const getMessages = async () => {
+    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
+    if (!response.ok) {
+      throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}`);
+    }
+    return response.json();
+  };
+
+  const createMeasurement = async (data: any) => {
+    const response = await apiRequest("POST", `/api/clients/${id}/measurements`, data);
+    if (!response.ok) {
+      throw new Error("Ölçüm eklenemedi");
+    }
+    return response.json();
+  };
+
+  const updateMeasurement = async (measurementId: number, data: any) => {
+    const response = await apiRequest("PUT", `/api/measurements/${measurementId}`, data);
+    if (!response.ok) {
+      throw new Error("Ölçüm güncellenemedi");
+    }
+    return response.json();
+  };
+
+  const deleteMeasurement = async (measurementId: number) => {
+    const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
+    if (!response.ok) {
+      throw new Error("Ölçüm silinemedi");
+    }
+    return response.json();
+  };
+
+  const deleteClient = async () => {
+    const response = await apiRequest("DELETE", `/api/clients/${id}`);
+    if (!response.ok) {
+      throw new Error("Danışan silinemedi");
+    }
+    return true;
+  };
+
   const createAppointment = async (data: any) => {
     const appointmentDate = new Date(data.date);
     const [hours, minutes] = data.time.split(":").map(Number);
@@ -298,12 +332,15 @@ export default function ClientDetail() {
       startTime,
       endTime,
       duration: 30,
-      time: data.time, // ZORUNLU: time alanını ekle
+      time: data.time,
     };
     const response = await apiRequest("POST", "/api/appointments", appointmentData);
-    if (!response.ok) throw new Error("Randevu oluşturulamadı");
+    if (!response.ok) {
+      throw new Error("Randevu oluşturulamadı");
+    }
     return response.json();
   };
+
   const updateAppointment = async (appointmentId: number, data: any) => {
     const appointmentDate = new Date(data.date);
     const [hours, minutes] = data.time.split(":").map(Number);
@@ -316,47 +353,57 @@ export default function ClientDetail() {
       startTime,
       endTime,
       duration: 30,
-      time: data.time, // ZORUNLU: time alanını ekle
+      time: data.time,
     };
     const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}`, appointmentData);
-    if (!response.ok) throw new Error("Randevu güncellenemedi");
+    if (!response.ok) {
+      throw new Error("Randevu güncellenemedi");
+    }
     return response.json();
   };
+
   const deleteAppointment = async (appointmentId: number) => {
     const response = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
-    if (!response.ok) throw new Error("Randevu silinemedi");
+    if (!response.ok) {
+      throw new Error("Randevu silinemedi");
+    }
     return response.json();
   };
-  const getMessages = async () => {
-    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
-    if (!response.ok) throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}`);
-    return response.json();
-  };
+
   const sendMessage = async (content: string) => {
     const messageData = { content, clientId: Number(id), fromClient: false };
     const response = await apiRequest("POST", `/api/messages`, messageData);
-    if (!response.ok) throw new Error("Mesaj gönderilemedi");
+    if (!response.ok) {
+      throw new Error("Mesaj gönderilemedi");
+    }
     return response.json();
   };
+
   const markMessagesAsRead = async (messageIds: number[]) => {
     if (messageIds && messageIds.length > 0) {
       const response = await apiRequest("PATCH", "/api/messages/mark-read", { messageIds });
-      if (!response.ok) throw new Error("Mesajlar okundu olarak işaretlenemedi");
+      if (!response.ok) {
+        throw new Error("Mesajlar okundu olarak işaretlenemedi");
+      }
       return response.json();
     }
     const response = await apiRequest("PATCH", `/api/messages/read?clientId=${id}`);
-    if (!response.ok) throw new Error("Mesajlar okundu olarak işaretlenemedi");
+    if (!response.ok) {
+      throw new Error("Mesajlar okundu olarak işaretlenemedi");
+    }
     return response.json();
   };
+
   const generateAccessCode = async () => {
     const response = await apiRequest("POST", `/api/clients/${id}/access-code`);
-    if (!response.ok) throw new Error("Erişim kodu oluşturulamadı");
+    if (!response.ok) {
+      throw new Error("Erişim kodu oluşturulamadı");
+    }
     return response.json();
   };
 
   // Tüm hook'lar component fonksiyonunun en başında, koşulsuz şekilde çağrılmalı
   const [_, setLocation] = useLocation();
-  const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments">('measurements');
