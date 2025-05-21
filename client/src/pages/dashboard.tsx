@@ -91,48 +91,78 @@ export default function Dashboard() {
     checkPremium();
   }, []);
 
+  React.useEffect(() => {
+    // Scrollbar genişliğini ölç ve :root'a ata
+    const scrollDiv = document.createElement('div');
+    scrollDiv.style.width = '100px';
+    scrollDiv.style.height = '100px';
+    scrollDiv.style.overflow = 'scroll';
+    scrollDiv.style.position = 'absolute';
+    scrollDiv.style.top = '-9999px';
+    document.body.appendChild(scrollDiv);
+    const scrollbarWidth = scrollDiv.offsetWidth - scrollDiv.clientWidth;
+    document.body.removeChild(scrollDiv);
+    document.documentElement.style.setProperty('--scrollbar-width', `${scrollbarWidth}px`);
+  }, []);
+
   return (
     <div className="flex-1">
       <div className="w-full min-h-screen bg-background dark:bg-neutral-900">
-        <section className="flex flex-col md:flex-row items-center justify-between gap-8 animate-fade-up">
-          {/* Left: Headline & Description */}
-          <div className="flex-1 flex flex-col items-start justify-center">
-            <h1 className="font-serif font-bold text-4xl md:text-6xl tracking-tight text-neutral-900 dark:text-white mb-4 animate-fade-up">
-              DietKEM: Akıllı Beslenme ve Danışan Takip Platformu
-            </h1>
-            <p className="text-xl text-muted-foreground font-light mb-8 max-w-xl animate-fade-up-delay-1">
-              Diyetisyenler için modern, hızlı ve akıllı danışan yönetimi. Tüm süreçlerinizi tek bir yerde kolayca yönetin.
-            </p>
-            <div className="flex gap-4 animate-fade-up-delay-2">
-              <Link href="/clients">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg text-base shadow transition-all">
-                  Hemen Başla
-                </button>
-              </Link>
-              <Link href="/contact">
-                <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold px-6 py-3 rounded-lg text-base shadow transition-all">
-                  Demo Talep Et
-                </button>
-              </Link>
+        <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
+          {/* TEST: Ortada mı? */}
+          {/* <div style={{ position: 'relative', width: '100%', height: 0 }}>
+            <div style={{
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              top: 0,
+              width: 40,
+              height: 40,
+              background: 'red',
+              borderRadius: '50%',
+              zIndex: 9999,
+              border: '3px solid white',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }} />
+          </div> */}
+          <section className="flex flex-col md:flex-row items-center justify-between gap-8 animate-fade-up">
+            {/* Left: Headline & Description */}
+            <div className="flex-1 flex flex-col items-start justify-center">
+              <h1 className="font-serif font-bold text-4xl md:text-6xl tracking-tight text-neutral-900 dark:text-white mb-4 animate-fade-up">
+                DietKEM: Akıllı Beslenme ve Danışan Takip Platformu
+              </h1>
+              <p className="text-xl text-muted-foreground font-light mb-8 max-w-xl animate-fade-up-delay-1">
+                Diyetisyenler için modern, hızlı ve akıllı danışan yönetimi. Tüm süreçlerinizi tek bir yerde kolayca yönetin.
+              </p>
+              <div className="flex gap-4 animate-fade-up-delay-2">
+                <Link href="/clients">
+                  <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg text-base shadow transition-all">
+                    Hemen Başla
+                  </button>
+                </Link>
+                <Link href="/contact">
+                  <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold px-6 py-3 rounded-lg text-base shadow transition-all">
+                    Demo Talep Et
+                  </button>
+                </Link>
+              </div>
             </div>
-          </div>
-          {/* Right: Animated Avocado SVG */}
-          <div className="animate-fade-up-delay-3">
-            <AvocadoSVG 
-              mouse={mouse} 
-              svgRef={svgRef} 
-              svgCenter={svgCenter} 
-              width={320} 
-              height={320} 
-              isSad={isSad} 
-              expression={expression}
-              isPremium={isPremium}
-            />
-          </div>
-        </section>
-        {/* Özellik Kartları */}
-        <section className="mt-16">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+            {/* Right: Animated Avocado SVG */}
+            <div className="animate-fade-up-delay-3">
+              <AvocadoSVG 
+                mouse={mouse} 
+                svgRef={svgRef} 
+                svgCenter={svgCenter} 
+                width={320} 
+                height={320} 
+                isSad={isSad} 
+                expression={expression}
+                isPremium={isPremium}
+              />
+            </div>
+          </section>
+          {/* Özellik Kartları */}
+          <div className="cards-wrapper mt-12">
             <FeatureCard
               title="Danışanlar"
               description="Tüm danışanlarını kolayca yönet, takip et, notlar ekle ve geçmişe hızlıca göz at. Her danışan için detaylı profil ve iletişim imkanı."
@@ -164,7 +194,7 @@ export default function Dashboard() {
               className="animate-fade-up-delay-4"
             />
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );

@@ -135,7 +135,7 @@ export function useClientApi(clientId?: string | number) {
         throw new Error("Failed to generate access code");
       }
       const data = await response.json();
-      return data.accessCode;
+      return data.access_code;
     }
   };
 } 

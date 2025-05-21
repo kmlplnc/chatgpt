@@ -22,19 +22,20 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
   try {
     console.log("Login endpoint hit, body:", req.body);
 
-    const { accessCode } = req.body;
+    // Sadece access_code'u alın
+    const { access_code } = req.body;
 
-    if (!accessCode) {
-      console.error("No accessCode provided");
+    if (!access_code) {
+      console.error("No access_code provided");
       return res.status(400).json({ message: 'Erişim kodu gereklidir' });
     }
 
     // Erişim kodu ile danışanı bul
-    const client = await storage.getClientByAccessCode(accessCode);
+    const client = await storage.getClientByAccessCode(access_code);
     console.log("Client found:", client);
 
     if (!client) {
-      console.error("No client found for accessCode:", accessCode);
+      console.error("No client found for access_code:", access_code);
       return res.status(401).json({ message: 'Geçersiz erişim kodu' });
     }
 
@@ -45,9 +46,9 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
 
     // Oturumu veritabanına kaydet
     const session = await storage.createClientSession({
-      clientId: client.id,
-      sessionToken,
-      expiresAt
+      client_id: client.id,
+      session_token: sessionToken,
+      expires_at: expiresAt
     });
     console.log("Session created:", session);
 
@@ -59,13 +60,13 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
       sameSite: 'strict'
     });
 
-    // Danışan bilgilerini gönder - clientVisibleNotes dahil
+    // Danışan bilgilerini gönder - client_visible_notes dahil
     res.json({
       id: client.id,
-      firstName: client.firstName,
-      lastName: client.lastName,
+      first_name: client.first_name,
+      last_name: client.last_name,
       email: client.email,
-      clientVisibleNotes: client.clientVisibleNotes || null, // Danışana görünecek notlar
+      client_visible_notes: client.client_visible_notes || null, // Danışana görünecek notlar
     });
 
   } catch (error) {
@@ -112,14 +113,14 @@ export const verifyClientSession = async (req: Request, res: Response, next: Fun
     }
 
     // Oturum süresini kontrol et
-    if (new Date() > session.expiresAt) {
+    if (new Date() > session.expires_at) {
       await storage.deleteClientSession(sessionToken);
       res.clearCookie('client_session');
       return res.status(401).json({ message: 'Oturumunuzun süresi dolmuş' });
     }
 
     // Danışan bilgilerini al
-    const client = await storage.getClient(session.clientId);
+    const client = await storage.getClient(session.client_id);
 
     if (!client) {
       await storage.deleteClientSession(sessionToken);
@@ -148,13 +149,13 @@ clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Res
   try {
     const { client } = req.clientSession!;
 
-    // Danışan bilgilerini gönder - clientVisibleNotes dahil
+    // Danışan bilgilerini gönder - client_visible_notes dahil
     res.json({
       id: client.id,
-      firstName: client.firstName,
-      lastName: client.lastName,
+      first_name: client.first_name,
+      last_name: client.last_name,
       email: client.email,
-      clientVisibleNotes: client.clientVisibleNotes || null, // Danışana görünecek notlar
+      client_visible_notes: client.client_visible_notes || null, // Danışana görünecek notlar
     });
   } catch (error) {
     console.error('Get client error:', error);
@@ -168,7 +169,7 @@ clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, r
     const { client } = req.clientSession!;
 
     // Diyetisyen bilgilerini getir
-    const dietitian = await storage.getUser(client.userId);
+    const dietitian = await storage.getUser(client.user_id);
 
     if (!dietitian) {
       return res.status(404).json({ message: 'Diyetisyen bulunamadı' });
@@ -177,7 +178,7 @@ clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, r
     // Diyetisyen bilgilerini gönder (sadece gerekli alanlar)
     res.json({
       id: dietitian.id,
-      name: dietitian.name || dietitian.username,
+      name: dietitian.full_name || dietitian.username,
       email: dietitian.email
     });
   } catch (error) {
@@ -221,13 +222,13 @@ clientPortalRouter.get('/recommendations', verifyClientSession, async (req: Requ
   try {
     const { client } = req.clientSession!;
 
-    if (client.clientVisibleNotes) {
+    if (client.client_visible_notes) {
       // Diyetisyenin danışan için yazdığı notları tavsiye olarak döndür
       res.json([
         {
           id: 1,
           title: 'Diyetisyeninizden Notlar',
-          content: client.clientVisibleNotes,
+          content: client.client_visible_notes,
           createdAt: new Date().toISOString()
         }
       ]);

@@ -112,7 +112,7 @@ export default function SubscriptionPage() {
   // If user is not logged in, show login prompt
   if (!isLoading && !user) {
     return (
-      <div className="container mx-auto max-w-5xl py-8">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20">
         <Alert className="mb-8">
           <Lock className="h-4 w-4" />
           <AlertTitle>Oturum açmanız gerekiyor</AlertTitle>
@@ -135,7 +135,7 @@ export default function SubscriptionPage() {
   
   return (
     <div className="w-full min-h-screen bg-background dark:bg-neutral-900 pt-10">
-      <div className="w-full max-w-6xl mx-auto px-4 ml-8 md:ml-24">
+      <div className="w-full max-w-6xl mx-auto px-4 ml-8 md:ml-24 pb-12">
         <h1 className="text-3xl font-bold mb-2 text-center">Abonelik Planları</h1>
         <p className="text-muted-foreground text-center mb-8">
           DietKEM'in sunduğu tüm özelliklere erişmek için aşağıdaki planlardan birini seçin

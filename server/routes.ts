@@ -5,6 +5,8 @@ import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import session from "express-session";
 import cookieParser from "cookie-parser";
+import connectPgSimple from 'connect-pg-simple';
+import { pool } from "./db";
 import { 
   insertDietPlanSchema, 
   dietRequirementSchema,
@@ -21,11 +23,15 @@ import clientPortalRouter from './routes/client-portal';
 import appointmentsRouter from './routes/appointments';
 import messagesRouter from './routes/messages';
 import notificationsRouter from './routes/notifications';
-import pgSession from "connect-pg-simple";
-import { Pool } from "pg";
 import { fatsecretRouter } from './routes/fatsecret';
 import { hashPassword } from "./utils/password-utils";
 import userRouter from './routes/user';
+import express from 'express';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const router = express.Router();
 
 // Admin kontrolü için yardımcı fonksiyon
 function isAdmin(req: Request): boolean {
@@ -43,23 +49,24 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session setup
   app.use(cookieParser());
-  const pgSessionStore = pgSession(session);
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+
+  // Create PostgreSQL session store
+  const pgSession = connectPgSimple(session);
+  const store = new pgSession({
+    pool: pool,
+    tableName: 'session',
+    createTableIfMissing: true
   });
+
   app.use(session({
-    store: new pgSessionStore({
-      pool: pool,
-      tableName: 'session'
-    }),
+    store: store,
     secret: process.env.SESSION_SECRET || "dietkem-secret-key",
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 saat
+      maxAge: 24 * 60 * 60 * 1000
     }
   }));
   
@@ -115,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      const dietPlans = await storage.getDietPlans(userId, limit);
+      const dietPlans = await storage.getDietPlan(userId);
       res.json(dietPlans);
     } catch (err) {
       handleError(err, res);
@@ -167,12 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/diet-plans/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const success = await storage.deleteDietPlan(id);
-      
-      if (!success) {
-        return res.status(404).json({ message: "Diet plan not found" });
-      }
-      
+      await storage.deleteDietPlan(id);
       res.status(204).send();
     } catch (err) {
       handleError(err, res);
@@ -251,7 +253,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const food of searchResults.foods) {
         const existingFood = await storage.getFoodById(food.fdcId);
         if (!existingFood) {
-          await storage.createFood(food);
+          await storage.createFood({
+            fdcId: food.fdcId,
+            description: food.description,
+            dataType: food.dataType,
+            brandName: food.brandName,
+            ingredients: food.ingredients,
+            servingSize: food.servingSize,
+            servingSizeUnit: food.servingSizeUnit,
+            foodCategory: food.foodCategory,
+            publishedDate: food.publishedDate,
+            foodAttributes: food.foodAttributes as any,
+            foodNutrients: food.foodNutrients as any,
+          });
         }
       }
       
@@ -338,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For this demo, we'll use a default user ID of 1
       const userId = req.query.userId ? parseInt(req.query.userId as string) : 1;
       
-      const savedFoods = await storage.getSavedFoods(userId);
+      const savedFoods = await storage.getSavedFood(userId);
       res.json(savedFoods);
     } catch (err) {
       handleError(err, res);
@@ -366,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Save the food
-      const savedFood = await storage.saveFood({ userId, fdcId });
+      const savedFood = await storage.createSavedFood({ userId, fdcId });
       
       // Get the food details
       const food = await storage.getFoodById(fdcId);
@@ -385,7 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For this demo, we'll use a default user ID of 1
       const userId = 1;
       
-      const success = await storage.removeSavedFood(userId, fdcId);
+      const success = await storage.deleteSavedFood(userId, fdcId);
       
       if (!success) {
         return res.status(404).json({ message: "Saved food not found" });
@@ -456,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Veritabanına kaydet
       const savedPlan = await storage.createDietPlan({
-        userId: req.session.user.id,
+        userId: parseInt(req.session.user.id),
         name: `${validationResult.data.name} için Diyet Planı`,
         description: dietPlan.description,
         content: dietPlan.content,
@@ -495,11 +509,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         email: user.email,
-        name: user.name,
+        full_name: user.full_name,
         role: user.role,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionPlan: user.subscriptionPlan,
-        createdAt: user.createdAt
+        subscription_status: user.subscription_status,
+        subscription_plan: user.subscription_plan,
+        created_at: user.created_at
       }));
 
       return res.json(sanitizedUsers);
@@ -515,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
+      const { username, password, email, full_name, role, subscription_status, subscription_plan } = req.body;
 
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
@@ -524,14 +538,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         username,
-        password: hashedPassword,
+        password_hash: hashedPassword,
         email,
-        name,
-        role: role || "user"
+        full_name,
+        role: role || "user",
+        subscription_status: subscription_status || "free",
+        subscription_plan: subscription_plan || null,
+        subscription_start_date: null,
+        subscription_end_date: null
       });
 
       // Remove password from response
-      const { password: _, ...safeUser } = user;
+      const { password_hash: _, ...safeUser } = user;
       res.status(201).json(safeUser);
     } catch (error) {
       console.error("Error creating user:", error);
@@ -547,10 +565,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = parseInt(req.params.id);
-      const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
+      const { username, password, email, full_name, role, subscription_status, subscription_plan } = req.body;
       
       // Kullanıcının var olup olmadığını kontrol et
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(userId.toString());
       if (!user) {
         return res.status(404).json({ message: "Kullanıcı bulunamadı" });
       }
@@ -568,43 +586,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (username) updates.username = username;
       if (email) updates.email = email;
-      if (name !== undefined) updates.name = name;
+      if (full_name !== undefined) updates.full_name = full_name;
       if (role) updates.role = role;
       
       // Parola güncellemesi
       if (password && password.trim() !== "") {
-        updates.password = await hashPassword(password);
+        updates.password_hash = await hashPassword(password);
       }
       
       // Abonelik bilgileri
       const subscriptionUpdates: any = {};
       let hasSubscriptionUpdates = false;
       
-      if (subscriptionStatus) {
-        subscriptionUpdates.subscriptionStatus = subscriptionStatus;
+      if (subscription_status) {
+        subscriptionUpdates.subscription_status = subscription_status;
         hasSubscriptionUpdates = true;
       }
       
-      if (subscriptionPlan !== undefined) {
-        subscriptionUpdates.subscriptionPlan = subscriptionPlan || null;
+      if (subscription_plan !== undefined) {
+        subscriptionUpdates.subscription_plan = subscription_plan || null;
         hasSubscriptionUpdates = true;
       }
       
       try {
         // Kullanıcıyı güncelle
-        const updatedUser = await storage.updateUser(userId, updates);
+        const updatedUser = await storage.updateUser(userId.toString(), updates);
         
         // Abonelik bilgilerini güncelle
         if (hasSubscriptionUpdates) {
-          await storage.updateUserSubscription(userId, subscriptionUpdates);
+          await storage.updateUserSubscription(userId.toString(), subscriptionUpdates);
         }
         
         // Güncel kullanıcıyı tekrar getir
-        const refreshedUser = await storage.getUser(userId);
+        const refreshedUser = await storage.getUser(userId.toString());
         
         // Parola bilgisini çıkar
         if (refreshedUser) {
-          const { password: _, ...safeUser } = refreshedUser;
+          const { password_hash: _, ...safeUser } = refreshedUser;
           return res.json(safeUser);
         } else {
           return res.status(404).json({ message: "Kullanıcı bulunamadı" });
@@ -629,24 +647,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = parseInt(req.params.id);
       
       // Admin kendisini silmeye çalışıyorsa engelle
-      if (req.session?.user?.id === userId) {
+      if (req.session?.user?.id === userId.toString()) {
         return res.status(400).json({ message: "Kendi hesabınızı silemezsiniz" });
       }
       
       // Kullanıcının var olup olmadığını kontrol et
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(userId.toString());
       if (!user) {
         return res.status(404).json({ message: "Kullanıcı bulunamadı" });
       }
       
       // Kullanıcıyı sil
-      const success = await storage.deleteUser(userId);
-      
-      if (success) {
-        res.status(200).json({ message: "Kullanıcı başarıyla silindi" });
-      } else {
-        res.status(500).json({ message: "Kullanıcı silinirken bir hata oluştu" });
-      }
+      await storage.deleteUser(userId.toString());
+      res.status(200).json({ message: "Kullanıcı başarıyla silindi" });
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
@@ -658,3 +671,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+
+export default router;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -43,17 +43,27 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Client {
   id: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string | null;
   occupation: string | null;
   status: "active" | "inactive";
   gender: "male" | "female";
   height: number;
-  birthDate: string | null;
+  birth_date: string | null;
   address: string | null;
   notes: string | null;
+  medical_conditions?: string;
+  allergies?: string;
+  medications?: string;
+  client_visible_notes?: string;
+  start_date?: string;
+  end_date?: string;
+  access_code?: string;
+  age?: number;
+  registration_date?: string;
+  created_at?: string;
 }
 
 async function getClients(): Promise<Client[]> {
@@ -65,6 +75,7 @@ async function getClients(): Promise<Client[]> {
 }
 
 async function createClient(data: Omit<Client, "id">): Promise<Client> {
+  console.log("[FRONTEND] API'ye gönderilen veri:", data);
   const response = await fetch("/api/clients", {
     method: "POST",
     headers: {
@@ -82,6 +93,10 @@ async function deleteClient(id: string): Promise<void> {
   const response = await fetch(`/api/clients/${id}`, {
     method: "DELETE",
   });
+  if (response.status === 404) {
+    // Zaten silinmiş, hata gösterme
+    return;
+  }
   if (!response.ok) {
     throw new Error("Danışan silinemedi");
   }
@@ -127,23 +142,29 @@ async function updateClient(id: string, data: Omit<Client, "id">): Promise<Clien
   return result;
 }
 
+async function fetchClientDetail(id: string): Promise<Client> {
+  const response = await fetch(`/api/clients/${id}`);
+  if (!response.ok) throw new Error("Danışan detayı alınamadı");
+  return response.json();
+}
+
 export default function ClientsPage() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [showDialog, setShowDialog] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = React.useState<Omit<Client, "id">>({
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     email: "",
     phone: null,
     occupation: null,
     status: "active",
     gender: "male",
     height: 170,
-    birthDate: null,
+    birth_date: null,
     address: null,
     notes: null
   });
@@ -201,15 +222,15 @@ export default function ClientsPage() {
 
   const resetForm = () => {
     setFormData({
-      firstName: "",
-      lastName: "",
+      first_name: "",
+      last_name: "",
       email: "",
       phone: null,
       occupation: null,
       status: "active",
       gender: "male",
       height: 170,
-      birthDate: null,
+      birth_date: null,
       address: null,
       notes: null
     });
@@ -217,6 +238,17 @@ export default function ClientsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[FRONTEND] Form gönderiliyor:", formData);
+
+    // Form validasyonu
+    if (!formData.first_name || !formData.last_name) {
+      toast({
+        title: "Hata",
+        description: "Ad ve soyad alanları zorunludur",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       if (isEditing && selectedClient) {
@@ -224,7 +256,7 @@ export default function ClientsPage() {
         console.log("Gönderilecek veri:", {
           ...formData,
           height: Number(formData.height),
-          birthDate: formData.birthDate || null,
+          birth_date: formData.birth_date || null,
           phone: formData.phone || null,
           occupation: formData.occupation || null,
           address: formData.address || null,
@@ -236,7 +268,7 @@ export default function ClientsPage() {
           updates: {
             ...formData,
             height: Number(formData.height),
-            birthDate: formData.birthDate || null,
+            birth_date: formData.birth_date || null,
             phone: formData.phone || null,
             occupation: formData.occupation || null,
             address: formData.address || null,
@@ -251,7 +283,7 @@ export default function ClientsPage() {
         await createClientMutation.mutateAsync({
           ...formData,
           height: Number(formData.height),
-          birthDate: formData.birthDate || null,
+          birth_date: formData.birth_date || null,
           phone: formData.phone || null,
           occupation: formData.occupation || null,
           address: formData.address || null,
@@ -274,14 +306,39 @@ export default function ClientsPage() {
       setShowDeleteDialog(false);
       setSelectedClient(null);
       refetch();
-    } catch (error) {
-      console.error("Hata:", error);
+      toast({
+        title: "Başarılı",
+        description: "Danışan başarıyla silindi",
+      });
+      setLocation("/clients");
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Danışan silinirken bir hata oluştu",
+        variant: "destructive",
+      });
     }
   };
 
+  // useEffect to fetch client details if URL is /clients/:id
+  useEffect(() => {
+    console.log("useEffect çalıştı, path:", window.location.pathname);
+    const match = window.location.pathname.match(/^\/clients\/(\d+)$/);
+    if (match) {
+      const clientId = match[1];
+      console.log("Detay fetch edilecek id:", clientId);
+      fetchClientDetail(clientId)
+        .then(clientDetail => {
+          console.log("Detay fetch edildi:", clientDetail);
+          setSelectedClient(clientDetail);
+        })
+        .catch(error => console.error("Detay yüklenemedi:", error));
+    }
+  }, []);
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="w-full max-w-6xl mx-auto px-4 ml-8 md:ml-24">
+      <div className="w-full max-w-6xl mx-auto px-4">
         <div className="space-y-8">
           <div className="flex justify-between items-center animate-fade-up">
             <div className="space-y-1">
@@ -327,26 +384,42 @@ export default function ClientsPage() {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      placeholder="Ad"
-                      value={formData.firstName || ""}
-                      onChange={(e) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          firstName: e.target.value
-                        }));
-                      }}
-                    />
-                    <Input
-                      placeholder="Soyad"
-                      value={formData.lastName || ""}
-                      onChange={(e) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          lastName: e.target.value
-                        }));
-                      }}
-                    />
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        name="first_name"
+                        placeholder="Ad"
+                        value={formData.first_name || ""}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            first_name: e.target.value
+                          }));
+                        }}
+                        required
+                        className={!formData.first_name ? "border-red-500" : ""}
+                      />
+                      {!formData.first_name && (
+                        <span className="text-sm text-red-500">Ad alanı zorunludur</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        name="last_name"
+                        placeholder="Soyad"
+                        value={formData.last_name || ""}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            last_name: e.target.value
+                          }));
+                        }}
+                        required
+                        className={!formData.last_name ? "border-red-500" : ""}
+                      />
+                      {!formData.last_name && (
+                        <span className="text-sm text-red-500">Soyad alanı zorunludur</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -419,11 +492,11 @@ export default function ClientsPage() {
                     <Input
                       type="date"
                       placeholder="Doğum Tarihi"
-                      value={formData.birthDate || ""}
+                      value={formData.birth_date || ""}
                       onChange={(e) => {
                         setFormData(prev => ({
                           ...prev,
-                          birthDate: e.target.value
+                          birth_date: e.target.value
                         }));
                       }}
                     />
@@ -520,10 +593,18 @@ export default function ClientsPage() {
                         "transition-all duration-300 hover:bg-muted/50 cursor-pointer",
                         `animate-fade-up-delay-${Math.min(index + 2, 5)}`
                       )}
-                      onClick={() => setLocation(`/clients/${client.id}`)}
+                      onClick={async () => {
+                        try {
+                          const clientDetail = await fetchClientDetail(client.id);
+                          setSelectedClient(clientDetail);
+                          setLocation(`/clients/${client.id}`);
+                        } catch (error) {
+                          console.error("Danışan detayı alınamadı:", error);
+                        }
+                      }}
                     >
                       <TableCell className="font-medium">
-                        {client.firstName} {client.lastName}
+                        {client.first_name} {client.last_name}
                       </TableCell>
                       <TableCell>{client.email}</TableCell>
                       <TableCell>{client.phone}</TableCell>
@@ -544,24 +625,29 @@ export default function ClientsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 hover:scale-110 transition-transform duration-300"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              setShowDialog(true);
-                              setIsEditing(true);
-                              setSelectedClient(client);
-                              setFormData({
-                                firstName: client.firstName,
-                                lastName: client.lastName,
-                                email: client.email,
-                                phone: client.phone,
-                                occupation: client.occupation,
-                                status: client.status,
-                                gender: client.gender,
-                                height: client.height,
-                                birthDate: client.birthDate,
-                                address: client.address,
-                                notes: client.notes
-                              });
+                              try {
+                                const clientDetail = await fetchClientDetail(client.id);
+                                setShowDialog(true);
+                                setIsEditing(true);
+                                setSelectedClient(clientDetail);
+                                setFormData({
+                                  first_name: clientDetail.first_name,
+                                  last_name: clientDetail.last_name,
+                                  email: clientDetail.email,
+                                  phone: clientDetail.phone,
+                                  occupation: clientDetail.occupation,
+                                  status: clientDetail.status,
+                                  gender: clientDetail.gender,
+                                  height: clientDetail.height,
+                                  birth_date: clientDetail.birth_date,
+                                  address: clientDetail.address,
+                                  notes: clientDetail.notes
+                                });
+                              } catch (error) {
+                                console.error("Danışan detayı alınamadı:", error);
+                              }
                             }}
                           >
                             <Pencil className="h-4 w-4" />
@@ -570,10 +656,15 @@ export default function ClientsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:scale-110 transition-transform duration-300"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              setSelectedClient(client);
-                              setShowDeleteDialog(true);
+                              try {
+                                const clientDetail = await fetchClientDetail(client.id);
+                                setSelectedClient(clientDetail);
+                                setShowDeleteDialog(true);
+                              } catch (error) {
+                                console.error("Danışan detayı alınamadı:", error);
+                              }
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -605,6 +696,67 @@ export default function ClientsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedClient && (
+        (() => { console.log("[DEBUG] Seçili danışan:", selectedClient); return null; })()
+      )}
+      {selectedClient && (
+        <div className="mt-4 p-4 border rounded-lg">
+          <h2 className="text-2xl font-bold mb-4">Danışan Bilgileri</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground">Ad Soyad</div>
+              <div className="font-medium">{selectedClient.first_name} {selectedClient.last_name}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Cinsiyet</div>
+              <div className="font-medium">{selectedClient.gender === "male" ? "Erkek" : selectedClient.gender === "female" ? "Kadın" : "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">E-posta</div>
+              <div className="font-medium">{selectedClient.email || "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Telefon</div>
+              <div className="font-medium">{selectedClient.phone || "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Yaş</div>
+              <div className="font-medium">{selectedClient.birth_date ? getAge(selectedClient.birth_date) : "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Meslek</div>
+              <div className="font-medium">{selectedClient.occupation || "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Kayıt Tarihi</div>
+              <div className="font-medium">{selectedClient.created_at ? formatDate(selectedClient.created_at) : "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Boy</div>
+              <div className="font-medium">{selectedClient.height ? `${selectedClient.height} cm` : "-"}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function getAge(birthDate: string | null): string {
+  if (!birthDate) return "-";
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age.toString();
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("tr-TR");
 }

@@ -14,13 +14,13 @@ import {
   foods,
   type Food,
   type InsertFood,
-  savedFoods,
+  saved_foods,
   type SavedFood,
   type InsertSavedFood,
-  foodNutrients,
+  food_nutrients,
   type FoodNutrient,
   type InsertFoodNutrient,
-  clientSessions,
+  client_sessions,
   type ClientSession,
   type InsertClientSession,
   appointments,
@@ -33,17 +33,17 @@ import {
   type Notification,
   type InsertNotification
 } from "@shared/schema";
-import { db } from "./db";
+import db from "./db";
 import { and, desc, eq, sql, count, inArray, like } from "drizzle-orm";
 import { json } from "drizzle-orm/pg-core";
 
 // Helper function for pagination
-function paginate<T>(query: T, limit?: number, offset?: number): T {
+function paginate<T>(query: any, limit?: number, offset?: number): any {
   if (limit !== undefined) {
-    query = (query as any).limit(limit);
+    query = query.limit(limit);
   }
   if (offset !== undefined) {
-    query = (query as any).offset(offset);
+    query = query.offset(offset);
   }
   return query;
 }
@@ -51,22 +51,19 @@ function paginate<T>(query: T, limit?: number, offset?: number): T {
 // Interface for storage operations
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, user: Partial<User>): Promise<User>;
-  deleteUser(id: number): Promise<void>;
-  getAllUsers(limit?: number, offset?: number): Promise<User[]>;
-  updateUserSubscription(
-    id: number,
-    subscription: { subscriptionStatus?: string, subscriptionPlan?: string | null, subscriptionStartDate?: Date | null, subscriptionEndDate?: Date | null }
-  ): Promise<User>;
+  getUser(id: string): Promise<User | null>;
+  getUserByUsername(username: string): Promise<User | null>;
+  createUser(data: CreateUserInput): Promise<User>;
+  updateUser(id: string, data: UpdateUserInput): Promise<User | null>;
+  deleteUser(id: string): Promise<boolean>;
+  getAllUsers(): Promise<User[]>;
+  updateUserSubscription(id: string, data: UpdateSubscriptionInput): Promise<User | null>;
 
   // Client operations
   getClient(id: number): Promise<Client | undefined>;
-  createClient(client: InsertClient): Promise<Client>;
+  createClient(client: Partial<InsertClient>): Promise<Client>;
   updateClient(id: number, client: Partial<Client>): Promise<Client>;
-  deleteClient(id: number): Promise<void>;
+  deleteClient(id: number): Promise<boolean>;
   getAllClients(userId: number, limit?: number, offset?: number): Promise<Client[]>;
   getClients(userId?: number, limit?: number, offset?: number): Promise<Client[]>;
 
@@ -161,66 +158,173 @@ type PaginatedQuery<T> = {
   offset: number;
 };
 
+// User input types
+interface CreateUserInput {
+  username: string;
+  email: string;
+  password: string;
+  full_name?: string;
+  role?: string;
+  subscription_status?: string;
+  subscription_plan?: string | null;
+  subscription_start_date?: Date | null;
+  subscription_end_date?: Date | null;
+}
+
+interface UpdateUserInput {
+  username?: string;
+  email?: string;
+  password?: string;
+  full_name?: string;
+  role?: string;
+  subscription_status?: string;
+  subscription_plan?: string | null;
+  subscription_start_date?: Date | null;
+  subscription_end_date?: Date | null;
+}
+
+interface UpdateSubscriptionInput {
+  subscription_status: string;
+  subscription_plan?: string | null;
+  subscription_start_date?: Date | null;
+  subscription_end_date?: Date | null;
+}
+
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
   // User operations
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
-  }
-
-  async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values({
-      ...user,
-      role: "user",
-      subscriptionStatus: "free",
-      subscriptionPlan: null,
-      subscriptionStartDate: null,
-      subscriptionEndDate: null,
-      createdAt: new Date()
-    }).returning();
-
-    return newUser;
-  }
-
-  async updateUser(id: number, user: Partial<User>): Promise<User> {
-    const [updatedUser] = await db.update(users)
-      .set(user)
-      .where(eq(users.id, id))
-      .returning();
-
-    return updatedUser;
-  }
-
-  async deleteUser(id: number): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
-  }
-
-  async getAllUsers(limit?: number, offset?: number): Promise<User[]> {
-    let query = db.select().from(users).orderBy(desc(users.createdAt));
-    
-    query = paginate(query, limit, offset);
-
-    return query;
-  }
-
-  async updateUserSubscription(
-    id: number,
-    subscription: { subscriptionStatus?: string, subscriptionPlan?: string | null, subscriptionStartDate?: Date | null, subscriptionEndDate?: Date | null }
-  ): Promise<User> {
-    if (!subscription || Object.keys(subscription).length === 0) {
-      throw new Error("No subscription fields provided for update");
+  async getUser(id: string): Promise<User | null> {
+    try {
+      const result = await db.select().from(users).where(eq(users.id, parseInt(id)));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      throw error;
     }
-    const [updatedUser] = await db.update(users)
-      .set(subscription)
-      .where(eq(users.id, id))
+  }
+
+  async getUserByUsername(username: string): Promise<User | null> {
+    try {
+      console.log('Getting user by username:', username);
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, username));
+      
+      console.log('User found:', user ? { ...user, password: '[REDACTED]' } : null);
+      return user || null;
+    } catch (error) {
+      console.error('Error getting user by username:', error);
+      throw error;
+    }
+  }
+
+  async createUser(data: CreateUserInput): Promise<User> {
+    try {
+      console.log('Creating user with data:', { ...data, password: '[REDACTED]' });
+      
+      // Validate required fields
+      if (!data.username || !data.email || !data.password) {
+        console.error('Missing required fields:', {
+          hasUsername: !!data.username,
+          hasEmail: !!data.email,
+          hasPassword: !!data.password
+        });
+        throw new Error('Missing required fields');
+      }
+      
+      // Prepare user data
+      const userData = {
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        full_name: data.full_name || data.username,
+        role: data.role || 'user',
+        subscription_status: data.subscription_status || 'free',
+        subscription_plan: data.subscription_plan || null,
+        subscription_start_date: data.subscription_start_date || null,
+        subscription_end_date: data.subscription_end_date || null,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      
+      console.log('Prepared user data:', { ...userData, password: '[REDACTED]' });
+      
+      const result = await db.insert(users).values(userData).returning();
+
+      console.log('User created successfully:', { ...result[0], password: '[REDACTED]' });
+
+      if (!result || result.length === 0) {
+        throw new Error('Failed to create user');
+      }
+
+      return result[0];
+    } catch (error) {
+      console.error('Error creating user:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+        if (error.message.includes('duplicate key')) {
+          throw new Error('Username or email already exists');
+        }
+      }
+      throw error;
+    }
+  }
+
+  async updateUser(id: string, data: UpdateUserInput): Promise<User | null> {
+    try {
+      const result = await db.update(users)
+        .set({
+          ...data,
+          updated_at: new Date()
+        })
+        .where(eq(users.id, parseInt(id)))
+        .returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(users)
+        .where(eq(users.id, parseInt(id)))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      return await db.select().from(users).orderBy(users.created_at);
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      throw error;
+    }
+  }
+
+  async updateUserSubscription(id: string, data: UpdateSubscriptionInput): Promise<User | null> {
+    try {
+      const result = await db.update(users)
+        .set({
+          ...data,
+          updated_at: new Date()
+        })
+        .where(eq(users.id, parseInt(id)))
       .returning();
-    return updatedUser;
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error updating user subscription:', error);
+      throw error;
+    }
   }
 
   // Client operations
@@ -229,51 +333,64 @@ export class DatabaseStorage implements IStorage {
     return client;
   }
 
-  async createClient(client: InsertClient): Promise<Client> {
-    const [newClient] = await db.insert(clients).values({
-      ...client,
-      height: client.height !== undefined ? sql`${client.height}::numeric(5,2)` : null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }).returning();
+  async createClient(client: Partial<InsertClient>): Promise<Client> {
+    console.log("[STORAGE] createClient parametresi:", client);
+    const firstName = (client as any).first_name ?? (client as any).firstName ?? "";
+    const lastName = (client as any).last_name ?? (client as any).lastName ?? "";
 
+    const safeFirstName = firstName.trim() !== "" ? firstName : "İsimsiz";
+    const safeLastName = lastName.trim() !== "" ? lastName : "Soyadı";
+
+    const dbClient = {
+      first_name: safeFirstName,
+      last_name: safeLastName,
+      email: (client as any).email ?? (client as any).email,
+      phone: (client as any).phone ?? (client as any).phone,
+      birth_date: (client as any).birth_date ?? (client as any).birthDate,
+      gender: (client as any).gender ?? (client as any).gender,
+      height: client.height !== undefined ? sql`${client.height}::numeric(5,2)` : null,
+      occupation: (client as any).occupation ?? (client as any).occupation,
+      medical_conditions: (client as any).medical_conditions ?? (client as any).medicalConditions,
+      allergies: (client as any).allergies ?? (client as any).allergies,
+      medications: (client as any).medications ?? (client as any).medications,
+      notes: (client as any).notes ?? (client as any).notes,
+      client_visible_notes: (client as any).client_visible_notes ?? (client as any).clientVisibleNotes,
+      status: (client as any).status ?? (client as any).status,
+      start_date: (client as any).start_date ?? (client as any).startDate,
+      end_date: (client as any).end_date ?? (client as any).endDate,
+      access_code: (client as any).access_code ?? (client as any).accessCode,
+      user_id: (client as any).user_id ?? (client as any).userId,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    const [inserted] = await db.insert(clients).values(dbClient).returning({ id: clients.id });
+    // Fetch full client row after insert
+    const [newClient] = await db.select().from(clients).where(eq(clients.id, inserted.id));
     return newClient;
   }
 
   async updateClient(id: number, client: Partial<Client>): Promise<Client> {
-    console.log("updateClient - Gelen veri:", client);
-    console.log("updateClient - Boy değeri tipi:", typeof client.height);
-    console.log("updateClient - Boy değeri:", client.height);
-
     // Create a copy of the client object to avoid modifying the original
     let updatedData = { ...client };
 
     // Handle height separately if it exists
     if (updatedData.height !== undefined) {
-      console.log("updateClient - Boy güncellemesi başlıyor");
-      console.log("updateClient - SQL öncesi boy değeri:", updatedData.height);
-      
       // Use raw SQL to ensure proper numeric type handling
       await db.execute(sql`
         UPDATE clients 
         SET height = ${updatedData.height}::numeric(5,2)
         WHERE id = ${id}
       `);
-      
-      console.log("updateClient - Boy SQL sorgusu tamamlandı");
-      
       // Remove height from the update object since we handled it separately
       const { height, ...restData } = updatedData;
       updatedData = restData;
     }
 
-    console.log("updateClient - Diğer alanlar için güncellenecek veri:", updatedData);
-
     // Update remaining fields and get the updated client
     const [updatedClient] = await db.update(clients)
       .set({
         ...updatedData,
-        updatedAt: new Date()
+        updated_at: new Date()
       })
       .where(eq(clients.id, id))
       .returning();
@@ -283,28 +400,24 @@ export class DatabaseStorage implements IStorage {
       .from(clients)
       .where(eq(clients.id, id));
 
-    console.log("updateClient - Son danışan durumu:", finalClient);
-
     return finalClient;
   }
 
-  // Danışan silme işlemi: Ölçümler, randevular, mesajlar, bildirimler ve oturumlar silinir
-  async deleteClient(id: number): Promise<void> {
+  async deleteClient(id: number): Promise<boolean> {
     try {
+      const client = await db.select().from(clients).where(eq(clients.id, id));
+      if (!client || client.length === 0) {
+        return false;
+      }
       await db.transaction(async (tx) => {
-        // Önce ölçümleri sil
-        await tx.delete(measurements).where(eq(measurements.clientId, id));
-        // Sonra randevuları sil
-        await tx.delete(appointments).where(eq(appointments.clientId, id));
-        // Sonra mesajları sil
-        await tx.delete(messages).where(eq(messages.clientId, id));
-        // Sonra bildirimleri sil
-        await tx.delete(notifications).where(eq(notifications.clientId, id));
-        // Sonra client sessionları sil
-        await tx.delete(clientSessions).where(eq(clientSessions.clientId, id));
-        // En son danışanı sil
+        await tx.delete(measurements).where(eq(measurements.client_id, id));
+        await tx.delete(appointments).where(eq(appointments.client_id, id));
+        await tx.delete(messages).where(eq(messages.client_id, id));
+        await tx.delete(notifications).where(eq(notifications.client_id, id));
+        await tx.delete(client_sessions).where(eq(client_sessions.client_id, id));
         await tx.delete(clients).where(eq(clients.id, id));
       });
+      return true;
     } catch (error) {
       console.error("Error deleting client:", error);
       throw new Error("Danışan silinirken bir hata oluştu. Lütfen tekrar deneyin.");
@@ -312,28 +425,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllClients(userId: number, limit?: number, offset?: number): Promise<Client[]> {
+    if (typeof userId !== 'number' || isNaN(userId)) {
+      throw new Error('Invalid userId');
+    }
     let query = db.select()
       .from(clients)
-      .where(eq(clients.userId, userId))
-      .orderBy(desc(clients.createdAt));
-    
+      .where(eq(clients.user_id, userId))
+      .orderBy(desc(clients.created_at));
     query = paginate(query, limit, offset);
-
     return query;
   }
 
-  // getClients metodu - getAllClients metodunu kullanarak hem userId alan hem de almayan hali destekler
   async getClients(userId?: number, limit?: number, offset?: number): Promise<Client[]> {
-    if (userId) {
-      return this.getAllClients(userId, limit, offset);
-    } else {
-      // Admin için tüm danışanları getir (userId filtresi olmadan)
-      let query = db.select()
-        .from(clients)
-        .orderBy(desc(clients.createdAt));
-      
-      query = paginate(query, limit, offset);
-      return query;
+    try {
+      if (userId !== undefined && userId !== null && !isNaN(Number(userId))) {
+        return this.getAllClients(Number(userId), limit, offset);
+      } else {
+        let query = db.select()
+          .from(clients)
+          .orderBy(desc(clients.created_at));
+        query = paginate(query, limit, offset);
+        return query;
+      }
+    } catch (error) {
+      console.error('Error in getClients:', error);
+      throw new Error('Failed to fetch clients');
     }
   }
 
@@ -346,10 +462,9 @@ export class DatabaseStorage implements IStorage {
   async createMeasurement(measurement: InsertMeasurement): Promise<Measurement> {
     const [newMeasurement] = await db.insert(measurements).values({
       ...measurement,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      created_at: new Date(),
+      updated_at: new Date()
     }).returning();
-
     return newMeasurement;
   }
 
@@ -357,11 +472,10 @@ export class DatabaseStorage implements IStorage {
     const [updatedMeasurement] = await db.update(measurements)
       .set({
         ...measurement,
-        updatedAt: new Date()
+        updated_at: new Date()
       })
       .where(eq(measurements.id, id))
       .returning();
-
     return updatedMeasurement;
   }
 
@@ -372,11 +486,9 @@ export class DatabaseStorage implements IStorage {
   async getClientMeasurements(clientId: number, limit?: number, offset?: number): Promise<Measurement[]> {
     let query = db.select()
       .from(measurements)
-      .where(eq(measurements.clientId, clientId))
+      .where(eq(measurements.client_id, clientId))
       .orderBy(desc(measurements.date));
-    
     query = paginate(query, limit, offset);
-
     return query;
   }
 
@@ -389,10 +501,9 @@ export class DatabaseStorage implements IStorage {
   async createDietPlan(dietPlan: InsertDietPlan): Promise<DietPlan> {
     const [newDietPlan] = await db.insert(dietPlans).values({
       ...dietPlan,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      created_at: new Date(),
+      updated_at: new Date()
     }).returning();
-
     return newDietPlan;
   }
 
@@ -400,11 +511,10 @@ export class DatabaseStorage implements IStorage {
     const [updatedDietPlan] = await db.update(dietPlans)
       .set({
         ...dietPlan,
-        updatedAt: new Date()
+        updated_at: new Date()
       })
       .where(eq(dietPlans.id, id))
       .returning();
-
     return updatedDietPlan;
   }
 
@@ -415,40 +525,36 @@ export class DatabaseStorage implements IStorage {
   async getUserDietPlans(userId: number, limit?: number, offset?: number): Promise<DietPlan[]> {
     let query = db.select()
       .from(dietPlans)
-      .where(eq(dietPlans.userId, userId))
-      .orderBy(desc(dietPlans.createdAt));
-    
+      .where(eq(dietPlans.user_id, userId))
+      .orderBy(desc(dietPlans.created_at));
     query = paginate(query, limit, offset);
-
     return query;
   }
 
   // Food operations
   async getFood(fdcId: string): Promise<Food | undefined> {
-    const [food] = await db.select().from(foods).where(eq(foods.fdcId, fdcId));
+    const [food] = await db.select().from(foods).where(eq(foods.fdc_id, fdcId));
     return food;
   }
 
   async createFood(food: InsertFood): Promise<Food> {
     const [newFood] = await db.insert(foods).values({
       ...food,
-      createdAt: new Date()
+      created_at: new Date()
     }).returning();
-
     return newFood;
   }
 
   async updateFood(fdcId: string, food: Partial<Food>): Promise<Food> {
     const [updatedFood] = await db.update(foods)
       .set(food)
-      .where(eq(foods.fdcId, fdcId))
+      .where(eq(foods.fdc_id, fdcId))
       .returning();
-
     return updatedFood;
   }
 
   async deleteFood(fdcId: string): Promise<void> {
-    await db.delete(foods).where(eq(foods.fdcId, fdcId));
+    await db.delete(foods).where(eq(foods.fdc_id, fdcId));
   }
 
   async searchFoods(query: string, limit?: number, offset?: number): Promise<Food[]> {
@@ -456,57 +562,51 @@ export class DatabaseStorage implements IStorage {
       .from(foods)
       .where(like(foods.description, `%${query}%`))
       .orderBy(foods.description);
-    
     sqlQuery = paginate(sqlQuery, limit, offset);
-
     return sqlQuery;
   }
 
   // Saved food operations
   async getSavedFood(id: number): Promise<SavedFood | undefined> {
-    const [savedFood] = await db.select().from(savedFoods).where(eq(savedFoods.id, id));
+    const [savedFood] = await db.select().from(saved_foods).where(eq(saved_foods.id, id));
     return savedFood;
   }
 
   async createSavedFood(savedFood: InsertSavedFood): Promise<SavedFood> {
-    const [newSavedFood] = await db.insert(savedFoods).values({
+    const [newSavedFood] = await db.insert(saved_foods).values({
       ...savedFood,
-      createdAt: new Date()
+      created_at: new Date()
     }).returning();
-
     return newSavedFood;
   }
 
   async deleteSavedFood(id: number): Promise<void> {
-    await db.delete(savedFoods).where(eq(savedFoods.id, id));
+    await db.delete(saved_foods).where(eq(saved_foods.id, id));
   }
 
   async getUserSavedFoods(userId: number, limit?: number, offset?: number): Promise<SavedFood[]> {
     let query = db.select()
-      .from(savedFoods)
-      .where(eq(savedFoods.userId, userId))
-      .orderBy(desc(savedFoods.createdAt));
-    
+      .from(saved_foods)
+      .where(eq(saved_foods.user_id, userId))
+      .orderBy(desc(saved_foods.created_at));
     query = paginate(query, limit, offset);
-
     return query;
   }
 
   // Client session operations
   async getClientSession(sessionToken: string): Promise<ClientSession | undefined> {
     const [session] = await db.select()
-      .from(clientSessions)
-      .where(eq(clientSessions.sessionToken, sessionToken));
+      .from(client_sessions)
+      .where(eq(client_sessions.session_token, sessionToken));
     return session;
   }
 
   async createClientSession(session: InsertClientSession): Promise<ClientSession> {
-    const [newSession] = await db.insert(clientSessions).values({
+    const [newSession] = await db.insert(client_sessions).values({
       ...session,
-      createdAt: new Date(),
-      lastActivity: new Date()
+      created_at: new Date(),
+      last_activity: new Date()
     }).returning();
-
     return newSession;
   }
 
@@ -515,7 +615,7 @@ export class DatabaseStorage implements IStorage {
     const [client] = await db
       .select()
       .from(clients)
-      .where(eq(clients.accessCode, accessCode));
+      .where(eq(clients.access_code, accessCode));
     
     return client;
   }
@@ -545,7 +645,7 @@ export class DatabaseStorage implements IStorage {
     // Add the code to the client record
     await db
       .update(clients)
-      .set({ accessCode: code })
+      .set({ access_code: code })
       .where(eq(clients.id, clientId));
     
     return code;
@@ -556,7 +656,7 @@ export class DatabaseStorage implements IStorage {
     try {
       await db
         .update(clients)
-        .set({ accessCode: accessCode })
+        .set({ access_code: accessCode })
         .where(eq(clients.id, clientId));
       
       return true;
@@ -569,9 +669,9 @@ export class DatabaseStorage implements IStorage {
   async updateClientSessionActivity(sessionToken: string): Promise<boolean> {
     try {
       await db
-        .update(clientSessions)
-        .set({ lastActivity: new Date() })
-        .where(eq(clientSessions.sessionToken, sessionToken));
+        .update(client_sessions)
+        .set({ last_activity: new Date() })
+        .where(eq(client_sessions.session_token, sessionToken));
       
       return true;
     } catch (error) {
@@ -583,8 +683,8 @@ export class DatabaseStorage implements IStorage {
   async deleteClientSession(sessionToken: string): Promise<boolean> {
     try {
       await db
-        .delete(clientSessions)
-        .where(eq(clientSessions.sessionToken, sessionToken));
+        .delete(client_sessions)
+        .where(eq(client_sessions.session_token, sessionToken));
       
       return true;
     } catch (error) {
@@ -594,8 +694,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await db.delete(clientSessions)
-      .where(sql`${clientSessions.expiresAt} < NOW()`);
+    await db.delete(client_sessions)
+      .where(sql`${client_sessions.expires_at} < NOW()`);
   }
 
   // Appointment operations
@@ -607,10 +707,9 @@ export class DatabaseStorage implements IStorage {
   async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
     const [newAppointment] = await db.insert(appointments).values({
       ...appointment,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      created_at: new Date(),
+      updated_at: new Date()
     }).returning();
-
     return newAppointment;
   }
 
@@ -618,11 +717,10 @@ export class DatabaseStorage implements IStorage {
     const [updatedAppointment] = await db.update(appointments)
       .set({
         ...appointment,
-        updatedAt: new Date()
+        updated_at: new Date()
       })
       .where(eq(appointments.id, id))
       .returning();
-
     return updatedAppointment;
   }
 
@@ -633,22 +731,18 @@ export class DatabaseStorage implements IStorage {
   async getClientAppointments(clientId: number, limit?: number, offset?: number): Promise<Appointment[]> {
     let query = db.select()
       .from(appointments)
-      .where(eq(appointments.clientId, clientId))
+      .where(eq(appointments.client_id, clientId))
       .orderBy(desc(appointments.date));
-    
     query = paginate(query, limit, offset);
-
     return query;
   }
 
   async getUserAppointments(userId: number, limit?: number, offset?: number): Promise<Appointment[]> {
     let query = db.select()
       .from(appointments)
-      .where(eq(appointments.userId, userId))
+      .where(eq(appointments.user_id, userId))
       .orderBy(desc(appointments.date));
-    
     query = paginate(query, limit, offset);
-
     return query;
   }
 
@@ -658,25 +752,22 @@ export class DatabaseStorage implements IStorage {
     return message;
   }
 
-  // getMessageById - getMessage ile aynı işlevi görür
   async getMessageById(id: number): Promise<Message | undefined> {
     return this.getMessage(id);
   }
 
-  // Bir danışan ile ilgili tüm mesajları getir
   async getMessages(clientId: number, userId: number): Promise<Message[]> {
     return db.select()
       .from(messages)
-      .where(eq(messages.clientId, clientId))
-      .orderBy(desc(messages.createdAt));
+      .where(eq(messages.client_id, clientId))
+      .orderBy(desc(messages.created_at));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
     const [newMessage] = await db.insert(messages).values({
       ...message,
-      createdAt: new Date()
+      created_at: new Date()
     }).returning();
-
     return newMessage;
   }
 
@@ -685,7 +776,6 @@ export class DatabaseStorage implements IStorage {
       .set(message)
       .where(eq(messages.id, id))
       .returning();
-
     return updatedMessage;
   }
 
@@ -696,22 +786,18 @@ export class DatabaseStorage implements IStorage {
   async getClientMessages(clientId: number, limit?: number, offset?: number): Promise<Message[]> {
     let query = db.select()
       .from(messages)
-      .where(eq(messages.clientId, clientId))
-      .orderBy(desc(messages.createdAt));
-    
+      .where(eq(messages.client_id, clientId))
+      .orderBy(desc(messages.created_at));
     query = paginate(query, limit, offset);
-
     return query;
   }
 
   async getUserMessages(userId: number, limit?: number, offset?: number): Promise<Message[]> {
     let query = db.select()
       .from(messages)
-      .where(eq(messages.userId, userId))
-      .orderBy(desc(messages.createdAt));
-    
+      .where(eq(messages.user_id, userId))
+      .orderBy(desc(messages.created_at));
     query = paginate(query, limit, offset);
-
     return query;
   }
 
@@ -719,7 +805,7 @@ export class DatabaseStorage implements IStorage {
   async markMessageAsRead(messageId: number): Promise<boolean> {
     try {
       await db.update(messages)
-        .set({ isRead: true })
+        .set({ is_read: true })
         .where(eq(messages.id, messageId));
       return true;
     } catch (error) {
@@ -732,12 +818,12 @@ export class DatabaseStorage implements IStorage {
   async markAllClientMessagesAsRead(clientId: number, userId: number): Promise<boolean> {
     try {
       await db.update(messages)
-        .set({ isRead: true })
+        .set({ is_read: true })
         .where(
           and(
-            eq(messages.clientId, clientId),
-            eq(messages.userId, userId),
-            eq(messages.isRead, false)
+            eq(messages.client_id, clientId),
+            eq(messages.user_id, userId),
+            eq(messages.is_read, false)
           )
         );
       return true;
@@ -750,19 +836,15 @@ export class DatabaseStorage implements IStorage {
   // Okunmamış mesaj sayısını getir
   async getUnreadMessages(clientId?: number, userId?: number, forClient?: boolean): Promise<number> {
     let conditions = [];
-    
-    if (clientId) conditions.push(eq(messages.clientId, clientId));
-    if (userId) conditions.push(eq(messages.userId, userId));
-    if (forClient !== undefined) conditions.push(eq(messages.fromClient, !forClient));
-    
-    conditions.push(eq(messages.isRead, false));
-    
+    if (clientId) conditions.push(eq(messages.client_id, clientId));
+    if (userId) conditions.push(eq(messages.user_id, userId));
+    if (forClient !== undefined) conditions.push(eq(messages.from_client, !forClient));
+    conditions.push(eq(messages.is_read, false));
     const [result] = await db
       .select({ count: count() })
       .from(messages)
       .where(and(...conditions));
-    
-    return result.count || 0;
+    return result?.count || 0;
   }
 
   // Diyetisyenin her danışanı için okunmamış mesaj sayısını getir
@@ -783,8 +865,8 @@ export class DatabaseStorage implements IStorage {
   async getLastMessageByClient(clientId: number, userId: number): Promise<Message | undefined> {
     const [lastMessage] = await db.select()
       .from(messages)
-      .where(eq(messages.clientId, clientId))
-      .orderBy(desc(messages.createdAt))
+      .where(eq(messages.client_id, clientId))
+      .orderBy(desc(messages.created_at))
       .limit(1);
     
     return lastMessage;
@@ -793,29 +875,25 @@ export class DatabaseStorage implements IStorage {
   // Tüm danışanlar için son mesajları getir
   async getLastMessagesForAllClients(userId: number): Promise<any[]> {
     const clients = await this.getClients(userId);
-    
     const lastMessages = await Promise.all(
       clients.map(async (client) => {
         const lastMessage = await this.getLastMessageByClient(client.id, userId);
         return {
           clientId: client.id,
-          clientName: `${client.firstName} ${client.lastName}`,
+          clientName: `${client.first_name} ${client.last_name}`,
           lastMessage: lastMessage || null
         };
       })
     );
-    
     return lastMessages;
   }
 
   // Birden fazla mesajı okundu olarak işaretle
   async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
     try {
-      for (const id of messageIds) {
-        await db.update(messages)
-          .set({ isRead: true })
-          .where(eq(messages.id, id));
-      }
+      await db.update(messages)
+        .set({ is_read: true })
+        .where(inArray(messages.id, messageIds));
       return true;
     } catch (error) {
       console.error("Multiple messages marking error:", error);
@@ -829,8 +907,8 @@ export class DatabaseStorage implements IStorage {
       await db.delete(messages)
         .where(
           and(
-            eq(messages.clientId, clientId),
-            eq(messages.userId, userId)
+            eq(messages.client_id, clientId),
+            eq(messages.user_id, userId)
           )
         );
       return true;
@@ -849,40 +927,9 @@ export class DatabaseStorage implements IStorage {
   async createNotification(notification: InsertNotification): Promise<Notification> {
     const [newNotification] = await db.insert(notifications).values({
       ...notification,
-      createdAt: new Date()
+      created_at: new Date()
     }).returning();
-
     return newNotification;
-  }
-
-  async createAppointmentReminder(appointmentId: number, scheduledFor: Date): Promise<Notification> {
-    // Get appointment details first
-    const appointment = await this.getAppointment(appointmentId);
-    
-    if (!appointment) {
-      throw new Error("Appointment not found");
-    }
-    
-    // Get client details for better notification content
-    const client = await this.getClient(appointment.clientId);
-    
-    if (!client) {
-      throw new Error("Client not found");
-    }
-    
-    // Create a reminder notification
-    const notification: InsertNotification = {
-      userId: appointment.userId,
-      clientId: appointment.clientId,
-      title: "Randevu Hatırlatması",
-      content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
-      type: "appointment",
-      relatedId: appointmentId,
-      isRead: false,
-      scheduledFor: scheduledFor
-    };
-    
-    return this.createNotification(notification);
   }
 
   async updateNotification(id: number, notification: Partial<Notification>): Promise<Notification> {
@@ -890,7 +937,6 @@ export class DatabaseStorage implements IStorage {
       .set(notification)
       .where(eq(notifications.id, id))
       .returning();
-
     return updatedNotification;
   }
 
@@ -901,22 +947,25 @@ export class DatabaseStorage implements IStorage {
   async getUserNotifications(userId: number, limit?: number, offset?: number): Promise<Notification[]> {
     let query = db.select()
       .from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt));
-    
+      .where(eq(notifications.user_id, userId))
+      .orderBy(desc(notifications.created_at));
     query = paginate(query, limit, offset);
-
     return query;
   }
 
   // Bir danışanın son ölçümünü getir
   async getLastMeasurement(clientId: number): Promise<Measurement | undefined> {
+    try {
     const [measurement] = await db.select()
       .from(measurements)
-      .where(eq(measurements.clientId, clientId))
+      .where(eq(measurements.client_id, clientId))
       .orderBy(desc(measurements.date))
       .limit(1);
     return measurement;
+    } catch (error) {
+      console.error("Error fetching last measurement:", error);
+      return undefined;
+    }
   }
 
   // Bir danışanın tüm ölçümlerini getir
@@ -924,7 +973,7 @@ export class DatabaseStorage implements IStorage {
     try {
       return await db.select()
         .from(measurements)
-        .where(eq(measurements.clientId, clientId))
+        .where(eq(measurements.client_id, clientId))
         .orderBy(desc(measurements.date));
     } catch (error) {
       console.error("Error fetching measurements:", error);
@@ -938,10 +987,9 @@ export class DatabaseStorage implements IStorage {
       if (clientId) {
         return await db.select()
           .from(appointments)
-          .where(eq(appointments.clientId, clientId))
+          .where(eq(appointments.client_id, clientId))
           .orderBy(desc(appointments.date));
       } else {
-        // Tüm randevuları getir
         return await db.select()
           .from(appointments)
           .orderBy(desc(appointments.date));
@@ -950,6 +998,31 @@ export class DatabaseStorage implements IStorage {
       console.error("Error fetching appointments:", error);
       return [];
     }
+  }
+
+  async createAppointmentReminder(appointmentId: number, scheduledFor: Date): Promise<Notification> {
+    // Get appointment details first
+    const appointment = await this.getAppointment(appointmentId);
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+    // Get client details for better notification content
+    const client = await this.getClient(appointment.client_id);
+    if (!client) {
+      throw new Error("Client not found");
+    }
+    // Create a reminder notification
+    const notification: InsertNotification = {
+      user_id: appointment.user_id,
+      client_id: appointment.client_id,
+      title: "Randevu Hatırlatması",
+      content: `${client.first_name} ${client.last_name} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde ${new Date(appointment.start_time).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
+      type: "appointment",
+      related_id: appointmentId,
+      is_read: false,
+      scheduled_for: scheduledFor
+    };
+    return this.createNotification(notification);
   }
 }
 

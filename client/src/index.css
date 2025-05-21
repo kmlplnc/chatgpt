@@ -53,6 +53,7 @@
   --sidebar-border: 220 10% 90%;
   --sidebar-ring: 160 84% 39%;
   --radius: 0.5rem;
+  --scrollbar-width: 8px;
 }
 
 .dark {
@@ -113,7 +114,14 @@
 
 /* Chat specific styles */
 html, body, #root {
-  @apply h-full w-full bg-[hsl(var(--background))] text-foreground dark:bg-neutral-900 dark:text-white;
+  height: 100vh;
+  min-height: 100vh;
+  width: 100vw;
+  min-width: 100vw;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  /* background and text color handled by Tailwind classes */
 }
 
 .chat-container {
@@ -143,14 +151,6 @@ html, body, #root {
 
 .min-h-0 {
   min-height: 0;
-}
-
-.overflow-hidden {
-  overflow: hidden;
-}
-
-.overflow-y-auto {
-  overflow-y: auto;
 }
 
 /* Koyu modda özel hex override kaldırıldı, Tailwind'in kendi neutral-900 tonu kullanılacak */
@@ -232,3 +232,104 @@ html.dark, body.dark, #root.dark {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* Modern ve sade scroll bar tasarımı */
+*::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+  border-radius: 6px;
+  min-height: 40px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #b0b0b0 transparent;
+}
+
+/* Ensure scrollbar is always visible */
+* {
+  scrollbar-gutter: stable;
+}
+
+/* Prevent layout shift when scrollbar appears */
+html {
+  overflow-y: scroll;
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
+/* Remove all custom overflow/scroll utility classes from global CSS */
+.overflow-hidden {}
+.overflow-y-auto {}
+.content-container {}
+.scroll-container {}
+
+/* Ana İçerik Konteyneri */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Navbar İçeriği */
+.navbar-inner {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+}
+
+/* Kartları Taşıyan Alan (3'lü Grid) */
+.cards-wrapper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Mobil Uyumlu Hale Getirmek İçin */
+@media (max-width: 768px) {
+  .cards-wrapper {
+    grid-template-columns: 1fr;
+  }
+  .container, .navbar-inner {
+    padding-left: 16px;
+    padding-right: 16px;
+    margin-left: 0;
+  }
+}
+
+/* Scrollbar ve Sayfa Kenarı Ayarı */
+html, body {
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+

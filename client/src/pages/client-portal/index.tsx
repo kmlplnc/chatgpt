@@ -27,7 +27,10 @@ import { Loader2, ArrowLeft, Home, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const accessCodeSchema = z.object({
-  accessCode: z.string().min(1, { message: 'Erişim kodu gereklidir' }).max(10)
+  accessCode: z.string()
+    .min(6, { message: 'Erişim kodu 6 karakter olmalıdır' })
+    .max(6, { message: 'Erişim kodu 6 karakter olmalıdır' })
+    .regex(/^[A-Z0-9]+$/, { message: 'Erişim kodu sadece büyük harf ve rakamlardan oluşmalıdır' })
 });
 
 type AccessCodeFormValues = z.infer<typeof accessCodeSchema>;
@@ -47,12 +50,15 @@ export default function ClientPortalLogin() {
   async function onSubmit(data: AccessCodeFormValues) {
     try {
       setIsLoading(true);
-      const response = await apiRequest('POST', '/api/client-portal/login', { accessCode: data.accessCode });
+      const response = await apiRequest('POST', '/api/client-portal/login', { access_code: data.accessCode });
       
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Giriş yapılırken bir hata oluştu');
       }
+
+      const responseData = await response.json();
+      console.log('Login response:', responseData);
       
       // Giriş başarılı, ana sayfaya yönlendir
       navigate('/client-portal/dashboard');

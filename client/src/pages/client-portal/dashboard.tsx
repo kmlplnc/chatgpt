@@ -39,10 +39,10 @@ import { Label } from '@/components/ui/label';
 
 interface ClientData {
   id: number;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  clientVisibleNotes?: string;
+  client_visible_notes?: string;
 }
 
 interface Measurement {
@@ -51,16 +51,16 @@ interface Measurement {
   weight: string;
   height: string;
   bmi: string;
-  basalMetabolicRate?: number;
-  totalDailyEnergyExpenditure?: number;
-  createdAt: string;
+  basal_metabolic_rate?: number;
+  total_daily_energy_expenditure?: number;
+  created_at: string;
 }
 
 interface Recommendation {
   id: number;
   title: string;
   content: string;
-  createdAt: string;
+  created_at: string;
 }
 
 export default function ClientPortalDashboard() {
@@ -145,7 +145,9 @@ export default function ClientPortalDashboard() {
 
   // Format a date string to a more readable format
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
     return new Intl.DateTimeFormat('tr-TR', {
       year: 'numeric',
       month: 'long',
@@ -282,326 +284,324 @@ export default function ClientPortalDashboard() {
     : null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">
-              Hoş Geldiniz, {clientData?.firstName || 'Danışan'}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Sağlıklı yaşam yolculuğunuzu takip edin
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/client-portal/messages')}
-              className="relative flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Mesajlar
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
-            >
-              <LogOut className="h-4 w-4" />
-              Çıkış Yap
-            </Button>
-          </div>
+    <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">
+            Hoş Geldiniz, {clientData?.first_name || 'Danışan'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Sağlıklı yaşam yolculuğunuzu takip edin
+          </p>
         </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/client-portal/messages')}
+            className="relative flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Mesajlar
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
+          >
+            <LogOut className="h-4 w-4" />
+            Çıkış Yap
+          </Button>
+        </div>
+      </div>
 
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-[200px] rounded-xl" />
-            <Skeleton className="h-[200px] rounded-xl" />
-            <Skeleton className="h-[200px] rounded-xl" />
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <User className="h-5 w-5 text-blue-500" />
-                    Kişisel Bilgiler
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-[200px] rounded-xl" />
+          <Skeleton className="h-[200px] rounded-xl" />
+          <Skeleton className="h-[200px] rounded-xl" />
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <User className="h-5 w-5 text-blue-500" />
+                  Kişisel Bilgiler
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Ad Soyad</Label>
+                    <p className="font-medium">{clientData?.first_name} {clientData?.last_name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">E-posta</Label>
+                    <p className="font-medium">{clientData?.email}</p>
+                  </div>
+                  {clientData?.client_visible_notes && (
                     <div>
-                      <Label className="text-sm text-muted-foreground">Ad Soyad</Label>
-                      <p className="font-medium">{clientData?.firstName} {clientData?.lastName}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">E-posta</Label>
-                      <p className="font-medium">{clientData?.email}</p>
-                    </div>
-                    {clientData?.clientVisibleNotes && (
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Notlar</Label>
-                        <p className="text-sm text-muted-foreground">{clientData.clientVisibleNotes}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <BarChart className="h-5 w-5 text-blue-500" />
-                    Mevcut Durum
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-2xl font-bold">{latestMeasurement?.weight} kg / {latestMeasurement?.height} cm</p>
-                      {measurements.length > 1 && (
-                        <div className="flex items-center gap-1">
-                          {getWeightChangeStatus(measurements).icon}
-                        </div>
-                      )}
-                    </div>
-                    {measurements.length > 1 && (
-                      <div className="flex items-center gap-1 mt-2 text-sm">
-                        {getWeightChangeStatus(measurements).trendIcon}
-                        <span className={getWeightChangeStatus(measurements).trend === 'down' ? 'text-green-500' : getWeightChangeStatus(measurements).trend === 'up' ? 'text-red-500' : 'text-yellow-500'}>
-                          {getWeightChangeStatus(measurements).trend === 'stable' 
-                            ? 'Değişim yok' 
-                            : getWeightChangeStatus(measurements).trend === 'down'
-                              ? `-${getWeightChangeStatus(measurements).change} kg (%${getWeightChangeStatus(measurements).percent})`
-                              : `+${getWeightChangeStatus(measurements).change} kg (%${getWeightChangeStatus(measurements).percent})`
-                          }
-                        </span>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Ölçüm: {formatDate(latestMeasurement?.date || '')}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-blue-500" />
-                    Vücut Kitle İndeksi (BKİ)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-2xl font-bold">{latestMeasurement?.bmi}</p>
-                      {measurements.length > 1 && (
-                        <div className="flex items-center gap-1">
-                          {getBmiChangeStatus(measurements).icon}
-                        </div>
-                      )}
-                    </div>
-                    {measurements.length > 1 && (
-                      <div className="flex items-center gap-1 mt-2 text-sm">
-                        {getBmiChangeStatus(measurements).trendIcon}
-                        <span className={
-                          getBmiChangeStatus(measurements).trend === 'down' && parseFloat(latestMeasurement?.bmi || '0') < 25 && parseFloat(latestMeasurement?.bmi || '0') > 18.5
-                            ? 'text-green-500' 
-                            : getBmiChangeStatus(measurements).trend === 'up' && parseFloat(latestMeasurement?.bmi || '0') > 25
-                              ? 'text-red-500' 
-                              : 'text-yellow-500'
-                        }>
-                          {getBmiChangeStatus(measurements).trend === 'stable' 
-                            ? 'Değişim yok' 
-                            : getBmiChangeStatus(measurements).trend === 'down'
-                              ? `-${getBmiChangeStatus(measurements).change} (%${getBmiChangeStatus(measurements).percent})`
-                              : `+${getBmiChangeStatus(measurements).change} (%${getBmiChangeStatus(measurements).percent})`
-                          }
-                        </span>
-                      </div>
-                    )}
-                    <div className="mt-2 text-xs">
-                      {parseFloat(latestMeasurement?.bmi || '0') < 18.5 && (
-                        <span className="text-yellow-500">Düşük (Zayıf)</span>
-                      )}
-                      {parseFloat(latestMeasurement?.bmi || '0') >= 18.5 && parseFloat(latestMeasurement?.bmi || '0') < 25 && (
-                        <span className="text-green-500">Normal</span>
-                      )}
-                      {parseFloat(latestMeasurement?.bmi || '0') >= 25 && parseFloat(latestMeasurement?.bmi || '0') < 30 && (
-                        <span className="text-yellow-500">Fazla Kilolu</span>
-                      )}
-                      {parseFloat(latestMeasurement?.bmi || '0') >= 30 && (
-                        <span className="text-red-500">Obez</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Ölçüm: {formatDate(latestMeasurement?.date || '')}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <BarChart className="h-5 w-5 text-blue-500" />
-                    Bazal Metabolizma Hızı (BMH)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {latestMeasurement?.basalMetabolicRate ? latestMeasurement.basalMetabolicRate.toFixed(0) : "N/A"} kcal
-                      </p>
-                      {measurements.length > 1 && (
-                        <div className="flex items-center gap-1 mt-2 text-sm">
-                          {measurements[0].basalMetabolicRate && measurements[1].basalMetabolicRate && (
-                            <>
-                              {measurements[0].basalMetabolicRate > measurements[1].basalMetabolicRate ? (
-                                <>
-                                  <TrendingUp className="h-4 w-4 text-green-500" />
-                                  <span className="text-green-500">
-                                    +{(measurements[0].basalMetabolicRate - measurements[1].basalMetabolicRate).toFixed(0)} kcal
-                                  </span>
-                                </>
-                              ) : measurements[0].basalMetabolicRate < measurements[1].basalMetabolicRate ? (
-                                <>
-                                  <TrendingDown className="h-4 w-4 text-yellow-500" />
-                                  <span className="text-yellow-500">
-                                    -{(measurements[1].basalMetabolicRate - measurements[0].basalMetabolicRate).toFixed(0)} kcal
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">Değişim yok</span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Ölçüm: {formatDate(latestMeasurement?.date || '')}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Measurement History */}
-            <div className="grid gap-4 md:grid-cols-2 mb-8">
-              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <BarChart className="h-5 w-5 text-blue-500" />
-                    Ölçüm Geçmişi
-                  </CardTitle>
-                  <CardDescription>Son ölçümleriniz ve değişimler</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {measurements.length > 0 ? (
-                    <div className="rounded-lg overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="bg-slate-50/50 dark:bg-slate-800/50">
-                              <th className="text-left p-3 text-sm font-medium text-muted-foreground">Tarih</th>
-                              <th className="text-left p-3 text-sm font-medium text-muted-foreground">Ağırlık (kg)</th>
-                              <th className="text-left p-3 text-sm font-medium text-muted-foreground">Boy (cm)</th>
-                              <th className="text-left p-3 text-sm font-medium text-muted-foreground">BKİ</th>
-                              <th className="text-left p-3 text-sm font-medium text-muted-foreground">BMH (kcal)</th>
-                              <th className="text-left p-3 text-sm font-medium text-muted-foreground">Durum</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {measurements
-                              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                              .map((measurement, index, arr) => {
-                                const bmi = parseFloat(measurement.bmi);
-                                let bmiStatus;
-                                if (bmi < 18.5) {
-                                  bmiStatus = <span className="text-yellow-500 flex items-center"><FaMeh className="mr-1" /> Zayıf</span>;
-                                } else if (bmi >= 18.5 && bmi < 25) {
-                                  bmiStatus = <span className="text-green-500 flex items-center"><FaSmile className="mr-1" /> Normal</span>;
-                                } else if (bmi >= 25 && bmi < 30) {
-                                  bmiStatus = <span className="text-yellow-500 flex items-center"><FaMeh className="mr-1" /> Fazla Kilolu</span>;
-                                } else {
-                                  bmiStatus = <span className="text-red-500 flex items-center"><FaSadTear className="mr-1" /> Obez</span>;
-                                }
-                                
-                                let changeIndicator = null;
-                                if (index < arr.length - 1) {
-                                  const nextMeasurement = arr[index + 1];
-                                  const weightDiff = parseFloat(measurement.weight) - parseFloat(nextMeasurement.weight);
-                                  
-                                  if (weightDiff < -0.5) {
-                                    changeIndicator = <span className="text-green-500 flex items-center text-xs"><FaArrowDown className="mr-1" /> {Math.abs(weightDiff).toFixed(1)} kg</span>;
-                                  } else if (weightDiff > 0.5) {
-                                    changeIndicator = <span className="text-red-500 flex items-center text-xs"><FaArrowUp className="mr-1" /> {weightDiff.toFixed(1)} kg</span>;
-                                  }
-                                }
-                                
-                                return (
-                                  <tr key={measurement.id} className="border-t border-slate-200/50 dark:border-slate-700/50">
-                                    <td className="p-3 text-sm">{formatDate(measurement.date)}</td>
-                                    <td className="p-3 text-sm">
-                                      <div className="flex flex-col">
-                                        <span>{measurement.weight}</span>
-                                        {changeIndicator && (
-                                          <span className="mt-1">{changeIndicator}</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="p-3 text-sm">{measurement.height}</td>
-                                    <td className="p-3 text-sm">{measurement.bmi}</td>
-                                    <td className="p-3 text-sm">{measurement.basalMetabolicRate || "-"}</td>
-                                    <td className="p-3 text-sm">{bmiStatus}</td>
-                                  </tr>
-                                );
-                              })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-muted-foreground">
-                      Henüz ölçüm kaydı bulunamadı.
+                      <Label className="text-sm text-muted-foreground">Notlar</Label>
+                      <p className="text-sm text-muted-foreground">{clientData.client_visible_notes}</p>
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <BarChart className="h-5 w-5 text-blue-500" />
+                  Mevcut Durum
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-2xl font-bold">{latestMeasurement?.weight} kg / {latestMeasurement?.height} cm</p>
+                    {measurements.length > 1 && (
+                      <div className="flex items-center gap-1">
+                        {getWeightChangeStatus(measurements).icon}
+                      </div>
+                    )}
+                  </div>
+                  {measurements.length > 1 && (
+                    <div className="flex items-center gap-1 mt-2 text-sm">
+                      {getWeightChangeStatus(measurements).trendIcon}
+                      <span className={getWeightChangeStatus(measurements).trend === 'down' ? 'text-green-500' : getWeightChangeStatus(measurements).trend === 'up' ? 'text-red-500' : 'text-yellow-500'}>
+                        {getWeightChangeStatus(measurements).trend === 'stable' 
+                          ? 'Değişim yok' 
+                          : getWeightChangeStatus(measurements).trend === 'down'
+                            ? `-${getWeightChangeStatus(measurements).change} kg (%${getWeightChangeStatus(measurements).percent})`
+                            : `+${getWeightChangeStatus(measurements).change} kg (%${getWeightChangeStatus(measurements).percent})`
+                        }
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ölçüm: {formatDate(latestMeasurement?.date || '')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-blue-500" />
+                  Vücut Kitle İndeksi (BKİ)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-2xl font-bold">{latestMeasurement?.bmi}</p>
+                    {measurements.length > 1 && (
+                      <div className="flex items-center gap-1">
+                        {getBmiChangeStatus(measurements).icon}
+                      </div>
+                    )}
+                  </div>
+                  {measurements.length > 1 && (
+                    <div className="flex items-center gap-1 mt-2 text-sm">
+                      {getBmiChangeStatus(measurements).trendIcon}
+                      <span className={
+                        getBmiChangeStatus(measurements).trend === 'down' && parseFloat(latestMeasurement?.bmi || '0') < 25 && parseFloat(latestMeasurement?.bmi || '0') > 18.5
+                          ? 'text-green-500' 
+                          : getBmiChangeStatus(measurements).trend === 'up' && parseFloat(latestMeasurement?.bmi || '0') > 25
+                            ? 'text-red-500' 
+                            : 'text-yellow-500'
+                      }>
+                        {getBmiChangeStatus(measurements).trend === 'stable' 
+                          ? 'Değişim yok' 
+                          : getBmiChangeStatus(measurements).trend === 'down'
+                            ? `-${getBmiChangeStatus(measurements).change} (%${getBmiChangeStatus(measurements).percent})`
+                            : `+${getBmiChangeStatus(measurements).change} (%${getBmiChangeStatus(measurements).percent})`
+                        }
+                      </span>
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs">
+                    {parseFloat(latestMeasurement?.bmi || '0') < 18.5 && (
+                      <span className="text-yellow-500">Düşük (Zayıf)</span>
+                    )}
+                    {parseFloat(latestMeasurement?.bmi || '0') >= 18.5 && parseFloat(latestMeasurement?.bmi || '0') < 25 && (
+                      <span className="text-green-500">Normal</span>
+                    )}
+                    {parseFloat(latestMeasurement?.bmi || '0') >= 25 && parseFloat(latestMeasurement?.bmi || '0') < 30 && (
+                      <span className="text-yellow-500">Fazla Kilolu</span>
+                    )}
+                    {parseFloat(latestMeasurement?.bmi || '0') >= 30 && (
+                      <span className="text-red-500">Obez</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ölçüm: {formatDate(latestMeasurement?.date || '')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <BarChart className="h-5 w-5 text-blue-500" />
+                  Bazal Metabolizma Hızı (BMH)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {latestMeasurement?.basal_metabolic_rate ? latestMeasurement.basal_metabolic_rate.toFixed(0) : "N/A"} kcal
+                    </p>
+                    {measurements.length > 1 && (
+                      <div className="flex items-center gap-1 mt-2 text-sm">
+                        {measurements[0].basal_metabolic_rate && measurements[1].basal_metabolic_rate && (
+                          <>
+                            {measurements[0].basal_metabolic_rate > measurements[1].basal_metabolic_rate ? (
+                              <>
+                                <TrendingUp className="h-4 w-4 text-green-500" />
+                                <span className="text-green-500">
+                                  +{(measurements[0].basal_metabolic_rate - measurements[1].basal_metabolic_rate).toFixed(0)} kcal
+                                </span>
+                              </>
+                            ) : measurements[0].basal_metabolic_rate < measurements[1].basal_metabolic_rate ? (
+                              <>
+                                <TrendingDown className="h-4 w-4 text-yellow-500" />
+                                <span className="text-yellow-500">
+                                  -{(measurements[1].basal_metabolic_rate - measurements[0].basal_metabolic_rate).toFixed(0)} kcal
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">Değişim yok</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ölçüm: {formatDate(latestMeasurement?.date || '')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Measurement History */}
+          <div className="grid gap-4 md:grid-cols-2 mb-8">
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <BarChart className="h-5 w-5 text-blue-500" />
+                  Ölçüm Geçmişi
+                </CardTitle>
+                <CardDescription>Son ölçümleriniz ve değişimler</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {measurements.length > 0 ? (
+                  <div className="rounded-lg overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Tarih</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Ağırlık (kg)</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Boy (cm)</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">BKİ</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">BMH (kcal)</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Durum</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {measurements
+                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                            .map((measurement, index, arr) => {
+                              const bmi = parseFloat(measurement.bmi);
+                              let bmiStatus;
+                              if (bmi < 18.5) {
+                                bmiStatus = <span className="text-yellow-500 flex items-center"><FaMeh className="mr-1" /> Zayıf</span>;
+                              } else if (bmi >= 18.5 && bmi < 25) {
+                                bmiStatus = <span className="text-green-500 flex items-center"><FaSmile className="mr-1" /> Normal</span>;
+                              } else if (bmi >= 25 && bmi < 30) {
+                                bmiStatus = <span className="text-yellow-500 flex items-center"><FaMeh className="mr-1" /> Fazla Kilolu</span>;
+                              } else {
+                                bmiStatus = <span className="text-red-500 flex items-center"><FaSadTear className="mr-1" /> Obez</span>;
+                              }
+                              
+                              let changeIndicator = null;
+                              if (index < arr.length - 1) {
+                                const nextMeasurement = arr[index + 1];
+                                const weightDiff = parseFloat(measurement.weight) - parseFloat(nextMeasurement.weight);
+                                
+                                if (weightDiff < -0.5) {
+                                  changeIndicator = <span className="text-green-500 flex items-center text-xs"><FaArrowDown className="mr-1" /> {Math.abs(weightDiff).toFixed(1)} kg</span>;
+                                } else if (weightDiff > 0.5) {
+                                  changeIndicator = <span className="text-red-500 flex items-center text-xs"><FaArrowUp className="mr-1" /> {weightDiff.toFixed(1)} kg</span>;
+                                }
+                              }
+                              
+                              return (
+                                <tr key={measurement.id} className="border-t border-slate-200/50 dark:border-slate-700/50">
+                                  <td className="p-3 text-sm">{formatDate(measurement.date)}</td>
+                                  <td className="p-3 text-sm">
+                                    <div className="flex flex-col">
+                                      <span>{measurement.weight}</span>
+                                      {changeIndicator && (
+                                        <span className="mt-1">{changeIndicator}</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-sm">{measurement.height}</td>
+                                  <td className="p-3 text-sm">{measurement.bmi}</td>
+                                  <td className="p-3 text-sm">{measurement.basal_metabolic_rate || "-"}</td>
+                                  <td className="p-3 text-sm">{bmiStatus}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    Henüz ölçüm kaydı bulunamadı.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recommendations */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {recommendations.map(recommendation => (
+              <Card key={recommendation.id} className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-medium">{recommendation.title}</CardTitle>
+                    <span className="text-xs text-muted-foreground">{formatDate(recommendation.created_at)}</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{recommendation.content}</p>
                 </CardContent>
               </Card>
-            </div>
-
-            {/* Recommendations */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {recommendations.map(recommendation => (
-                <Card key={recommendation.id} className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-medium">{recommendation.title}</CardTitle>
-                      <span className="text-xs text-muted-foreground">{formatDate(recommendation.createdAt)}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">{recommendation.content}</p>
-                  </CardContent>
-                </Card>
-              ))}
-              {recommendations.length === 0 && (
-                <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-full">
-                  <CardContent className="text-center py-6">
-                    <p className="text-muted-foreground">Henüz tavsiye bulunamadı.</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+            ))}
+            {recommendations.length === 0 && (
+              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-full">
+                <CardContent className="text-center py-6">
+                  <p className="text-muted-foreground">Henüz tavsiye bulunamadı.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

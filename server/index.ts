@@ -38,6 +38,11 @@ app.use((req, res, next) => {
   next();
 });
 
+app.post('/test-body', (req, res) => {
+  console.log("[TEST-BODY] Gelen istek:", req.body);
+  res.json({ body: req.body });
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
