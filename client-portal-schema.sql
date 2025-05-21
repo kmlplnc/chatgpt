@@ -1,7 +1,8 @@
 -- Client tablosuna erişim kodu (access_code) kolonu ekleyelim
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS access_code TEXT UNIQUE;
 -- Erişim kodlarının benzersiz olmasını ve NULL olmamasını sağlayalım
-ALTER TABLE clients ALTER COLUMN access_code SET NOT NULL DEFAULT '';
+ALTER TABLE clients ALTER COLUMN access_code SET DEFAULT '';
+ALTER TABLE clients ALTER COLUMN access_code SET NOT NULL;
 -- İndeks ekleyelim (hızlı erişim için)
 CREATE INDEX IF NOT EXISTS idx_clients_access_code ON clients(access_code);
 

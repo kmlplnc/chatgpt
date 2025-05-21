@@ -1,17 +1,13 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import bcrypt from "bcrypt";
 
 export const adminRouter = Router();
 
 // Şifre hashleme fonksiyonu
-const scryptAsync = promisify(scrypt);
-
 async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 }
 
 // Admin yetkisi kontrolü
@@ -46,7 +42,7 @@ adminRouter.get("/users", requireAdmin, async (req: Request, res: Response) => {
 // Kullanıcı oluştur
 adminRouter.post("/users", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
+    const { username, password, email, full_name, role, subscription_status, subscription_plan } = req.body;
     
     // Gerekli alanları kontrol et
     if (!username || !password || !email) {
@@ -67,24 +63,12 @@ adminRouter.post("/users", requireAdmin, async (req: Request, res: Response) => 
       username,
       password: hashedPassword,
       email,
-      name: name || null
+      full_name: full_name || null,
+      role: role || "user",
+      subscription_status: subscription_status || "free",
+      subscription_plan: subscription_plan || null
     });
 
-    // Rolü güncelle (varsayılan olarak "user")
-    if (role && role !== "user") {
-      await storage.updateUser(user.id, { role });
-    }
-    
-    // Abonelik bilgilerini güncelle
-    if (subscriptionStatus || subscriptionPlan) {
-      await storage.updateUserSubscription(user.id, {
-        subscriptionStatus,
-        subscriptionPlan,
-        subscriptionStartDate: new Date(),
-        subscriptionEndDate: undefined
-      });
-    }
-    
     // Parola bilgisini çıkar
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...safeUser } = user;
@@ -98,8 +82,8 @@ adminRouter.post("/users", requireAdmin, async (req: Request, res: Response) => 
 // Kullanıcı güncelle
 adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
-    const { username, password, email, name, role } = req.body;
+    const userId = req.params.id;
+    const { username, password, email, full_name, role, subscription_status, subscription_plan } = req.body;
     
     // Kullanıcının var olup olmadığını kontrol et
     const user = await storage.getUser(userId);
@@ -120,7 +104,7 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
     
     if (username) updates.username = username;
     if (email) updates.email = email;
-    if (name !== undefined) updates.name = name;
+    if (full_name !== undefined) updates.full_name = full_name;
     if (role) updates.role = role;
     
     // Parola güncellemesi
@@ -132,13 +116,13 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
     const subscriptionUpdates: any = {};
     let hasSubscriptionUpdates = false;
     
-    if (req.body.subscriptionStatus) {
-      subscriptionUpdates.subscriptionStatus = req.body.subscriptionStatus;
+    if (subscription_status) {
+      subscriptionUpdates.subscription_status = subscription_status;
       hasSubscriptionUpdates = true;
     }
     
-    if (req.body.subscriptionPlan !== undefined) {
-      subscriptionUpdates.subscriptionPlan = req.body.subscriptionPlan || null;
+    if (subscription_plan !== undefined) {
+      subscriptionUpdates.subscription_plan = subscription_plan || null;
       hasSubscriptionUpdates = true;
     }
     
@@ -174,7 +158,7 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
 // Kullanıcı sil
 adminRouter.delete("/users/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = req.params.id;
     
     // Admin kendisini silmeye çalışıyorsa engelle
     if (req.session?.user?.id === userId) {

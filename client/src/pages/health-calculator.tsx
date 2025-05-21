@@ -570,7 +570,7 @@ export default function HealthCalculator() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

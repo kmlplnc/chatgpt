@@ -1,39 +1,42 @@
 export interface Client {
-  id: string;
-  firstName: string;
-  lastName: string;
+  id: number;
+  user_id: number;
+  first_name: string;
+  last_name: string;
   email: string;
-  phone: string;
-  birthDate: string;
+  phone: string | null;
+  birth_date: string | null;
   gender: "male" | "female";
-  occupation?: string;
-  medicalConditions?: string;
-  allergies?: string;
-  medications?: string;
+  height: number;
+  occupation: string | null;
+  medical_conditions: string | null;
+  allergies: string | null;
+  medications: string | null;
+  notes: string | null;
+  client_visible_notes: string | null;
   status: "active" | "inactive";
-  startDate: string;
-  endDate?: string;
-  notes?: string;
-  clientVisibleNotes?: string;
-  accessCode?: string;
-  createdAt: string;
-  updatedAt: string;
+  start_date: string;
+  end_date: string | null;
+  access_code: string | null;
+  created_at: string;
+  updated_at: string;
+  lastMeasurement?: any; // Optional field for the last measurement
 }
 
 export interface Measurement {
   id: number;
   clientId: number;
   date: string;
-  weight: string;
-  height: string;
-  bmi: string;
-  bodyFatPercentage?: string;
-  waistCircumference?: string;
-  hipCircumference?: string;
-  chestCircumference?: string;
-  armCircumference?: string;
-  thighCircumference?: string;
-  calfCircumference?: string;
+  weight: number;
+  height: number;
+  bmi: number;
+  bodyFatPercentage?: number;
+  waistCircumference?: number;
+  hipCircumference?: number;
+  chestCircumference?: number;
+  armCircumference?: number;
+  thighCircumference?: number;
+  calfCircumference?: number;
   basalMetabolicRate: number;
   totalDailyEnergyExpenditure: number;
   activityLevel: "sedentary" | "light" | "moderate" | "active" | "veryActive";

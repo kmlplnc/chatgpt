@@ -22,7 +22,7 @@ const isAdmin = (req: Request): boolean => {
 clientsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     // Giriş yapmış kullanıcının ID'sini al
-    const userId = req.session.user!.id;
+    const userId = Number(req.session.user!.id);
     
     // Admin kullanıcı kontrolü
     const admin = isAdmin(req);
@@ -36,11 +36,19 @@ clientsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
     // Her danışan için son ölçümü ekle
     const clientsWithLastMeasurement = await Promise.all(
       clients.map(async (client) => {
-        const lastMeasurement = await storage.getLastMeasurement(client.id);
-        return {
-          ...client,
-          lastMeasurement,
-        };
+        try {
+          const lastMeasurement = await storage.getLastMeasurement(client.id);
+          return {
+            ...client,
+            lastMeasurement,
+          };
+        } catch (error) {
+          console.error(`Error fetching last measurement for client ${client.id}:`, error);
+          return {
+            ...client,
+            lastMeasurement: null,
+          };
+        }
       })
     );
     
@@ -59,21 +67,25 @@ clientsRouter.get("/admin/users", requireAuth, async (req: Request, res: Respons
       return res.status(403).json({ message: "Unauthorized" });
     }
 
+    // Log session user
+    console.log("[ADMIN USERS] Session user:", req.session.user);
+
     // Tüm kullanıcıları getir (mevcut kullanıcı dahil)
     const users = await storage.getAllUsers();
-    console.log("Fetched users in route:", users); // Debug için
+    console.log("[ADMIN USERS] Fetched users in route:", users);
     
     // Kullanıcıları düzenle (hassas bilgileri kaldır)
     const sanitizedUsers = users.map(user => ({
       id: user.id,
       username: user.username,
       email: user.email,
-      name: user.name,
+      full_name: user.full_name,
       role: user.role,
-      subscriptionStatus: user.subscriptionStatus,
-      subscriptionPlan: user.subscriptionPlan,
-      createdAt: user.createdAt
+      subscription_status: user.subscription_status,
+      subscription_plan: user.subscription_plan,
+      created_at: user.created_at
     }));
+    console.log("[ADMIN USERS] Sanitized users:", sanitizedUsers);
 
     return res.json(sanitizedUsers);
   } catch (error) {
@@ -91,7 +103,7 @@ clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
     }
     
     // Kullanıcı ID'sini al
-    const userId = req.session.user!.id;
+    const userId = Number(req.session.user!.id);
 
     const client = await storage.getClient(id);
     if (!client) {
@@ -103,7 +115,7 @@ clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
     
     // Sadece admin kullanıcıları tüm danışanları görebilir
     // Normal kullanıcılar sadece kendi danışanlarını görebilir
-    if (!admin && client.userId !== userId) {
+    if (!admin && client.user_id !== userId) {
       return res.status(403).json({ message: "Bu danışana erişim izniniz yok" });
     }
 
@@ -117,17 +129,18 @@ clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
 // Create a new client
 clientsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
+    console.log("Gelen istek:", req.body);
+    console.log("[BACKEND] Gelen veri:", req.body);
     const validatedData = insertClientSchema.parse(req.body);
-    
     // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
-    
+    const userId = Number(req.session.user!.id);
     // Danışanı kullanıcı ID'si ile ilişkilendir
-    const client = await storage.createClient({
+    const clientData = {
       ...validatedData,
-      userId  // Add userId to associate client with current user
-    });
-    
+      user_id: userId
+    };
+    console.log("[BACKEND] storage.createClient'e giden veri:", clientData);
+    const client = await storage.createClient(clientData);
     return res.status(201).json(client);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -151,7 +164,7 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
     }
     
     // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
+    const userId = Number(req.session.user!.id);
 
     const client = await storage.getClient(id);
     if (!client) {
@@ -163,7 +176,7 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
     
     // Sadece admin kullanıcıları tüm danışanları güncelleyebilir
     // Normal kullanıcılar sadece kendi danışanlarını güncelleyebilir
-    if (!admin && client.userId !== userId) {
+    if (!admin && client.user_id !== userId) {
       return res.status(403).json({ message: "Bu danışanı güncelleme yetkiniz yok" });
     }
 
@@ -188,8 +201,10 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
     
     // Log validated data
     console.log("Route - Doğrulanmış veri:", validatedData);
-    console.log("Route - Doğrulanmış boy değeri tipi:", typeof validatedData.height);
-    console.log("Route - Doğrulanmış boy değeri:", validatedData.height);
+    if (validatedData.height !== undefined) {
+      console.log("Route - Doğrulanmış boy değeri tipi:", typeof validatedData.height);
+      console.log("Route - Doğrulanmış boy değeri:", validatedData.height);
+    }
     
     // Update client with validated data
     const updatedClient = await storage.updateClient(id, validatedData);
@@ -201,7 +216,7 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
     return res.json(updatedClient);
   } catch (error) {
     console.error("Route - Güncelleme hatası:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
+    return res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -214,7 +229,7 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
     }
     
     // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
+    const userId = Number(req.session.user!.id);
     
     // Danışanı kontrol et
     const client = await storage.getClient(id);
@@ -227,7 +242,7 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
     
     // Sadece admin kullanıcıları tüm danışanları silebilir
     // Normal kullanıcılar sadece kendi danışanlarını silebilir
-    if (!admin && client.userId !== userId) {
+    if (!admin && client.user_id !== userId) {
       return res.status(403).json({ message: "Bu danışanı silme yetkiniz yok" });
     }
 
@@ -247,7 +262,7 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
 clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
   try {
     const clientId = Number(req.params.id);
-    const userId = req.session.user!.id;
+    const userId = Number(req.session.user!.id);
     
     // Danışanın kullanıcıya ait olup olmadığını kontrol et (admin değilse)
     const client = await storage.getClient(clientId);
@@ -255,7 +270,7 @@ clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Re
       return res.status(404).json({ message: "Danışan bulunamadı" });
     }
     
-    if (client.userId !== userId && !isAdmin(req)) {
+    if (client.user_id !== userId && !isAdmin(req)) {
       return res.status(403).json({ message: "Bu danışanın verilerine erişim izniniz yok" });
     }
     
@@ -283,7 +298,7 @@ clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
     }
 
     // Get client details for BMH calculation
-    const birthDateStr = client.birthDate;
+    const birthDateStr = client.birth_date;
     let age = 30; // default age if not available
     
     if (birthDateStr) {
@@ -483,10 +498,7 @@ clientsRouter.delete("/:id/measurements/:measurementId", async (req: Request, re
     }
 
     // Delete the measurement
-    const success = await storage.deleteMeasurement(measurementId);
-    if (!success) {
-      return res.status(500).json({ message: "Failed to delete measurement" });
-    }
+    await storage.deleteMeasurement(measurementId);
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -504,7 +516,7 @@ clientsRouter.post("/:id/access-code", requireAuth, async (req: Request, res: Re
     }
     
     // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
+    const userId = Number(req.session.user!.id);
     
     // Danışanı kontrol et
     const client = await storage.getClient(clientId);
@@ -516,7 +528,7 @@ clientsRouter.post("/:id/access-code", requireAuth, async (req: Request, res: Re
     const admin = isAdmin(req);
     
     // Sadece admin kullanıcıları veya danışanın sahibi erişim kodu oluşturabilir
-    if (!admin && client.userId !== userId) {
+    if (!admin && client.user_id !== userId) {
       return res.status(403).json({ message: "Bu danışan için erişim kodu oluşturma yetkiniz yok" });
     }
 

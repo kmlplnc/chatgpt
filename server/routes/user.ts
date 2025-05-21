@@ -8,7 +8,7 @@ userRouter.get("/premium-status", async (req, res) => {
     return res.json({ isPremium: false });
   }
   const user = await storage.getUser(req.session.user.id);
-  const isPremium = user?.subscriptionStatus === "active" && user?.subscriptionPlan === "premium";
+  const isPremium = user?.subscription_status === "active" && user?.subscription_plan === "premium";
   res.json({ isPremium });
 });
 

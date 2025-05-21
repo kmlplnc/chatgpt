@@ -260,70 +260,103 @@ export default function CheckoutPage() {
   
   // Ana ödeme formu
   return (
-    <div className="min-h-screen bg-background py-12">
-      <div className="container mx-auto max-w-3xl">
-        <div className="flex items-center mb-8">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => window.location.href = '/subscription'}
-            className="mr-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Geri
-          </Button>
-        </div>
-        
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Ödeme İşlemi</CardTitle>
-            <CardDescription>
-              Abonelik planınız için ödeme bilgilerinizi girin
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Satın Alma Detayları</h3>
-              <div className="bg-muted p-4 rounded-md">
-                <div className="flex justify-between mb-2">
-                  <span>Plan:</span>
-                  <span className="font-medium capitalize">{planFromUrl}</span>
-                </div>
-                {planFromUrl === "basic" && (
-                  <div className="flex justify-between">
-                    <span>Tutar:</span>
-                    <span className="font-medium">₺199.00</span>
-                  </div>
-                )}
-                {planFromUrl === "pro" && (
-                  <div className="flex justify-between">
-                    <span>Tutar:</span>
-                    <span className="font-medium">₺349.00</span>
-                  </div>
-                )}
-                {planFromUrl === "premium" && (
-                  <div className="flex justify-between">
-                    <span>Tutar:</span>
-                    <span className="font-medium">₺599.00</span>
-                  </div>
-                )}
+    <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
+      <div className="flex items-center mb-8">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => window.location.href = '/subscription'}
+          className="mr-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Geri
+        </Button>
+      </div>
+      
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Ödeme İşlemi</CardTitle>
+          <CardDescription>
+            Abonelik planınız için ödeme bilgilerinizi girin
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-6">
+            <h3 className="text-lg font-medium mb-2">Satın Alma Detayları</h3>
+            <div className="bg-muted p-4 rounded-md">
+              <div className="flex justify-between mb-2">
+                <span>Plan:</span>
+                <span className="font-medium capitalize">{planFromUrl}</span>
               </div>
+              {planFromUrl === "basic" && (
+                <div className="flex justify-between">
+                  <span>Tutar:</span>
+                  <span className="font-medium">₺199.00</span>
+                </div>
+              )}
+              {planFromUrl === "pro" && (
+                <div className="flex justify-between">
+                  <span>Tutar:</span>
+                  <span className="font-medium">₺349.00</span>
+                </div>
+              )}
+              {planFromUrl === "premium" && (
+                <div className="flex justify-between">
+                  <span>Tutar:</span>
+                  <span className="font-medium">₺599.00</span>
+                </div>
+              )}
             </div>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleCreditCardPayment)} className="space-y-4">
+          </div>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleCreditCardPayment)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="cardNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kart Numarası</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="0000 0000 0000 0000" 
+                        {...field} 
+                        onChange={handleCardNumberChange}
+                        maxLength={19}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="cardHolder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kart Sahibi</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ad Soyad" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="cardNumber"
+                  name="expiryDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Kart Numarası</FormLabel>
+                      <FormLabel>Son Kullanma Tarihi</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="0000 0000 0000 0000" 
+                          placeholder="MM/YY" 
                           {...field} 
-                          onChange={handleCardNumberChange}
-                          maxLength={19}
+                          onChange={handleExpiryDateChange}
+                          maxLength={5}
                         />
                       </FormControl>
                       <FormMessage />
@@ -333,84 +366,49 @@ export default function CheckoutPage() {
                 
                 <FormField
                   control={form.control}
-                  name="cardHolder"
+                  name="cvv"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Kart Sahibi</FormLabel>
+                      <FormLabel>CVV</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ad Soyad" {...field} />
+                        <Input 
+                          placeholder="123" 
+                          {...field} 
+                          maxLength={4}
+                          type="password"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="expiryDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Son Kullanma Tarihi</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="MM/YY" 
-                            {...field} 
-                            onChange={handleExpiryDateChange}
-                            maxLength={5}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="cvv"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CVV</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="123" 
-                            {...field} 
-                            maxLength={4}
-                            type="password"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="pt-4">
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="mr-2 animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
-                        İşleniyor...
-                      </>
-                    ) : (
-                      'Ödemeyi Tamamla'
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-        
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>Bu bir demo uygulamasıdır. Gerçek ödeme işlemi gerçekleştirilmeyecektir.</p>
-          <p><strong>Herhangi bir kredi kartı bilgisi ile ödeme yapabilirsiniz.</strong></p>
-          <p>Örnek kart: 4242 4242 4242 4242 | Son Kullanma: 12/24 | CVV: 123</p>
-        </div>
+              </div>
+              
+              <div className="pt-4">
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="mr-2 animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    'Ödemeyi Tamamla'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+      
+      <div className="mt-6 text-center text-sm text-muted-foreground">
+        <p>Bu bir demo uygulamasıdır. Gerçek ödeme işlemi gerçekleştirilmeyecektir.</p>
+        <p><strong>Herhangi bir kredi kartı bilgisi ile ödeme yapabilirsiniz.</strong></p>
+        <p>Örnek kart: 4242 4242 4242 4242 | Son Kullanma: 12/24 | CVV: 123</p>
       </div>
     </div>
   );

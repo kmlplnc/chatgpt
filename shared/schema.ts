@@ -1,11 +1,11 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, date, numeric, unique, foreignKey, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, date, numeric, unique, foreignKey, json, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
 // User schema (extended from the existing schema)
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
@@ -14,9 +14,9 @@ export const users = pgTable("users", {
   // Subscription fields
   subscriptionStatus: text("subscription_status").default("free").notNull(), // "free", "trial", "active", "expired", "canceled"
   subscriptionPlan: text("subscription_plan"), // "basic", "pro", "premium", null for free
-  subscriptionStartDate: timestamp("subscription_start_date"),
-  subscriptionEndDate: timestamp("subscription_end_date"),
-  createdAt: timestamp("created_at").defaultNow(),
+  subscriptionStartDate: timestamp("subscription_start_date", { withTimezone: true }),
+  subscriptionEndDate: timestamp("subscription_end_date", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // Clients (danışanlar) schema
@@ -72,6 +72,11 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   email: true,
   name: true,
+  role: true,
+  subscriptionStatus: true,
+  subscriptionPlan: true,
+  subscriptionStartDate: true,
+  subscriptionEndDate: true,
 });
 
 // Diet Plans schema
@@ -229,7 +234,7 @@ export const insertMeasurementSchema = createInsertSchema(measurements).omit({
 
 // Type definitions
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;

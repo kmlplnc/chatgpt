@@ -35,11 +35,15 @@ subscriptionRouter.post("/create", requireAuth, async (req: Request, res: Respon
     
     // Kullanıcının abonelik bilgisini güncelle
     const updatedUser = await storage.updateUserSubscription(userId, {
-      subscriptionStatus: "active",
-      subscriptionPlan: plan,
-      subscriptionStartDate: now,
-      subscriptionEndDate: endDate
+      subscription_status: "active",
+      subscription_plan: plan,
+      subscription_start_date: now,
+      subscription_end_date: endDate
     });
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
     
     // Şifreyi çıkar
     const { password, ...userWithoutPassword } = updatedUser;
@@ -68,8 +72,12 @@ subscriptionRouter.post("/cancel", requireAuth, async (req: Request, res: Respon
     
     // Kullanıcının abonelik bilgisini güncelle
     const updatedUser = await storage.updateUserSubscription(userId, {
-      subscriptionStatus: "cancelled"
+      subscription_status: "cancelled"
     });
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
     
     // Şifreyi çıkar
     const { password, ...userWithoutPassword } = updatedUser;
@@ -100,17 +108,17 @@ subscriptionRouter.get("/status", requireAuth, async (req: Request, res: Respons
     // Abonelik durumunu kontrol et
     const now = new Date();
     const isActive = 
-      user.subscriptionStatus === "active" && 
-      user.subscriptionEndDate && 
-      new Date(user.subscriptionEndDate) > now;
+      user.subscription_status === "active" && 
+      user.subscription_end_date && 
+      new Date(user.subscription_end_date) > now;
     
     // Abonelik bilgisini dön
     res.status(200).json({
       status: isActive ? "active" : "inactive",
-      plan: user.subscriptionPlan,
-      startDate: user.subscriptionStartDate,
-      endDate: user.subscriptionEndDate,
-      features: getFeaturesByPlan(user.subscriptionPlan)
+      plan: user.subscription_plan,
+      startDate: user.subscription_start_date,
+      endDate: user.subscription_end_date,
+      features: getFeaturesByPlan(user.subscription_plan)
     });
   } catch (error) {
     console.error("Abonelik durumu kontrol hatası:", error);
