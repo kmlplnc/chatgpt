@@ -18,6 +18,7 @@ export default defineConfig({
             'wouter',
             'react',
             'react-dom',
+            '@tanstack/react-query',
             '@radix-ui/react-accordion',
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-aspect-ratio',
