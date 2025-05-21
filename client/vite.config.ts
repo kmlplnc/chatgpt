@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: 'index.html',
-      external: ['@hookform/resolvers/zod', 'date-fns', 'class-variance-authority', 'tailwind-merge'],
+      external: ['@hookform/resolvers/zod', 'date-fns', 'class-variance-authority'],
       output: {
         manualChunks: {
           'vendor': [
