@@ -14,6 +14,20 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'client/index.html'),
       },
+      external: [
+        'wouter',
+        'react',
+        'react-dom',
+        '@radix-ui/react-*',
+        'framer-motion',
+        'lucide-react',
+        'react-hook-form',
+        'react-hot-toast',
+        'react-icons',
+        'recharts',
+        'three',
+        'victory'
+      ]
     },
   },
   resolve: {
