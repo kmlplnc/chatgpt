@@ -23,7 +23,7 @@ export class DatabaseStorage implements IStorage {
     const [client] = await db
       .select()
       .from(clients)
-      .where(eq(clients.accessCode, accessCode));
+      .where(eq(clients.access_code, accessCode));
     
     return client;
   }
@@ -53,7 +53,7 @@ export class DatabaseStorage implements IStorage {
     // Kodu danışan kaydına ekle
     await db
       .update(clients)
-      .set({ accessCode: code })
+      .set({ access_code: code })
       .where(eq(clients.id, clientId));
     
     return code;
@@ -64,7 +64,7 @@ export class DatabaseStorage implements IStorage {
     try {
       await db
         .update(clients)
-        .set({ accessCode: accessCode })
+        .set({ access_code: accessCode })
         .where(eq(clients.id, clientId));
       
       return true;

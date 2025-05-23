@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS messages (
 -- Notifications table
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
+  user_id UUID REFERENCES users(id),
   client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   content TEXT NOT NULL,

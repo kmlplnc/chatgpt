@@ -46,9 +46,9 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
 
     // Oturumu veritabanına kaydet
     const session = await storage.createClientSession({
-      client_id: client.id,
-      session_token: sessionToken,
-      expires_at: expiresAt
+      clientId: client.id,
+      sessionToken: sessionToken,
+      expiresAt: expiresAt
     });
     console.log("Session created:", session);
 
@@ -62,11 +62,14 @@ clientPortalRouter.post('/login', async (req: Request, res: Response) => {
 
     // Danışan bilgilerini gönder - client_visible_notes dahil
     res.json({
-      id: client.id,
-      first_name: client.first_name,
-      last_name: client.last_name,
-      email: client.email,
-      client_visible_notes: client.client_visible_notes || null, // Danışana görünecek notlar
+      sessionToken: session.sessionToken,
+      client: {
+        id: client.id,
+        firstName: client.first_name || "",
+        lastName: client.last_name || "",
+        email: client.email,
+        clientVisibleNotes: client.client_visible_notes || "",
+      },
     });
 
   } catch (error) {
@@ -113,14 +116,14 @@ export const verifyClientSession = async (req: Request, res: Response, next: Fun
     }
 
     // Oturum süresini kontrol et
-    if (new Date() > session.expires_at) {
+    if (new Date() > session.expiresAt) {
       await storage.deleteClientSession(sessionToken);
       res.clearCookie('client_session');
       return res.status(401).json({ message: 'Oturumunuzun süresi dolmuş' });
     }
 
     // Danışan bilgilerini al
-    const client = await storage.getClient(session.client_id);
+    const client = await storage.getClient(session.clientId);
 
     if (!client) {
       await storage.deleteClientSession(sessionToken);
@@ -147,15 +150,18 @@ export const verifyClientSession = async (req: Request, res: Response, next: Fun
 // Danışan bilgilerini getir
 clientPortalRouter.get('/me', verifyClientSession, async (req: Request, res: Response) => {
   try {
-    const { client } = req.clientSession!;
+    const { client, session } = req.clientSession!;
 
     // Danışan bilgilerini gönder - client_visible_notes dahil
     res.json({
-      id: client.id,
-      first_name: client.first_name,
-      last_name: client.last_name,
-      email: client.email,
-      client_visible_notes: client.client_visible_notes || null, // Danışana görünecek notlar
+      sessionToken: session.sessionToken,
+      client: {
+        id: client.id,
+        firstName: client.first_name || "",
+        lastName: client.last_name || "",
+        email: client.email,
+        client_visible_notes: client.client_visible_notes || [],
+      },
     });
   } catch (error) {
     console.error('Get client error:', error);
@@ -169,7 +175,7 @@ clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, r
     const { client } = req.clientSession!;
 
     // Diyetisyen bilgilerini getir
-    const dietitian = await storage.getUser(client.user_id);
+    const dietitian = await storage.getUser(client.userId);
 
     if (!dietitian) {
       return res.status(404).json({ message: 'Diyetisyen bulunamadı' });
@@ -178,7 +184,7 @@ clientPortalRouter.get('/dietitian', verifyClientSession, async (req: Request, r
     // Diyetisyen bilgilerini gönder (sadece gerekli alanlar)
     res.json({
       id: dietitian.id,
-      name: dietitian.full_name || dietitian.username,
+      name: dietitian.name || dietitian.username,
       email: dietitian.email
     });
   } catch (error) {
@@ -206,14 +212,17 @@ clientPortalRouter.get('/diet-plans', verifyClientSession, async (req: Request, 
   try {
     const { client } = req.clientSession!;
 
-    // Burada client.id ile ilişkilendirilmiş diyet planlarını getir
-    // DietPlan modeli henüz bağlantılı olmayabilir, güncelleme gerekebilir
-    const dietPlans = await storage.getDietPlans(client.userId);
+    // Burada client.id ile ilişkilendirilmiş diyet planını getir
+    const dietPlan = await storage.getDietPlan(client.id);
 
-    res.json(dietPlans);
+    if (!dietPlan) {
+      return res.status(404).json({ message: 'Diyet planı bulunamadı' });
+    }
+
+    res.json(dietPlan);
   } catch (error) {
-    console.error('Get client diet plans error:', error);
-    res.status(500).json({ message: 'Diyet planları getirilirken bir hata oluştu' });
+    console.error('Get client diet plan error:', error);
+    res.status(500).json({ message: 'Diyet planı getirilirken bir hata oluştu' });
   }
 });
 
@@ -260,6 +269,10 @@ clientPortalRouter.get('/appointments', verifyClientSession, async (req: Request
 clientPortalRouter.get('/messages', verifyClientSession, async (req: Request, res: Response) => {
   try {
     const { client } = req.clientSession!;
+
+    if (!client.userId) {
+      return res.status(400).json({ message: 'Danışanın diyetisyeni bulunamadı' });
+    }
 
     // Danışanın diyetisyeni ile olan mesajlarını getir
     const messages = await storage.getMessages(client.id, client.userId);
@@ -315,41 +328,11 @@ clientPortalRouter.delete('/messages/:messageId', verifyClientSession, async (re
     }
 
     // Mesajı sil
-    const success = await storage.deleteMessage(messageId);
-    if (success) {
-      res.json({ success: true });
-    } else {
-      res.status(500).json({ message: "Mesaj silinemedi" });
-    }
+    await storage.deleteMessage(messageId);
+    res.json({ success: true });
   } catch (error) {
     console.error("Mesaj silme hatası:", error);
     res.status(500).json({ message: "Mesaj silinemedi" });
-  }
-});
-
-// Mesaj gönder
-clientPortalRouter.post('/messages', verifyClientSession, async (req: Request, res: Response) => {
-  try {
-    const { client } = req.clientSession!;
-    const { content } = req.body;
-
-    if (!content || content.trim() === '') {
-      return res.status(400).json({ message: 'Mesaj içeriği boş olamaz' });
-    }
-
-    // Mesaj oluştur
-    const message = await storage.createMessage({
-      clientId: client.id,
-      userId: client.userId,
-      content,
-      fromClient: true, // Danışandan gelen mesaj
-      isRead: false
-    });
-
-    res.status(201).json(message);
-  } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({ message: 'Mesaj gönderilirken bir hata oluştu' });
   }
 });
 

@@ -4,9 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { generateDietPlan } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import { calculateBMI, calculateDailyCalories } from "@/lib/utils";
+import { dietRequirementSchema, type DietRequirement } from "@shared/schema";
 
 import {
   Form,
@@ -43,12 +42,12 @@ import { Separator } from "@/components/ui/separator";
 import { MacronutrientChart } from "@/components/ui/chart";
 
 // Form validation schema
-const dietFormSchema = z.object({
-  name: z.string().min(3, { message: "Diet plan name is required" }),
-  age: z.coerce.number().int().min(10).max(120),
+const formSchema = z.object({
+  name: z.string(),
+  age: z.number(),
   gender: z.enum(["male", "female"]),
-  height: z.coerce.number().min(100).max(250),
-  weight: z.coerce.number().min(30).max(300),
+  height: z.number(),
+  weight: z.number(),
   activityLevel: z.enum([
     "sedentary",
     "light",
@@ -69,19 +68,19 @@ const dietFormSchema = z.object({
   ]),
   allergies: z.string().optional(),
   healthConditions: z.string().optional(),
-  calorieGoal: z.coerce.number().min(1000).max(5000).optional(),
-  proteinPercentage: z.coerce.number().min(10).max(60),
-  carbsPercentage: z.coerce.number().min(10).max(70),
-  fatPercentage: z.coerce.number().min(10).max(60),
-  meals: z.coerce.number().min(2).max(6),
+  calorieGoal: z.number().optional(),
+  proteinPercentage: z.number(),
+  carbsPercentage: z.number(),
+  fatPercentage: z.number(),
+  meals: z.number(),
   includeDessert: z.boolean().default(false),
   includeSnacks: z.boolean().default(true),
 });
 
-type DietFormValues = z.infer<typeof dietFormSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 // Diet form component
-export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => void }) {
+export default function DietForm({ onSuccess }: { onSuccess?: (data: FormValues) => void }) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("basic");
   
@@ -103,10 +102,10 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
     paleo: { protein: 35, carbs: 25, fat: 40 },
     mediterranean: { protein: 20, carbs: 50, fat: 30 },
     custom: { protein: 30, carbs: 40, fat: 30 },
-  };
+  } as const;
   
   // Default values
-  const defaultValues: Partial<DietFormValues> = {
+  const defaultValues: FormValues = {
     name: "My Diet Plan",
     age: 35,
     gender: "female",
@@ -120,27 +119,19 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
     meals: 3,
     includeDessert: false,
     includeSnacks: true,
+    allergies: "",
+    healthConditions: "",
   };
   
   // Form setup
-  const form = useForm<DietFormValues>({
-    resolver: zodResolver(dietFormSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues,
     mode: "onChange",
   });
   
   // Watch form values for calculations
   const watchedValues = form.watch();
-  
-  // Calculate BMI and calorie needs
-  const bmi = calculateBMI(watchedValues.weight || 0, watchedValues.height || 0);
-  const calculatedCalories = calculateDailyCalories(
-    watchedValues.age || 35,
-    watchedValues.gender || "female",
-    watchedValues.weight || 65,
-    watchedValues.height || 165,
-    watchedValues.activityLevel || "moderate"
-  );
   
   // Update macros when diet type changes
   React.useEffect(() => {
@@ -173,8 +164,22 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
   
   // Generate diet plan mutation
   const generateMutation = useMutation({
-    mutationFn: generateDietPlan,
-    onSuccess: (data) => {
+    mutationFn: async (values: FormValues) => {
+      const response = await fetch("/api/diet-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate diet plan");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data: FormValues) => {
       toast({
         title: "Diet Plan Generated!",
         description: "Your personalized diet plan is ready.",
@@ -194,12 +199,7 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
   });
   
   // On form submit
-  function onSubmit(values: DietFormValues) {
-    // Use calculated calories if not specified
-    if (!values.calorieGoal) {
-      values.calorieGoal = calculatedCalories;
-    }
-    
+  function onSubmit(values: FormValues) {
     generateMutation.mutate(values);
   }
   
@@ -218,7 +218,7 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
           </TabsList>
           
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <TabsContent value="basic" className="space-y-4">
                 <FormField
                   control={form.control}
@@ -227,86 +227,76 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                     <FormItem>
                       <FormLabel>Diet Plan Name</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="My Diet Plan" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="age"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Age</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="age"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Age</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="height"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Height (cm)</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Gender</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormDescription>
-                          Current BMI: {bmi.toFixed(1)}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="weight"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Weight (kg)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="height"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Height (cm)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Weight (kg)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 <FormField
                   control={form.control}
@@ -314,36 +304,24 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Activity Level</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select activity level" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="sedentary">Sedentary (little or no exercise)</SelectItem>
-                          <SelectItem value="light">Light (exercise 1-3 days/week)</SelectItem>
-                          <SelectItem value="moderate">Moderate (exercise 3-5 days/week)</SelectItem>
-                          <SelectItem value="active">Active (exercise 6-7 days/week)</SelectItem>
-                          <SelectItem value="very_active">Very Active (hard exercise/sports and physical job)</SelectItem>
+                          <SelectItem value="sedentary">Sedentary</SelectItem>
+                          <SelectItem value="light">Light</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="very_active">Very Active</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormDescription>
-                        Estimated daily calories: {calculatedCalories} cal
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
-                <div className="flex justify-end">
-                  <Button type="button" onClick={() => setActiveTab("goals")}>
-                    Next: Diet Goals
-                  </Button>
-                </div>
               </TabsContent>
               
               <TabsContent value="goals" className="space-y-4">
@@ -353,10 +331,7 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Diet Type</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select diet type" />
@@ -368,7 +343,7 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                           <SelectItem value="high_protein">High Protein</SelectItem>
                           <SelectItem value="vegetarian">Vegetarian</SelectItem>
                           <SelectItem value="vegan">Vegan</SelectItem>
-                          <SelectItem value="keto">Ketogenic</SelectItem>
+                          <SelectItem value="keto">Keto</SelectItem>
                           <SelectItem value="paleo">Paleo</SelectItem>
                           <SelectItem value="mediterranean">Mediterranean</SelectItem>
                           <SelectItem value="custom">Custom</SelectItem>
@@ -386,141 +361,39 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                     <FormItem>
                       <FormLabel>Daily Calorie Goal (optional)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder={calculatedCalories.toString()} 
-                          {...field} 
-                        />
+                        <Input type="number" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Leave blank to use the recommended {calculatedCalories} calories
+                        Leave blank to use the recommended calories
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                <div className="space-y-6 pt-2">
-                  <div className="space-y-2">
-                    <Label className={!macrosValid ? "text-destructive" : ""}>
-                      Macronutrient Distribution {!macrosValid && `(Total: ${totalMacros}%, should be 100%)`}
-                    </Label>
-                    
-                    <div className="flex items-center justify-center mb-6">
-                      <MacronutrientChart 
-                        protein={macroPercentages.protein} 
-                        carbs={macroPercentages.carbs} 
-                        fat={macroPercentages.fat} 
-                      />
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="proteinPercentage"
-                        render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <div className="flex justify-between">
-                              <FormLabel>Protein: {field.value}%</FormLabel>
-                              <span className="text-sm text-muted-foreground">
-                                {Math.round((field.value / 100) * (watchedValues.calorieGoal || calculatedCalories) / 4)}g
-                              </span>
-                            </div>
-                            <FormControl>
-                              <Slider 
-                                value={[field.value]} 
-                                min={10} 
-                                max={60} 
-                                step={1} 
-                                onValueChange={(values) => field.onChange(values[0])} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="carbsPercentage"
-                        render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <div className="flex justify-between">
-                              <FormLabel>Carbs: {field.value}%</FormLabel>
-                              <span className="text-sm text-muted-foreground">
-                                {Math.round((field.value / 100) * (watchedValues.calorieGoal || calculatedCalories) / 4)}g
-                              </span>
-                            </div>
-                            <FormControl>
-                              <Slider 
-                                value={[field.value]} 
-                                min={10} 
-                                max={70} 
-                                step={1} 
-                                onValueChange={(values) => field.onChange(values[0])} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="fatPercentage"
-                        render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <div className="flex justify-between">
-                              <FormLabel>Fat: {field.value}%</FormLabel>
-                              <span className="text-sm text-muted-foreground">
-                                {Math.round((field.value / 100) * (watchedValues.calorieGoal || calculatedCalories) / 9)}g
-                              </span>
-                            </div>
-                            <FormControl>
-                              <Slider 
-                                value={[field.value]} 
-                                min={10} 
-                                max={60} 
-                                step={1} 
-                                onValueChange={(values) => field.onChange(values[0])} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between mt-6">
-                  <Button type="button" variant="outline" onClick={() => setActiveTab("basic")}>
-                    Previous
-                  </Button>
-                  <Button type="button" onClick={() => setActiveTab("preferences")}>
-                    Next: Preferences
-                  </Button>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="preferences" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Macronutrient Distribution</h3>
+                  
                   <FormField
                     control={form.control}
-                    name="allergies"
+                    name="proteinPercentage"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Food Allergies or Intolerances</FormLabel>
+                      <FormItem className="space-y-1">
+                        <div className="flex justify-between">
+                          <FormLabel>Protein: {field.value}%</FormLabel>
+                          <span className="text-sm text-muted-foreground">
+                            {Math.round((field.value / 100) * (watchedValues.calorieGoal || 2000) / 4)}g
+                          </span>
+                        </div>
                         <FormControl>
-                          <Textarea 
-                            placeholder="e.g., peanuts, shellfish, lactose" 
-                            className="h-24"
-                            {...field} 
+                          <Slider 
+                            value={[field.value]} 
+                            min={10} 
+                            max={60} 
+                            step={1} 
+                            onValueChange={(values) => field.onChange(values[0])} 
                           />
                         </FormControl>
-                        <FormDescription>
-                          List any foods you need to avoid
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -528,30 +401,101 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                   
                   <FormField
                     control={form.control}
-                    name="healthConditions"
+                    name="carbsPercentage"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Health Conditions</FormLabel>
+                      <FormItem className="space-y-1">
+                        <div className="flex justify-between">
+                          <FormLabel>Carbs: {field.value}%</FormLabel>
+                          <span className="text-sm text-muted-foreground">
+                            {Math.round((field.value / 100) * (watchedValues.calorieGoal || 2000) / 4)}g
+                          </span>
+                        </div>
                         <FormControl>
-                          <Textarea 
-                            placeholder="e.g., diabetes, hypertension, etc." 
-                            className="h-24"
-                            {...field} 
+                          <Slider 
+                            value={[field.value]} 
+                            min={10} 
+                            max={70} 
+                            step={1} 
+                            onValueChange={(values) => field.onChange(values[0])} 
                           />
                         </FormControl>
-                        <FormDescription>
-                          Any health conditions to consider
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  
+                  <FormField
+                    control={form.control}
+                    name="fatPercentage"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <div className="flex justify-between">
+                          <FormLabel>Fat: {field.value}%</FormLabel>
+                          <span className="text-sm text-muted-foreground">
+                            {Math.round((field.value / 100) * (watchedValues.calorieGoal || 2000) / 9)}g
+                          </span>
+                        </div>
+                        <FormControl>
+                          <Slider 
+                            value={[field.value]} 
+                            min={10} 
+                            max={60} 
+                            step={1} 
+                            onValueChange={(values) => field.onChange(values[0])} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="mt-4">
+                    <MacronutrientChart 
+                      protein={macroPercentages.protein}
+                      carbs={macroPercentages.carbs}
+                      fat={macroPercentages.fat}
+                    />
+                  </div>
                 </div>
+              </TabsContent>
+              
+              <TabsContent value="preferences" className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="allergies"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Allergies</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="List any food allergies or intolerances" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
-                <Separator className="my-4" />
+                <FormField
+                  control={form.control}
+                  name="healthConditions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Health Conditions</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="List any health conditions that may affect your diet" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 <div className="space-y-4">
-                  <h3 className="text-md font-medium">Meal Plan Settings</h3>
+                  <h3 className="text-sm font-medium">Meal Plan Settings</h3>
                   
                   <FormField
                     control={form.control}
@@ -573,53 +517,58 @@ export default function DietForm({ onSuccess }: { onSuccess?: (data: any) => voi
                     )}
                   />
                   
-                  <div className="flex flex-col space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="includeSnacks"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between space-y-0">
-                          <FormLabel>Include Snacks</FormLabel>
-                          <FormControl>
-                            <Switch 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange} 
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="includeDessert"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between space-y-0">
-                          <FormLabel>Include Dessert</FormLabel>
-                          <FormControl>
-                            <Switch 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange} 
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-between mt-6">
-                  <Button type="button" variant="outline" onClick={() => setActiveTab("goals")}>
-                    Previous
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={!macrosValid || generateMutation.isPending}
-                  >
-                    {generateMutation.isPending ? "Generating..." : "Generate Diet Plan"}
-                  </Button>
+                  <FormField
+                    control={form.control}
+                    name="includeDessert"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Include Dessert</FormLabel>
+                          <FormDescription>
+                            Add a dessert option to your meal plan
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="includeSnacks"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Include Snacks</FormLabel>
+                          <FormDescription>
+                            Add snack options to your meal plan
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </TabsContent>
+              
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={!macrosValid || generateMutation.isPending}
+                >
+                  {generateMutation.isPending ? "Generating..." : "Generate Diet Plan"}
+                </Button>
+              </div>
             </form>
           </Form>
         </Tabs>

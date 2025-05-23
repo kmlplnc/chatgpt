@@ -350,14 +350,16 @@ export default function FoodSearch() {
               <PaginationContent>
                 <PaginationPrevious 
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
+                  aria-disabled={page === 1}
+                  className={page === 1 ? "pointer-events-none opacity-50" : ""}
                 />
                 
                 {renderPaginationItems()}
                 
                 <PaginationNext 
                   onClick={() => setPage(p => p + 1)}
-                  disabled={page >= Math.ceil(data.totalHits / pageSize)}
+                  aria-disabled={page >= Math.ceil(data.totalHits / pageSize)}
+                  className={page >= Math.ceil(data.totalHits / pageSize) ? "pointer-events-none opacity-50" : ""}
                 />
               </PaginationContent>
             </Pagination>

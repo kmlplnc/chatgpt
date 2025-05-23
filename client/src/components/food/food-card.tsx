@@ -9,13 +9,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { saveFood, removeSavedFood } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { translateFood, translateUI } from "@/lib/i18n";
 
-// Simple translation functions
-const simplifiedUI = (text: string) => text;
-const simplifiedFood = (text: string | null | undefined) => text || "";
-// Backward compatibility with old code
-const translateUI = simplifiedUI;
-const translateFood = simplifiedFood;
+interface FoodNutrient {
+  nutrientName: string;
+  value: number;
+  unitName: string;
+}
 
 interface FoodCardProps {
   food: Food;
@@ -58,13 +58,17 @@ export default function FoodCard({ food }: FoodCardProps) {
     saveMutation.mutate(food.fdcId);
   };
   
+  const nutrients = food.foodNutrients ? (food.foodNutrients as FoodNutrient[]).filter(n => 
+    ["Protein", "Total lipid (fat)", "Carbohydrate, by difference", "Energy"].includes(n.nutrientName)
+  ) : [];
+  
   return (
     <Card className="overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
       <CardContent className="p-4 flex-grow">
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-start mb-2">
             <div className="text-xs border rounded-sm p-1 inline-block">
-              {translateFood(food.dataType || "")}
+              {typeof food.dataType === "string" ? food.dataType : ""}
             </div>
             {food.publishedDate && (
               <span className="text-xs text-muted-foreground">
@@ -86,18 +90,14 @@ export default function FoodCard({ food }: FoodCardProps) {
               </p>
             )}
             
-            {food.foodNutrients && Array.isArray(food.foodNutrients) && food.foodNutrients.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {food.foodNutrients
-                  .filter((n: any) => ["Protein", "Total fat", "Carbohydrate, by difference"].includes(n.nutrientName))
-                  .map((nutrient: any, index: number) => (
-                    <span key={index} className="nutrient-badge">
-                      {translateFood(nutrient.nutrientName === "Carbohydrate, by difference" ? "Carbs" : nutrient.nutrientName)}: 
-                      {" "}{Math.round(nutrient.value * 10) / 10}{nutrient.unitName.toLowerCase()}
-                    </span>
-                  ))}
+            {nutrients.map((nutrient) => (
+              <div key={nutrient.nutrientName} className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{nutrient.nutrientName}</span>
+                <span className="font-medium">
+                  {nutrient.value} {nutrient.unitName}
+                </span>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </CardContent>

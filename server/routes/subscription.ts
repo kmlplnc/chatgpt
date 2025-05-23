@@ -35,10 +35,10 @@ subscriptionRouter.post("/create", requireAuth, async (req: Request, res: Respon
     
     // Kullanıcının abonelik bilgisini güncelle
     const updatedUser = await storage.updateUserSubscription(userId, {
-      subscription_status: "active",
-      subscription_plan: plan,
-      subscription_start_date: now,
-      subscription_end_date: endDate
+      subscriptionStatus: "active",
+      subscriptionPlan: plan,
+      subscriptionStartDate: now,
+      subscriptionEndDate: endDate
     });
     
     if (!updatedUser) {
@@ -72,7 +72,7 @@ subscriptionRouter.post("/cancel", requireAuth, async (req: Request, res: Respon
     
     // Kullanıcının abonelik bilgisini güncelle
     const updatedUser = await storage.updateUserSubscription(userId, {
-      subscription_status: "cancelled"
+      subscriptionStatus: "cancelled"
     });
     
     if (!updatedUser) {
@@ -108,17 +108,17 @@ subscriptionRouter.get("/status", requireAuth, async (req: Request, res: Respons
     // Abonelik durumunu kontrol et
     const now = new Date();
     const isActive = 
-      user.subscription_status === "active" && 
-      user.subscription_end_date && 
-      new Date(user.subscription_end_date) > now;
+      user.subscriptionStatus === "active" && 
+      user.subscriptionEndDate && 
+      new Date(user.subscriptionEndDate) > now;
     
     // Abonelik bilgisini dön
     res.status(200).json({
       status: isActive ? "active" : "inactive",
-      plan: user.subscription_plan,
-      startDate: user.subscription_start_date,
-      endDate: user.subscription_end_date,
-      features: getFeaturesByPlan(user.subscription_plan)
+      plan: user.subscriptionPlan,
+      startDate: user.subscriptionStartDate,
+      endDate: user.subscriptionEndDate,
+      features: getFeaturesByPlan(user.subscriptionPlan)
     });
   } catch (error) {
     console.error("Abonelik durumu kontrol hatası:", error);

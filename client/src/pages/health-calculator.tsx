@@ -61,6 +61,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 // Form schema
 const healthFormSchema = z.object({
+  name: z.string().min(1, "İsim gereklidir"),
   weight: z.string().refine((val) => {
     const num = parseFloat(val);
     return !isNaN(num) && num > 0;
@@ -227,8 +228,10 @@ async function updateClient(id: string, data: Omit<Client, "id">): Promise<Clien
 // Client type tanımı
 interface Client {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   phone: string;
   occupation: string;
@@ -236,6 +239,10 @@ interface Client {
   gender: "male" | "female";
   height: number;
   birthDate?: string;
+  birth_date?: string;
+  created_at?: string;
+  registration_date?: string;
+  start_date?: string;
 }
 
 // API response type
@@ -370,10 +377,14 @@ function redistributeMacros({changed, value, protein, carbs, fat}: {changed: 'pr
   return {protein: newProtein, carbs: newCarbs, fat: newFat};
 }
 
+// Helper for disabled input style
+const disabledInputClass = (activeClient: any) => activeClient ? "bg-slate-100 text-gray-900" : "";
+
 export default function HealthCalculator() {
   const form = useForm<HealthFormValues>({
     resolver: zodResolver(healthFormSchema),
     defaultValues: {
+      name: "",
       weight: "",
       height: "170",
       age: "",
@@ -407,6 +418,7 @@ export default function HealthCalculator() {
   const [activeTab, setActiveTab] = React.useState("bmh-calculator");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Fetch clients on component mount
   React.useEffect(() => {
@@ -435,10 +447,16 @@ export default function HealthCalculator() {
       const client = clientList.find(c => c.id === clientId);
       if (client) {
         setActiveClient(client);
+        const firstName = client.firstName || client.first_name || "";
+        const lastName = client.lastName || client.last_name || "";
+        const birthDate = client.birthDate || client.birth_date || "";
+        const registrationDate = client.created_at || client.registration_date || client.start_date || "";
+        const age = birthDate ? calculateAge(birthDate) : "-";
         form.reset({
           ...form.getValues(),
-          height: client.height.toString(),
-          age: client.birthDate ? calculateAge(client.birthDate).toString() : "",
+          name: firstName + ' ' + lastName,
+          height: client.height?.toString() || "",
+          age: age.toString(),
           gender: client.gender,
           activityLevel: "sedentary",
           goal: "maintain",
@@ -531,6 +549,7 @@ export default function HealthCalculator() {
   };
 
   const handleSave = async () => {
+    console.log('handleSave ÇAĞRILDI');
     if (!activeClient || !calculationResult) {
       toast({
         title: "Hata",
@@ -542,15 +561,17 @@ export default function HealthCalculator() {
 
     try {
       const data = form.getValues();
-      await addMeasurement(Number(activeClient.id), {
-        weight: parseFloat(data.weight),
-        height: parseFloat(data.height),
+      const measurement = {
+        weight: String(data.weight),
+        height: String(data.height),
         date: new Date().toISOString(),
-        activityLevel: data.activityLevel,
-        basalMetabolicRate: calculationResult.bmh,
-        totalDailyEnergyExpenditure: calculationResult.tdee,
-        bmi: calculationResult.bmi
-      });
+        activity_level: String(data.activityLevel),
+        basal_metabolic_rate: String(calculationResult.bmh),
+        total_daily_energy_expenditure: String(calculationResult.tdee),
+        bmi: String(calculationResult.bmi)
+      };
+      console.log('Gönderilen ölçüm verisi:', measurement);
+      await addMeasurement(Number(activeClient.id), measurement);
       
       toast({
         title: "Başarılı",
@@ -560,6 +581,9 @@ export default function HealthCalculator() {
       // Refresh client list
       const updatedClients = await getClients();
       setClientList(updatedClients);
+
+      // Danışan detay sayfasına yönlendir
+      navigate(`/clients/${activeClient.id}`);
     } catch (error) {
       toast({
         title: "Hata",
@@ -621,6 +645,7 @@ export default function HealthCalculator() {
                         if (val === 'guest') {
                           setActiveClient(null);
                           form.reset({
+                            name: '',
                             weight: '',
                             height: '',
                             age: '',
@@ -641,9 +666,9 @@ export default function HealthCalculator() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="guest">Misafir / Serbest Kullanıcı</SelectItem>
-                          {clientList.map((client: Client) => (
+                          {clientList.map((client: any) => (
                             <SelectItem key={client.id} value={client.id}>
-                              {client.firstName} {client.lastName}
+                              {(client.firstName || client.first_name || "") + " " + (client.lastName || client.last_name || "")}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -667,6 +692,27 @@ export default function HealthCalculator() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>İsim</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                {...field}
+                                disabled={!!activeClient && activeClient !== null}
+                                className={disabledInputClass(activeClient)}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {activeClient && "İsim danışan bilgilerinden otomatik alınmıştır"}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
                         name="weight"
                         render={({ field }) => (
                           <FormItem>
@@ -684,6 +730,7 @@ export default function HealthCalculator() {
                                     console.log("BMI:", bmi);
                                   }
                                 }}
+                                className={disabledInputClass(activeClient)}
                               />
                             </FormControl>
                             <FormMessage />
@@ -701,7 +748,7 @@ export default function HealthCalculator() {
                                 type="number" 
                                 {...field}
                                 disabled={!!activeClient && activeClient !== null}
-                                className={activeClient ? "bg-slate-100" : ""}
+                                className={disabledInputClass(activeClient)}
                               />
                             </FormControl>
                             <FormDescription>
@@ -722,7 +769,7 @@ export default function HealthCalculator() {
                                 type="number" 
                                 {...field}
                                 disabled={!!activeClient && activeClient !== null}
-                                className={activeClient ? "bg-slate-100" : ""}
+                                className={disabledInputClass(activeClient)}
                               />
                             </FormControl>
                             <FormDescription>
@@ -743,7 +790,7 @@ export default function HealthCalculator() {
                               onValueChange={field.onChange}
                               disabled={!!activeClient && activeClient !== null}
                             >
-                              <SelectTrigger className={activeClient ? "bg-slate-100" : ""}>
+                              <SelectTrigger className={disabledInputClass(activeClient)}>
                                 <SelectValue placeholder="Cinsiyet seçin" />
                               </SelectTrigger>
                               <SelectContent>

@@ -48,11 +48,17 @@ export interface Measurement {
 export interface Appointment {
   id: number;
   clientId: number;
+  userId?: number;
   date: string;
   time: string;
   duration: number;
+  title: string;
   type: string;
+  status: 'scheduled' | 'completed' | 'canceled';
+  location?: string;
   notes?: string;
+  startTime?: string | Date;
+  endTime?: string | Date;
   createdAt: string;
   updatedAt: string;
 }

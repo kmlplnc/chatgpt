@@ -4,11 +4,11 @@ import { useToast } from './use-toast';
 
 // Kullanıcı tipi tanımı
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: string;
-  name?: string;
+  fullName?: string;
   subscriptionStatus?: string;
   subscriptionPlan?: string;
   subscriptionStartDate?: Date | null;
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const premiumPlans = ['basic', 'premium', 'pro'];
     
     // Abonelik aktif mi ve premium plan mı?
-    return (
+    return Boolean(
       user.subscriptionStatus === 'active' && 
       user.subscriptionEndDate && 
       new Date(user.subscriptionEndDate) > new Date() && 

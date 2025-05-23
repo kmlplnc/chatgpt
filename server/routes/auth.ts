@@ -7,6 +7,7 @@ import db from "../db";
 import { fromZodError } from "zod-validation-error";
 import { hashPassword } from "../utils/password-utils";
 import bcrypt from "bcrypt";
+import { randomBytes } from "crypto";
 
 export const authRouter = Router();
 
@@ -50,38 +51,21 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid username or password" });
     }
     
-    console.log("Password verified, creating session");
-    
-    // Set session
-    try {
-      req.session.user = {
-        id: user.id.toString(),
-        username: user.username,
-        email: user.email,
-        role: user.role
-      };
-      await new Promise<void>((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-    } catch (sessionError) {
-      console.error("Session creation error:", sessionError);
-      return res.status(500).json({ message: "Failed to create session" });
-    }
-    
+    console.log("Password verified, setting session");
+    // Set express-session user
+    req.session.user = {
+      id: user.id,
+      username: user.username || '',
+      email: user.email || '',
+      role: user.role || 'user'
+    };
     // Remove password from response
     const { password: _, ...safeUser } = user;
     console.log("Login successful for user:", username);
     res.json(safeUser);
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "An error occurred during login" });
   }
 });
 
@@ -91,7 +75,7 @@ authRouter.post("/register", async (req: Request, res: Response) => {
     console.log("Registration request received:", req.body);
     
     // Hash password
-    const hashedPassword = await hashPassword(req.body.password);
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
     console.log("Password hashed successfully");
     
     // Process user data
@@ -127,30 +111,8 @@ authRouter.post("/register", async (req: Request, res: Response) => {
       console.log("Attempting to create user with data:", { ...userData, password: '[REDACTED]' });
       const user = await storage.createUser(userData);
       console.log("User created successfully:", { ...user, password: '[REDACTED]' });
-      
-      // Create session
-      req.session.user = {
-        id: user.id.toString(),
-        username: user.username,
-        email: user.email,
-        role: user.role
-      };
-      
-      // Save session
-      await new Promise<void>((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-      
       // Remove password from response
       const { password: _, ...safeUser } = user;
-      
       res.status(201).json(safeUser);
     } catch (createError) {
       console.error("Error creating user:", createError);
@@ -174,7 +136,7 @@ authRouter.post("/register", async (req: Request, res: Response) => {
       });
     }
     res.status(500).json({ 
-      message: "Internal server error",
+      message: "An error occurred during registration",
       error: error instanceof Error ? error.message : "Unknown error"
     });
   }
@@ -208,6 +170,30 @@ authRouter.get("/me", async (req: Request, res: Response) => {
     res.json(userWithoutPassword);
   } catch (error) {
     console.error("Me endpoint hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
+  }
+});
+
+// Session bilgisi alma
+authRouter.get("/session", async (req: Request, res: Response) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Oturum açılmamış" });
+    }
+
+    const user = await storage.getUser(req.session.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+
+    // Kullanıcı bilgilerini dön (şifre olmadan)
+    const { password: _, ...userWithoutPassword } = user;
+    res.json({
+      user: userWithoutPassword,
+      sessionToken: req.session.id
+    });
+  } catch (error) {
+    console.error("Session endpoint hatası:", error);
     res.status(500).json({ message: "Sunucu hatası" });
   }
 });

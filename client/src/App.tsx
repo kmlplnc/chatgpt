@@ -24,6 +24,7 @@ import ClientPortalDashboard from "@/pages/client-portal/dashboard";
 import ClientPortalMessages from "@/pages/client-portal/messages";
 import { AuthProvider } from "@/hooks/use-auth";
 import SettingsPage from "@/pages/settings";
+import { ErrorBoundary } from '@/components/error-boundary';
 
 function Router() {
   const [location] = useLocation();
@@ -80,14 +81,27 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <div className="min-h-screen bg-background">
+              <main>
+                <div className="flex min-h-screen">
+                  <div className="flex-1">
+                    <Router>
+                      <Switch>
+                        // ... existing routes ...
+                      </Switch>
+                    </Router>
+                  </div>
+                </div>
+              </main>
+            </div>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

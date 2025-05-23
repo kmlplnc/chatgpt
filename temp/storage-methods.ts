@@ -5,7 +5,7 @@ async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
   const [client] = await db
     .select()
     .from(clients)
-    .where(eq(clients.accessCode, accessCode));
+    .where(eq(clients.access_code, accessCode));
   
   return client;
 }
@@ -35,7 +35,7 @@ async generateClientAccessCode(clientId: number): Promise<string> {
   // Kodu danışan kaydına ekle
   await db
     .update(clients)
-    .set({ accessCode: code })
+    .set({ access_code: code })
     .where(eq(clients.id, clientId));
   
   return code;
@@ -46,7 +46,7 @@ async updateClientAccessCode(clientId: number, accessCode: string): Promise<bool
   try {
     await db
       .update(clients)
-      .set({ accessCode: accessCode })
+      .set({ access_code: accessCode })
       .where(eq(clients.id, clientId));
     
     return true;

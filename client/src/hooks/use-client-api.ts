@@ -32,6 +32,7 @@ export function useClientApi(clientId?: string | number) {
     },
 
     getMessages: async () => {
+      console.log("getMessages clientId:", clientId);
       const response = await apiRequest("GET", `/api/messages?clientId=${clientId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch messages");
@@ -62,22 +63,30 @@ export function useClientApi(clientId?: string | number) {
       }
     },
 
-    createAppointment: async (data: Partial<Appointment>) => {
-      const response = await apiRequest("POST", `/api/appointments`, {
+    createAppointment: async (data: Partial<Appointment> & { userId?: string | number }) => {
+      const payload: any = {
         ...data,
-        clientId: Number(clientId)
-      });
+        clientId: Number(clientId),
+      };
+      if (data.userId !== undefined) {
+        payload.userId = String(data.userId);
+      }
+      const response = await apiRequest("POST", `/api/appointments`, payload);
       if (!response.ok) {
         throw new Error("Failed to create appointment");
       }
       return response.json();
     },
 
-    updateAppointment: async (id: number, data: Partial<Appointment>) => {
-      const response = await apiRequest("PATCH", `/api/appointments/${id}`, {
+    updateAppointment: async (id: number, data: Partial<Appointment> & { userId?: string | number }) => {
+      const payload: any = {
         ...data,
-        clientId: Number(clientId)
-      });
+        clientId: Number(clientId),
+      };
+      if (data.userId !== undefined) {
+        payload.userId = String(data.userId);
+      }
+      const response = await apiRequest("PATCH", `/api/appointments/${id}`, payload);
       if (!response.ok) {
         throw new Error("Failed to update appointment");
       }

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/query-client";
 import { 
   Calendar, 
   MessageSquare, 
@@ -117,6 +117,46 @@ import {
   Cell,
   ReferenceLine,
 } from "recharts";
+
+import { useSession } from "@/hooks/use-session";
+import { Appointment } from "@/types/client";
+import { ErrorBoundary } from '@/components/error-boundary';
+
+// Client interface definition
+interface Client {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  gender: 'male' | 'female' | 'other';
+  birth_date?: string;
+  height?: string;
+  occupation?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  medications?: string;
+  healthNotes?: string;
+  clientVisibleNotes?: string;
+  client_visible_notes?: string[];
+  access_code?: string;
+  created_at: string;
+}
+
+interface Measurement {
+  id: number;
+  date: string;
+  weight: string;
+  height: string;
+  waistCircumference?: string;
+  hipCircumference?: string;
+  bodyFatPercentage?: string;
+  activityLevel: string;
+  notes?: string;
+  bmi: string;
+  basalMetabolicRate: number;
+  totalDailyEnergyExpenditure: number;
+}
 
 // Ölçüm şeması
 const measurementSchema = z.object({
@@ -236,190 +276,205 @@ const getBodyFatColor = (bodyFat: number, gender: string) => {
 // Randevu form şeması
 const appointmentFormSchema = z.object({
   title: z.string().min(1, "Başlık zorunludur"),
-  date: z.string().min(1, "Tarih zorunludur"),
+  date: z.string().min(1, "Tarih zorunludur").refine((date) => {
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate >= today;
+  }, "Geçmiş bir tarih seçilemez"),
   time: z.string().min(1, "Saat zorunludur"),
   status: z.enum(["scheduled", "completed", "canceled"]),
   location: z.string().optional(),
   notes: z.string().optional(),
-  duration: z.number().min(15).max(240)
+  duration: z.number().min(15).max(240),
+  type: z.string().min(1, "Randevu tipi zorunludur")
 });
 
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
 
-export default function ClientDetail() {
-  const { id } = useParams<{ id: string }>();
-  if (!id) {
-    return <div>Danışan ID'si bulunamadı</div>;
+const generateTimeSlots = () => {
+  const slots = [];
+  for (let hour = 9; hour < 18; hour++) {
+    slots.push(`${hour.toString().padStart(2, "0")}:00`);
+    slots.push(`${hour.toString().padStart(2, "0")}:30`);
   }
+  slots.push("18:00");
+  return slots;
+};
 
-  // API functions
-  const getClient = async () => {
-    const response = await apiRequest("GET", `/api/clients/${id}`);
-    if (!response.ok) {
-      throw new Error("Danışan bilgileri yüklenemedi");
-    }
-    return response.json();
+// API Functions
+const getClient = async (id: string): Promise<Client> => {
+  const response = await apiRequest(`/api/clients/${id}`);
+  if (!response.ok) throw new Error("Danışan bilgileri yüklenemedi");
+  return response.data as Client;
+};
+
+const getMeasurements = async (id: string): Promise<Measurement[]> => {
+  const response = await apiRequest(`/api/clients/${id}/measurements`);
+  if (!response.ok) throw new Error("Ölçüm verileri yüklenemedi");
+  return response.data as Measurement[];
+};
+
+const createMeasurement = async (id: string, data: any) => {
+  const response = await apiRequest(`/api/clients/${id}/measurements`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Ölçüm kaydedilemedi");
+  return response.data;
+};
+
+const updateMeasurement = async (id: string, measurementId: number, data: any) => {
+  const response = await apiRequest(`/api/clients/${id}/measurements/${measurementId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Ölçüm güncellenemedi");
+  return response.data;
+};
+
+const deleteClient = async (id: string) => {
+  const response = await apiRequest(`/api/clients/${id}`, { method: "DELETE" });
+  if (!response.ok) throw new Error("Danışan silinemedi");
+  return true;
+};
+
+const deleteMeasurement = async (id: string, measurementId: number) => {
+  const response = await apiRequest(`/api/clients/${id}/measurements/${measurementId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error("Ölçüm silinemedi");
+  return response.data;
+};
+
+const getAppointments = async (id: string): Promise<Appointment[]> => {
+  const response = await apiRequest(`/api/appointments?clientId=${id}`);
+  if (!response.ok) throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.error}`);
+  return response.data as Appointment[];
+};
+
+const createAppointment = async (id: string, data: any) => {
+  const appointmentDate = new Date(data.date);
+  const [hours, minutes] = data.time.split(":").map(Number);
+  const startTime = new Date(appointmentDate);
+  startTime.setHours(hours, minutes, 0, 0);
+  const endTime = new Date(startTime);
+  endTime.setMinutes(endTime.getMinutes() + 30); // Süreyi 30 dk yap
+  const appointmentData = {
+    ...data,
+    clientId: Number(id),
+    userId: data.userId ? Number(data.userId) : undefined,
+    startTime,
+    endTime,
+    duration: Number(data.duration) || 30, // number olarak gönder
+    time: data.time,
+    type: data.type,
   };
+  const response = await apiRequest(`/api/appointments`, {
+    method: "POST",
+    body: JSON.stringify(appointmentData),
+  });
+  console.log("API RESPONSE:", response.data);
+  if (!response.ok) throw new Error("Randevu oluşturulamadı");
+  return response.data;
+};
 
-  const getMeasurements = async () => {
-    const response = await apiRequest("GET", `/api/clients/${id}/measurements`);
-    if (!response.ok) {
-      throw new Error("Ölçüm verileri yüklenemedi");
-    }
-    return response.json();
+const updateAppointment = async (appointmentId: number, data: any) => {
+  const appointmentDate = new Date(data.date);
+  const [hours, minutes] = data.time.split(":").map(Number);
+  const startTime = new Date(appointmentDate);
+  startTime.setHours(hours, minutes, 0, 0);
+  const endTime = new Date(startTime);
+  endTime.setMinutes(endTime.getMinutes() + 30); // Süreyi 30 dk yap
+  const appointmentData = {
+    ...data,
+    startTime,
+    endTime,
+    duration: 30, // Her zaman 30
+    time: data.time,
+    type: data.type,
   };
+  const response = await apiRequest(`/api/appointments/${appointmentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(appointmentData),
+  });
+  if (!response.ok) throw new Error("Randevu güncellenemedi");
+  return response.data;
+};
 
-  const getAppointments = async () => {
-    const response = await apiRequest("GET", `/api/appointments?clientId=${id}`);
-    if (!response.ok) {
-      throw new Error(`Randevular yüklenirken bir hata oluştu: ${response.status}`);
-    }
-    return response.json();
-  };
+const deleteAppointment = async (appointmentId: number) => {
+  const response = await apiRequest(`/api/appointments/${appointmentId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error("Randevu silinemedi");
+  return response.data;
+};
 
-  const getMessages = async () => {
-    const response = await apiRequest("GET", `/api/messages?clientId=${id}`);
-    if (!response.ok) {
-      throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.status}`);
-    }
-    return response.json();
-  };
+const getMessages = async (id: string) => {
+  const response = await apiRequest(`/api/messages?clientId=${id}`);
+  if (!response.ok) throw new Error(`Mesajlar yüklenirken bir hata oluştu: ${response.error}`);
+  return response.data;
+};
 
-  const createMeasurement = async (data: any) => {
-    const response = await apiRequest("POST", `/api/clients/${id}/measurements`, data);
-    if (!response.ok) {
-      throw new Error("Ölçüm eklenemedi");
-    }
-    return response.json();
-  };
+const sendMessage = async (id: string, content: string) => {
+  const messageData = { content, clientId: Number(id), fromClient: false };
+  const response = await apiRequest(`/api/messages`, {
+    method: "POST",
+    body: JSON.stringify(messageData),
+  });
+  if (!response.ok) throw new Error("Mesaj gönderilemedi");
+  return response.data;
+};
 
-  const updateMeasurement = async (measurementId: number, data: any) => {
-    const response = await apiRequest("PUT", `/api/measurements/${measurementId}`, data);
-    if (!response.ok) {
-      throw new Error("Ölçüm güncellenemedi");
-    }
-    return response.json();
-  };
+const markMessagesAsRead = async (id: string, messageIds: number[]) => {
+  if (messageIds && messageIds.length > 0) {
+    const response = await apiRequest(`/api/messages/mark-read`, {
+      method: "PATCH",
+      body: JSON.stringify({ messageIds }),
+    });
+    if (!response.ok) throw new Error("Mesajlar okundu olarak işaretlenemedi");
+    return response.data;
+  }
+  const response = await apiRequest(`/api/messages/read?clientId=${id}`, { method: "PATCH" });
+  if (!response.ok) throw new Error("Mesajlar okundu olarak işaretlenemedi");
+  return response.data;
+};
 
-  const deleteMeasurement = async (measurementId: number) => {
-    const response = await apiRequest("DELETE", `/api/clients/${id}/measurements/${measurementId}`);
-    if (!response.ok) {
-      throw new Error("Ölçüm silinemedi");
-    }
-    return response.json();
-  };
+const generateAccessCode = async (id: string) => {
+  const response = await apiRequest(`/api/clients/${id}/access-code`, { method: "POST" });
+  if (!response.ok) throw new Error("Erişim kodu oluşturulamadı");
+  return response.data;
+};
 
-  const deleteClient = async () => {
-    const response = await apiRequest("DELETE", `/api/clients/${id}`);
-    if (!response.ok) {
-      throw new Error("Danışan silinemedi");
-    }
-    return true;
-  };
+export default function ClientDetailWrapper() {
+  return <ClientDetail />;
+}
 
-  const createAppointment = async (data: any) => {
-    const appointmentDate = new Date(data.date);
-    const [hours, minutes] = data.time.split(":").map(Number);
-    const startTime = new Date(appointmentDate);
-    startTime.setHours(hours, minutes, 0, 0);
-    const duration = data.duration || 60;
-    const endTime = new Date(startTime);
-    endTime.setMinutes(endTime.getMinutes() + duration);
-    const appointmentData = {
-      ...data,
-      clientId: Number(id),
-      userId: data.userId || undefined,
-      startTime,
-      endTime,
-      duration: 30,
-      time: data.time,
-    };
-    const response = await apiRequest("POST", "/api/appointments", appointmentData);
-    if (!response.ok) {
-      throw new Error("Randevu oluşturulamadı");
-    }
-    return response.json();
-  };
-
-  const updateAppointment = async (appointmentId: number, data: any) => {
-    const appointmentDate = new Date(data.date);
-    const [hours, minutes] = data.time.split(":").map(Number);
-    const startTime = new Date(appointmentDate);
-    startTime.setHours(hours, minutes, 0, 0);
-    const endTime = new Date(startTime);
-    endTime.setHours(endTime.getHours() + 1);
-    const appointmentData = {
-      ...data,
-      startTime,
-      endTime,
-      duration: 30,
-      time: data.time,
-    };
-    const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}`, appointmentData);
-    if (!response.ok) {
-      throw new Error("Randevu güncellenemedi");
-    }
-    return response.json();
-  };
-
-  const deleteAppointment = async (appointmentId: number) => {
-    const response = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
-    if (!response.ok) {
-      throw new Error("Randevu silinemedi");
-    }
-    return response.json();
-  };
-
-  const sendMessage = async (content: string) => {
-    const messageData = { content, clientId: Number(id), fromClient: false };
-    const response = await apiRequest("POST", `/api/messages`, messageData);
-    if (!response.ok) {
-      throw new Error("Mesaj gönderilemedi");
-    }
-    return response.json();
-  };
-
-  const markMessagesAsRead = async (messageIds: number[]) => {
-    if (messageIds && messageIds.length > 0) {
-      const response = await apiRequest("PATCH", "/api/messages/mark-read", { messageIds });
-      if (!response.ok) {
-        throw new Error("Mesajlar okundu olarak işaretlenemedi");
-      }
-      return response.json();
-    }
-    const response = await apiRequest("PATCH", `/api/messages/read?clientId=${id}`);
-    if (!response.ok) {
-      throw new Error("Mesajlar okundu olarak işaretlenemedi");
-    }
-    return response.json();
-  };
-
-  const generateAccessCode = async () => {
-    const response = await apiRequest("POST", `/api/clients/${id}/access-code`);
-    if (!response.ok) {
-      throw new Error("Erişim kodu oluşturulamadı");
-    }
-    return response.json();
-  };
-
-  // Tüm hook'lar component fonksiyonunun en başında, koşulsuz şekilde çağrılmalı
+function ClientDetail() {
+  console.log('ClientDetail render');
   const [_, setLocation] = useLocation();
+  const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments">('measurements');
-  const [clientNotes, setClientNotes] = useState<string>();
-  const [clientPublicNotes, setClientPublicNotes] = useState<string>();
-  const [openNewMeasurementDialog, setOpenNewMeasurementDialog] = useState(false);
-  const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
-  const [selectedMeasurement, setSelectedMeasurement] = useState<any>(null);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [openNewAppointmentDialog, setOpenNewAppointmentDialog] = useState(false);
-  const [openEditAppointmentDialog, setOpenEditAppointmentDialog] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [newMessage, setNewMessage] = useState("");
-  const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<string>("");
+  const { session } = useSession();
+  const clientId = parseInt(id as string);
 
-  // useForm hook'ları
+  // All useState hooks
+  const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments">('measurements');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMeasurementDialogOpen, setIsMeasurementDialogOpen] = useState(false);
+  const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = useState(false);
+  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [isAccessCodeDialogOpen, setIsAccessCodeDialogOpen] = useState(false);
+  const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | undefined>(undefined);
+  const [deletingAppointment, setDeletingAppointment] = useState<Appointment | undefined>(undefined);
+  const [selectedMeasurement, setSelectedMeasurement] = useState<Measurement | null>(null);
+  const [messageContent, setMessageContent] = useState("");
+  const [accessCode, setAccessCode] = useState<string | null>(null);
+  const [newNote, setNewNote] = useState("");
+  const [clientPublicNotes, setClientPublicNotes] = useState("");
+  const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<string>("");
+  const [selectedAppointment, setSelectedAppointment] = useState<{ date: string } | null>(null);
+  const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
+
+  // All useForm hooks
   const form = useForm<z.infer<typeof measurementSchema>>({
     resolver: zodResolver(measurementSchema),
     defaultValues: {
@@ -434,6 +489,7 @@ export default function ClientDetail() {
       time: "",
     },
   });
+
   const editForm = useForm<MeasurementFormData>({
     resolver: zodResolver(measurementSchema),
     defaultValues: {
@@ -447,101 +503,56 @@ export default function ClientDetail() {
       notes: "",
     },
   });
+
   const appointmentForm = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
     defaultValues: {
-      title: "",
       date: new Date().toISOString().split('T')[0],
       time: "",
-      status: "scheduled",
-      location: "",
+      duration: 30,
       notes: "",
-      duration: 60
+      type: "kontrol",
+      status: "scheduled"
     },
   });
 
-  // 1. Yeni bir editAppointmentForm oluştur
-  const editAppointmentForm = useForm<AppointmentFormValues>({
-    resolver: zodResolver(appointmentFormSchema),
-    defaultValues: {
-      title: "",
-      date: "",
-      time: "",
-      status: "scheduled",
-      location: "",
-      notes: "",
-      duration: 60
-    }
-  });
-
-  // useQuery hook'ları
-  const { 
-    data: client, 
-    isLoading: isClientLoading, 
-    error: clientError 
-  } = useQuery({
+  // All useQuery hooks
+  const { data: client, isLoading: isLoadingClient } = useQuery({
     queryKey: [`/api/clients/${id}`],
-    queryFn: getClient,
+    queryFn: () => getClient(id as string),
     retry: 1,
-  });
-  const { 
-    data: measurements, 
-    isLoading: isMeasurementsLoading, 
-    error: measurementsError 
-  } = useQuery({
-    queryKey: [`/api/clients/${id}/measurements`],
-    queryFn: getMeasurements,
-    retry: 1,
-  });
-  const {
-    data: appointments,
-    isLoading: isAppointmentsLoading,
-    error: appointmentsError
-  } = useQuery({
-    queryKey: [`/api/appointments`, id],
-    queryFn: getAppointments,
-    retry: 1,
-  });
-  const {
-    data: messages,
-    isLoading: isMessagesLoading,
-    error: messagesError
-  } = useQuery({
-    queryKey: [`/api/messages`, id],
-    queryFn: getMessages,
-    retry: 1,
+    enabled: !!id,
   });
 
-  // useMutation hook'ları
+  const { data: measurements, isLoading: isLoadingMeasurements } = useQuery({
+    queryKey: [`/api/clients/${id}/measurements`],
+    queryFn: () => getMeasurements(id as string),
+    retry: 1,
+    enabled: !!id,
+  });
+
+  const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
+    queryKey: [`/api/appointments`, id],
+    queryFn: () => getAppointments(id as string),
+    retry: 1,
+    enabled: !!id,
+  });
+
+  // All useMutation hooks
   const createMeasurementMutation = useMutation({
-    mutationFn: createMeasurement,
+    mutationFn: (data: any) => createMeasurement(id as string, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      setIsMeasurementDialogOpen(false);
       toast({
         title: "Başarılı",
-        description: "Yeni ölçüm kaydedildi",
-      });
-      setOpenNewMeasurementDialog(false);
-      form.reset({
-        date: new Date().toISOString().split('T')[0],
-        weight: "",
-        height: "",
-        activityLevel: "light",
-        notes: "",
-        time: "",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
+        description: "Ölçüm başarıyla eklendi.",
       });
     },
   });
 
   const updateMeasurementMutation = useMutation({
-    mutationFn: (data: any) => updateMeasurement(selectedMeasurement.id, data),
+    mutationFn: (data: any) => updateMeasurement(id as string, selectedMeasurement?.id as number, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
       toast({
@@ -560,123 +571,81 @@ export default function ClientDetail() {
   });
 
   const deleteClientMutation = useMutation({
-    mutationFn: deleteClient,
+    mutationFn: () => deleteClient(id as string),
     onSuccess: () => {
       toast({
         title: "Başarılı",
-        description: "Danışan başarıyla silindi",
+        description: "Müşteri başarıyla silindi.",
       });
-      setLocation('/clients');
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+      setLocation("/clients");
     },
   });
 
   const deleteMeasurementMutation = useMutation({
-    mutationFn: (measurementId: number) => deleteMeasurement(measurementId),
+    mutationFn: (measurementId: number) => deleteMeasurement(id as string, measurementId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
       toast({
         title: "Başarılı",
-        description: "Ölçüm silindi",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
+        description: "Ölçüm başarıyla silindi.",
       });
     },
   });
-  
-  const createAppointmentMutation = useMutation({
-    mutationFn: createAppointment,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
-      toast({
-        title: "Başarılı",
-        description: "Yeni randevu oluşturuldu",
-      });
-      setOpenNewAppointmentDialog(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-  
-  const updateAppointmentMutation = useMutation({
-    mutationFn: async (data: AppointmentFormValues & { id: string }) => {
-      const { id, ...appointmentData } = data;
-      const response = await fetch(`/api/appointments/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(appointmentData),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Randevu güncellenirken bir hata oluştu');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Başarılı",
-        description: "Randevu başarıyla güncellendi.",
-      });
-      setOpenEditAppointmentDialog(false);
-      setSelectedAppointment(null);
-      // Randevuları yeniden yükle
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Hata",
-        description: error.message || "Randevu güncellenirken bir hata oluştu.",
-        variant: "destructive",
-      });
-    },
-  });
-  
-  const deleteAppointmentMutation = useMutation({
-    mutationFn: (appointmentId: number) => deleteAppointment(appointmentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
-      toast({
-        title: "Başarılı",
-        description: "Randevu silindi",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-  
+
   const sendMessageMutation = useMutation({
-    mutationFn: sendMessage,
+    mutationFn: (content: string) => sendMessage(id as string, content),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/messages`, id] });
       toast({
         title: "Başarılı",
-        description: "Mesaj gönderildi",
+        description: "Mesaj başarıyla gönderildi.",
       });
-      setNewMessage("");
+      setMessageContent("");
+    },
+  });
+
+  const markMessagesAsReadMutation = useMutation({
+    mutationFn: (messageIds: number[]) => markMessagesAsRead(id as string, messageIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/messages`, id] });
+    },
+  });
+
+  const appointmentMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (data.action === 'delete') {
+        return deleteAppointment(data.appointmentId);
+      }
+      if (data.action === 'update') {
+        return updateAppointment(data.appointmentId, data);
+      }
+      return createAppointment(id as string, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments`, id] });
+      setIsAppointmentDialogOpen(false);
+      setEditingAppointment(undefined);
+      toast({
+        title: "Başarılı",
+        description: "Randevu işlemi başarıyla tamamlandı.",
+      });
+    },
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: (note: any) => {
+      return apiRequest(`/api/clients/${id}/notes`, {
+        method: "POST",
+        body: JSON.stringify(note),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+      setNewNote("");
+      toast({
+        title: "Başarılı",
+        description: "Not başarıyla eklendi.",
+      });
     },
     onError: (error: any) => {
       toast({
@@ -686,66 +655,72 @@ export default function ClientDetail() {
       });
     },
   });
-  
-  const markMessagesAsReadMutation = useMutation({
-    mutationFn: markMessagesAsRead,
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: number) => {
+      const response = await apiRequest(`/api/clients/${id}/notes/${noteId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(response.error || "Not silinemedi");
+      return response.data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/messages`, id] });
+      queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      toast({
+        title: "Başarılı",
+        description: "Not silindi",
+      });
     },
     onError: (error: any) => {
-      console.error("Mesajlar okundu olarak işaretlenemedi:", error);
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
-  // Form İşlemleri
-  const onSubmit = (data: MeasurementFormData) => {
-    const bmi = calculateBmiFromString(data.weight, data.height);
-    const age = calculateAge(client?.birthDate) || 0;
-    const bmr = calculateBmrFromString(data.weight, data.height, age, client?.gender || "female");
-    const tdee = calculateTdeeFromBmr(bmr, data.activityLevel);
+  // All useEffect hooks
+  useEffect(() => {
+    if (editingAppointment) {
+      appointmentForm.reset({
+        date: editingAppointment.date,
+        time: editingAppointment.time,
+        duration: editingAppointment.duration,
+        notes: editingAppointment.notes,
+        type: editingAppointment.type,
+        status: editingAppointment.status
+      });
+    }
+  }, [editingAppointment, appointmentForm]);
 
-    const measurementData = {
-      date: data.date,
-      weight: data.weight,
-      height: data.height,
-      waistCircumference: data.waistCircumference,
-      hipCircumference: data.hipCircumference,
-      bodyFatPercentage: data.bodyFatPercentage,
-      activityLevel: data.activityLevel,
-      notes: data.notes,
-      bmi,
-      basalMetabolicRate: bmr,
-      totalDailyEnergyExpenditure: tdee,
-    };
+  useEffect(() => {
+    if (editingMeasurement) {
+      editForm.reset({
+        date: editingMeasurement.date,
+        weight: editingMeasurement.weight,
+        height: editingMeasurement.height,
+        waistCircumference: editingMeasurement.waistCircumference,
+        hipCircumference: editingMeasurement.hipCircumference,
+        bodyFatPercentage: editingMeasurement.bodyFatPercentage,
+        activityLevel: editingMeasurement.activityLevel,
+        notes: editingMeasurement.notes,
+      });
+    }
+  }, [editingMeasurement, editForm]);
 
-    createMeasurementMutation.mutate(measurementData);
-  };
+  useEffect(() => {
+    if (client && Array.isArray(client.client_visible_notes) && typeof client.client_visible_notes[0] === 'string') {
+      const migratedNotes = client.client_visible_notes.map((n: any) => ({ content: n, created_at: new Date().toISOString() }));
+      apiRequest(`/api/clients/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ client_visible_notes: migratedNotes })
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+      });
+    }
+  }, [client, id, queryClient]);
 
-  const onEditSubmit = (data: MeasurementFormData) => {
-    const bmi = calculateBmiFromString(data.weight, data.height);
-    const age = calculateAge(client?.birthDate) || 0;
-    const bmr = calculateBmrFromString(data.weight, data.height, age, client?.gender || "female");
-    const tdee = calculateTdeeFromBmr(bmr, data.activityLevel);
-
-    const measurementData = {
-      id: selectedMeasurement?.id || 0,
-      date: data.date,
-      weight: data.weight,
-      height: data.height,
-      waistCircumference: data.waistCircumference,
-      hipCircumference: data.hipCircumference,
-      bodyFatPercentage: data.bodyFatPercentage,
-      activityLevel: data.activityLevel,
-      notes: data.notes,
-      bmi,
-      basalMetabolicRate: bmr,
-      totalDailyEnergyExpenditure: tdee,
-    };
-
-    updateMeasurementMutation.mutate(measurementData);
-  };
-
-  const handleEditMeasurement = (measurement: any) => {
+  // All useCallback hooks
+  const handleEditMeasurement = useCallback((measurement: Measurement) => {
     setSelectedMeasurement(measurement);
     editForm.reset({
       date: measurement.date,
@@ -758,16 +733,106 @@ export default function ClientDetail() {
       notes: measurement.notes || "",
     });
     setOpenEditMeasurementDialog(true);
-  };
+  }, [editForm]);
 
-  const handleDeleteMeasurement = (measurementId: number) => {
+  const handleDeleteMeasurement = useCallback((measurementId: number) => {
     if (window.confirm("Bu ölçümü silmek istediğinizden emin misiniz?")) {
       deleteMeasurementMutation.mutate(measurementId);
     }
+  }, [deleteMeasurementMutation]);
+
+  const handleEditAppointment = useCallback((appointment: any) => {
+    setEditingAppointment({
+      ...appointment,
+      id: appointment.id,
+      date: appointment.date || (appointment.startTime ? appointment.startTime.split('T')[0] : ""),
+      time: appointment.time || (appointment.startTime ? appointment.startTime.split('T')[1]?.substring(0, 5) : ""),
+      duration: appointment.duration || 60,
+      status: appointment.status || "scheduled",
+      title: appointment.title || "",
+      location: appointment.location || "",
+      notes: appointment.notes || ""
+    });
+    setIsAppointmentDialogOpen(true);
+  }, []);
+
+  const handleDeleteAppointment = useCallback(async () => {
+    if (!deletingAppointment) return;
+    try {
+      await appointmentMutation.mutateAsync({
+        action: 'delete',
+        appointmentId: deletingAppointment.id
+      });
+      setDeletingAppointment(undefined);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Randevu silinemedi",
+        variant: "destructive",
+      });
+    }
+  }, [deletingAppointment, appointmentMutation]);
+
+  const handleAddNote = useCallback(async () => {
+    if (!newNote.trim()) return;
+    const now = new Date();
+    const noteObj = { content: newNote, created_at: now.toISOString() };
+    let newNotes = [];
+    if (Array.isArray(client?.client_visible_notes)) {
+      if (typeof client.client_visible_notes[0] === 'string') {
+        newNotes = [...client.client_visible_notes.map((n: any) => ({ content: n })), noteObj];
+      } else {
+        newNotes = [...client.client_visible_notes, noteObj];
+      }
+    } else {
+      newNotes = [noteObj];
+    }
+    try {
+      await apiRequest(`/api/clients/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ client_visible_notes: newNotes })
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+      setNewNote("");
+      toast({
+        title: "Not eklendi",
+        description: "Not başarıyla eklendi.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Not eklenemedi",
+        variant: "destructive",
+      });
+    }
+  }, [newNote, client, id, queryClient, toast]);
+
+  const onEditSubmit = (data: MeasurementFormData) => {
+    const measurementData = {
+      ...data,
+      bmi: calculateBmiFromString(data.weight, data.height),
+      basalMetabolicRate: calculateBmrFromString(
+        data.weight,
+        data.height,
+        clientAge || 0,
+        client?.gender || "male"
+      ),
+      totalDailyEnergyExpenditure: calculateTdeeFromBmr(
+        calculateBmrFromString(
+          data.weight,
+          data.height,
+          clientAge || 0,
+          client?.gender || "male"
+        ),
+        data.activityLevel
+      ),
+    };
+
+    updateMeasurementMutation.mutate(measurementData);
   };
 
   // Grafik Verileri
-  const chartData = measurements?.map((measurement: any) => ({
+  const chartData = Array.isArray(measurements) ? measurements.map((measurement: any) => ({
     date: format(new Date(measurement.date), "dd/MM/yy"),
     weight: parseFloat(measurement.weight),
     bmi: parseFloat(measurement.bmi),
@@ -780,18 +845,13 @@ export default function ClientDetail() {
     const dateA = new Date(a.date.split('/').reverse().join('/'));
     const dateB = new Date(b.date.split('/').reverse().join('/'));
     return dateA.getTime() - dateB.getTime();
-  }).reverse();  // X eksenini ters çevir
+  }).reverse() : [];
 
-  // Ölçümleri tarih sırasına göre sırala (kopyasını alarak orjinal diziyi değiştirmiyoruz)
-  const sortedMeasurements = measurements && measurements.length > 0
+  const sortedMeasurements = Array.isArray(measurements) && measurements.length > 0
     ? [...measurements].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
     : [];
 
-  // İlk ölçüm (tarih sırasına göre en eski)
   const firstMeasurement = sortedMeasurements.length > 0 ? sortedMeasurements[0] : null;
-
-  // Son ölçüm (tarih sırasına göre en yeni)
-  // Sadece bir ölçüm varsa ilk ve son aynı olacak, karşılaştırma yapılmayacak
   const lastMeasurement = sortedMeasurements.length > 1 ? sortedMeasurements[sortedMeasurements.length - 1] : firstMeasurement;
 
   // Değişim hesaplama
@@ -908,21 +968,11 @@ export default function ClientDetail() {
     );
   }
 
-  if (isClientLoading) {
+  // Early returns after all hooks
+  if (isLoadingClient) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (clientError) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-destructive text-lg">Hata: {(clientError as Error).message}</p>
-        <Button onClick={() => setLocation("/clients")} className="mt-4">
-          <ChevronLeft className="mr-2 h-4 w-4" /> Danışanlara Dön
-        </Button>
       </div>
     );
   }
@@ -940,7 +990,19 @@ export default function ClientDetail() {
 
   // Saat select'inden önce, JSX'in üstünde:
   const bookedTimes = appointments && selectedAppointmentDate
-    ? appointments.filter((a: any) => a.date === selectedAppointmentDate).map((a: any) => a.time)
+    ? appointments.filter((a: any) => {
+        const dateStr = a.date || (a.startTime ? a.startTime.split('T')[0] : "");
+        return dateStr === selectedAppointmentDate;
+      }).map((a: any) => {
+        if (a.time) return a.time;
+        if (a.startTime) {
+          const d = new Date(a.startTime);
+          const hour = d.getHours().toString().padStart(2, '0');
+          const min = d.getMinutes().toString().padStart(2, '0');
+          return `${hour}:${min}`;
+        }
+        return "";
+      })
     : [];
 
   // --- YENİ RANDEVU DIALOGU ---
@@ -956,49 +1018,125 @@ export default function ClientDetail() {
     return `${hour.toString().padStart(2, '0')}:${minute}`;
   });
 
-  // Randevu düzenleme dialogunu aç
-  const handleEditAppointment = (appointment: any) => {
-    setSelectedAppointment({
-      ...appointment,
-      id: appointment.id, // id'yi mutlaka ekle!
-      date: appointment.date || (appointment.startTime ? appointment.startTime.split('T')[0] : ""),
-      time: appointment.time || (appointment.startTime ? appointment.startTime.split('T')[1]?.substring(0, 5) : ""),
-      duration: appointment.duration || 60,
-      status: appointment.status || "scheduled",
-      title: appointment.title || "",
-      location: appointment.location || "",
-      notes: appointment.notes || ""
-    });
-    setOpenEditAppointmentDialog(true);
+  console.log("bookedTimes:", bookedTimes);
+  console.log("APPOINTMENT_TIMES:", APPOINTMENT_TIMES);
+
+  // --- EN YAKIN RANDEVU PANELİ ---
+  const now = new Date();
+  const upcomingAppointments = Array.isArray(appointments)
+    ? appointments.filter((a: any) => a.startTime && new Date(a.startTime) > now && a.clientId === client?.id)
+      .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    : [];
+  const nextAppointment = upcomingAppointments?.[0];
+
+  // Randevuya kalan gün sayısı ve renk hesaplama
+  let appointmentColor = {
+    panel: "bg-gradient-to-r from-green-200 via-green-100 to-green-50 border-l-8 border-green-500",
+    icon: "text-green-600",
+    title: "text-green-800",
+    subtitle: "text-green-900",
+    date: "text-green-700",
+    location: "text-green-600"
+  };
+
+  // Notes güvenli erişim
+  const safeNotes = Array.isArray(client?.client_visible_notes) ? client.client_visible_notes : [];
+  console.log('safeNotes:', safeNotes);
+
+  console.log('ClientDetail return');
+
+  const disabledTimes = appointments
+    ? appointments
+        .filter(a => {
+          const apptDate = a.date?.split('T')[0];
+          const selectedDate = appointmentForm.getValues('date');
+          return apptDate === selectedDate;
+        })
+        .map(a => a.time)
+        .filter((v): v is string => !!v)
+    : [];
+  console.log("disabledTimes:", disabledTimes);
+
+  // Add type definition for appointment actions
+  type AppointmentAction = 'create' | 'update' | 'delete';
+
+  // Add type definition for appointment mutation variables
+  interface AppointmentMutationVariables {
+    action: AppointmentAction;
+    appointmentId?: number;
+    duration?: number;
+    [key: string]: any;
+  }
+
+  const onSubmit = (data: MeasurementFormData) => {
+    if (!client) return;
+    const bmi = calculateBmiFromString(data.weight, data.height);
+    const age = calculateAge(client.birth_date) || 0;
+    const bmr = calculateBmrFromString(data.weight, data.height, age, client.gender || "female");
+    const tdee = calculateTdeeFromBmr(bmr, data.activityLevel);
+
+    const measurementData = {
+      date: data.date,
+      weight: data.weight,
+      height: data.height,
+      waistCircumference: data.waistCircumference,
+      hipCircumference: data.hipCircumference,
+      bodyFatPercentage: data.bodyFatPercentage,
+      activityLevel: data.activityLevel,
+      notes: data.notes,
+      bmi,
+      basalMetabolicRate: bmr,
+      totalDailyEnergyExpenditure: tdee,
+    };
+
+    createMeasurementMutation.mutate(measurementData);
+  };
+
+  const handleAddOrEditAppointment = async (data: any) => {
+    console.log("APPOINTMENT SUBMIT DATA:", data);
+    try {
+      const appointmentData = {
+        ...data,
+        time: data.time, // Saati doğrudan kullan
+        date: data.date,
+        duration: 30,
+        status: data.status || 'scheduled'
+      };
+
+      if (editingAppointment) {
+        await appointmentMutation.mutateAsync({
+          action: 'update',
+          appointmentId: editingAppointment.id,
+          ...appointmentData
+        });
+      } else {
+        await appointmentMutation.mutateAsync({
+          action: 'create',
+          ...appointmentData
+        });
+      }
+      setIsAppointmentDialogOpen(false);
+      setEditingAppointment(undefined);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Randevu işlemi başarısız oldu",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const appointmentTypeLabels: Record<string, string> = {
+    gorusme: "Görüşme",
+    kontrol: "Kontrol",
+    online: "Online",
+    telefon: "Telefon",
+    takip: "Takip"
   };
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
-      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-        <AlertDialogContent className="rounded-xl border-none shadow-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Bu danışanı silmek istediğinize emin misiniz?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bu işlem danışanın tüm verilerini ve ölçümlerini kalıcı olarak silecektir. Bu işlem geri alınamaz.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">İptal</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => deleteClientMutation.mutate()} 
-              className="bg-destructive hover:bg-destructive/90 rounded-xl"
-            >
-              {deleteClientMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              Sil
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
+    <div className="max-w-6xl mx-auto px-4 md:px-8 pt-10 pb-12 min-h-[calc(100vh-64px)]">
+      {/* Danışan detay başlığı ve içerik */}
       <div className="min-h-screen pb-20 flex justify-end">
         <div className="py-8 mt-8 w-full max-w-6xl px-4">
           <div className="flex items-center mb-16 space-x-3">
@@ -1011,11 +1149,11 @@ export default function ClientDetail() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{client.first_name} {client.last_name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{client?.first_name || ""} {client?.last_name || ""}</h1>
               <p className="text-muted-foreground text-sm mt-1.5">
-                {client.gender === 'female' ? 'Kadın' : client.gender === 'male' ? 'Erkek' : 'Diğer'}
+                {client?.gender === 'female' ? 'Kadın' : client?.gender === 'male' ? 'Erkek' : 'Diğer'}
                 {clientAge ? `, ${clientAge} yaş` : ''}
-                {client.email ? ` • ${client.email}` : ''}
+                {client?.email ? ` • ${client.email}` : ''}
               </p>
             </div>
 
@@ -1024,7 +1162,7 @@ export default function ClientDetail() {
                 variant="destructive" 
                 size="sm"
                 className="rounded-xl hover:bg-destructive/90 hover:scale-105 transition-all duration-300 shadow-sm"
-                onClick={() => setConfirmDeleteOpen(true)}
+                onClick={() => setIsDeleteDialogOpen(true)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Danışanı Sil
@@ -1033,13 +1171,28 @@ export default function ClientDetail() {
           </div>
 
           <Tabs defaultValue="overview" className="mb-10">
-            <TabsList className="rounded-lg bg-white shadow-md p-1.5 border-none mb-10 overflow-x-auto flex w-full">
-              <TabsTrigger value="overview" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200">Genel Bakış</TabsTrigger>
-              <TabsTrigger value="measurements" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200">Ölçümler</TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200">Analiz</TabsTrigger>
-              <TabsTrigger value="notes" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200">Diyetisyen Notları</TabsTrigger>
-              <TabsTrigger value="clientNotes" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200">Danışana Görünecek Notlar</TabsTrigger>
-              <TabsTrigger value="appointments" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200">Randevular</TabsTrigger>
+            <TabsList
+              className="rounded-lg bg-white shadow-md p-1.5 border-none mb-10 flex w-full gap-2 overflow-x-hidden custom-scrollbar-hide"
+              style={{ overflowX: 'hidden' }}
+            >
+              <TabsTrigger value="overview" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
+                Genel Bakış
+              </TabsTrigger>
+              <TabsTrigger value="measurements" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
+                Ölçümler
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
+                Analiz
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[140px] text-sm font-medium">
+                Diyetisyen Notları
+              </TabsTrigger>
+              <TabsTrigger value="clientNotes" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
+                Danışana Görünecek Notlar
+              </TabsTrigger>
+              <TabsTrigger value="appointments" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
+                Randevular
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -1110,7 +1263,7 @@ export default function ClientDetail() {
                             className="rounded-xl hover:bg-blue-100 transition-all"
                             onClick={async () => {
                               try {
-                                await generateAccessCode();
+                                await generateAccessCode(id as string);
                                 queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
                               } catch (error: any) {
                                 toast({
@@ -1295,7 +1448,7 @@ export default function ClientDetail() {
                     <CardDescription>Tüm ölçüm kayıtları ve vücut kompozisyon verileri</CardDescription>
                     <Button 
                       className="rounded-xl bg-blue-600 hover:bg-blue-700 hover:scale-105 transition-all duration-300"
-                      onClick={() => setOpenNewMeasurementDialog(true)}
+                      onClick={() => setIsMeasurementDialogOpen(true)}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Yeni Ölçüm
@@ -1303,7 +1456,7 @@ export default function ClientDetail() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-5 overflow-auto">
-                  {isMeasurementsLoading ? (
+                  {isLoadingMeasurements ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
@@ -1373,7 +1526,7 @@ export default function ClientDetail() {
                       <Button 
                         variant="outline"
                         className="mt-4 rounded-xl hover:bg-blue-100 transition-all"
-                        onClick={() => setOpenNewMeasurementDialog(true)}
+                        onClick={() => setIsMeasurementDialogOpen(true)}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         İlk Ölçümü Ekle
@@ -1384,7 +1537,7 @@ export default function ClientDetail() {
               </Card>
 
               {/* Yeni Ölçüm Ekleme Dialog */}
-              <Dialog open={openNewMeasurementDialog} onOpenChange={setOpenNewMeasurementDialog}>
+              <Dialog open={isMeasurementDialogOpen} onOpenChange={setIsMeasurementDialogOpen}>
                 <DialogContent className="sm:max-w-[600px] rounded-xl border-none shadow-xl">
                   <DialogHeader>
                     <DialogTitle>Yeni Ölçüm Ekle</DialogTitle>
@@ -1526,7 +1679,7 @@ export default function ClientDetail() {
                         <Button 
                           type="button" 
                           variant="outline" 
-                          onClick={() => setOpenNewMeasurementDialog(false)} 
+                          onClick={() => setIsMeasurementDialogOpen(false)} 
                           className="rounded-xl"
                         >
                           İptal
@@ -1548,7 +1701,7 @@ export default function ClientDetail() {
               </Dialog>
               
               {/* Ölçüm Düzenleme Dialog */}
-              <Dialog open={openEditMeasurementDialog} onOpenChange={setOpenEditMeasurementDialog}>
+              <Dialog open={isMeasurementDialogOpen} onOpenChange={setIsMeasurementDialogOpen}>
                 <DialogContent className="sm:max-w-[600px] rounded-xl border-none shadow-xl">
                   <DialogHeader>
                     <DialogTitle>Ölçüm Düzenle</DialogTitle>
@@ -1710,400 +1863,178 @@ export default function ClientDetail() {
             </TabsContent>
 
             <TabsContent value="notes">
-              <Card className="bg-white shadow-md rounded-xl border-none hover:shadow-lg transition-all duration-300 overflow-hidden group transform hover:-translate-y-1">
-                <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b group-hover:from-amber-50 group-hover:to-white transition-all duration-300">
-                  <CardTitle className="text-xl font-medium flex items-center">
-                    <div className="bg-amber-100 p-2 rounded-full mr-3 group-hover:bg-amber-200 transition-colors duration-300">
-                      <Edit className="h-5 w-5 text-amber-600" />
-                    </div>
+              <Card className="bg-white shadow-lg rounded-2xl border border-slate-200 mb-8">
+                <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+                  <CardTitle className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                    <Edit className="h-6 w-6 text-amber-600" />
                     Diyetisyen Notları
                   </CardTitle>
-                  <CardDescription>Bu notlar sadece sizin görebileceğiniz özel notlardır. Danışana gösterilmez.</CardDescription>
+                  <CardDescription className="text-sm text-slate-500 mt-1">Bu notlar sadece sizin görebileceğiniz özel notlardır. Danışana gösterilmez.</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-5">
+                <CardContent>
                   <div className="space-y-4">
                     <Textarea 
-                      placeholder="Danışan hakkında özel notlarınızı buraya yazın..."
-                      className="min-h-[250px] border-slate-200 rounded-lg focus:border-amber-300 focus:ring-amber-200"
-                      value={clientNotes === undefined ? client.notes || "" : clientNotes}
-                      onChange={(e) => {
-                        setClientNotes(e.target.value);
-                      }}
+                      placeholder="Yeni not ekle..."
+                      className="min-h-[100px] border-slate-300 rounded-lg focus:border-amber-400 focus:ring-amber-200 text-base"
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
                     />
                     <Button 
-                      className="rounded-xl hover:scale-105 transition-all duration-300 bg-amber-600 hover:bg-amber-700"
-                      onClick={async () => {
-                        try {
-                          await apiRequest("PATCH", `/api/clients/${id}`, { notes: clientNotes });
-                          queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                          toast({
-                            title: "Özel Notlar kaydedildi",
-                            description: "Diyetisyen notları başarıyla güncellendi.",
-                          });
-                        } catch (error: any) {
-                          toast({
-                            title: "Hata",
-                            description: "Notlar kaydedilirken bir hata oluştu.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
+                      className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                      onClick={handleAddNote}
+                      disabled={!newNote.trim() || addNoteMutation.isPending}
                     >
-                      Notları Kaydet
+                      {addNoteMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Ekleniyor...
+                        </>
+                      ) : (
+                        "Not Ekle"
+                      )}
                     </Button>
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-4 text-slate-700">Notlar</h3>
+                      <div className="space-y-3">
+                        {safeNotes.length > 0 ? (
+                          safeNotes.map((note: any) => (
+                            <div
+                              key={note.id}
+                              className="group flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm hover:shadow-md transition-all duration-200 relative"
+                            >
+                              <div className="flex flex-col w-full">
+                                <span className="text-slate-900 text-base font-medium tracking-tight break-words">{note.content}</span>
+                                {note.created_at && (
+                                  <span className="text-xs text-slate-400 mt-2 self-end select-none">{new Date(note.created_at).toLocaleString("tr-TR")}</span>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2 rounded-full hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2"
+                                onClick={() => deleteNoteMutation.mutate(note.id)}
+                                aria-label="Notu Sil"
+                              >
+                                <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500 transition-colors" />
+                              </Button>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-10 text-slate-300 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+                            <Edit className="w-10 h-10 mb-2" />
+                            <span className="text-base font-medium">Henüz hiç not eklenmemiş</span>
+                            <span className="text-xs mt-1 text-slate-400">Yukarıdan ilk notunuzu ekleyin</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="clientNotes">
-              <Card className="bg-white shadow-md rounded-xl border-none hover:shadow-lg transition-all duration-300 overflow-hidden group transform hover:-translate-y-1">
-                <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b group-hover:from-green-50 group-hover:to-white transition-all duration-300">
-                  <CardTitle className="text-xl font-medium flex items-center">
-                    <div className="bg-green-100 p-2 rounded-full mr-3 group-hover:bg-green-200 transition-colors duration-300">
-                      <MessageSquare className="h-5 w-5 text-green-600" />
-                    </div>
+              <Card className="bg-white shadow-lg rounded-2xl border border-slate-200 mb-8">
+                <CardHeader className="pb-4 bg-white border-b border-green-200">
+                  <CardTitle className="text-2xl font-bold flex items-center gap-3">
+                    <MessageSquare className="h-6 w-6 text-green-600" />
                     Danışana Görünecek Notlar
                   </CardTitle>
-                  <CardDescription>Bu notlar danışan portalında görünecektir. Danışanlarınız için talimatlarınızı buraya yazabilirsiniz.</CardDescription>
+                  <CardDescription className="text-sm mt-1">Bu notlar danışan portalında görünecektir. Danışanlarınız için talimatlarınızı buraya yazabilirsiniz.</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-5">
+                <CardContent>
                   <div className="space-y-4">
                     <Textarea 
-                      placeholder="Danışanınızın görmesini istediğiniz notları buraya yazın..."
-                      className="min-h-[250px] border-slate-200 rounded-lg focus:border-green-300 focus:ring-green-200"
-                      value={clientPublicNotes === undefined ? client.clientVisibleNotes || "" : clientPublicNotes}
-                      onChange={(e) => {
-                        setClientPublicNotes(e.target.value);
-                      }}
+                      placeholder="Yeni not ekle..."
+                      className="min-h-[100px] border-green-300 rounded-lg focus:border-green-400 focus:ring-green-200 text-base"
+                      value={clientPublicNotes || ""}
+                      onChange={(e) => setClientPublicNotes(e.target.value)}
                     />
                     <Button 
-                      className="rounded-xl hover:scale-105 transition-all duration-300 bg-green-600 hover:bg-green-700"
+                      className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold"
                       onClick={async () => {
-                        try {
-                          await apiRequest("PATCH", `/api/clients/${id}`, { clientVisibleNotes: clientPublicNotes });
-                          queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                          toast({
-                            title: "Danışan Notları Kaydedildi",
-                            description: "Danışan portalında görünecek notlar başarıyla güncellendi.",
-                          });
-                        } catch (error) {
-                          toast({
-                            title: "Hata",
-                            description: "Notlar kaydedilirken bir hata oluştu.",
-                            variant: "destructive",
-                          });
+                        if (!clientPublicNotes?.trim()) return;
+                        const now = new Date();
+                        const noteObj = { content: clientPublicNotes, created_at: now.toISOString() };
+                        let newNotes = [];
+                        if (Array.isArray(client?.client_visible_notes)) {
+                          if (typeof client.client_visible_notes[0] === 'string') {
+                            newNotes = [...client.client_visible_notes.map((n: any) => ({ content: n })), noteObj];
+                          } else {
+                            newNotes = [...client.client_visible_notes, noteObj];
+                          }
+                        } else {
+                          newNotes = [noteObj];
                         }
-                      }}
-                    >
-                      Notları Kaydet
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="appointments">
-              <Card className="bg-white shadow-md rounded-xl border-none hover:shadow-lg transition-all duration-300 overflow-hidden group transform hover:-translate-y-1">
-                <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b group-hover:from-emerald-50 group-hover:to-white transition-all duration-300">
-                  <CardTitle className="text-xl font-medium flex items-center">
-                    <div className="bg-emerald-100 p-2 rounded-full mr-3 group-hover:bg-emerald-200 transition-colors duration-300">
-                      <Calendar className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    Randevular
-                  </CardTitle>
-                  <div className="flex justify-between items-center">
-                    <CardDescription>Danışan ile planlanan görüşme ve kontrol randevuları</CardDescription>
-                    <Button 
-                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 hover:scale-105 transition-all duration-300"
-                      onClick={() => {
-                        form.reset({
-                          date: "",
-                          notes: ""
+                        await apiRequest(`/api/clients/${id}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ client_visible_notes: newNotes })
                         });
-                        setOpenNewAppointmentDialog(true);
+                        queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                        setClientPublicNotes("");
+                        toast({
+                          title: "Not eklendi",
+                          description: "Danışana görünecek not başarıyla eklendi.",
+                        });
                       }}
+                      disabled={!clientPublicNotes?.trim()}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Yeni Randevu
+                      Not Ekle
                     </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-5">
-                  {isAppointmentsLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : appointments && appointments.length > 0 ? (
-                    <div className="space-y-4">
-                      {appointments
-                        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                        .map((appointment: any) => {
-                          console.log("appointment", appointment);
-                          const appointmentDate = new Date(appointment.date);
-                          const isToday = new Date().toDateString() === appointmentDate.toDateString();
-                          const isPast = appointmentDate < new Date() && !isToday;
-                          const isFuture = appointmentDate > new Date();
-                          
-                          return (
-                            <div 
-                              key={appointment.id} 
-                              className={`border rounded-lg p-4 group/app hover:border-emerald-300 transition-all hover:shadow-sm 
-                                ${isToday ? 'bg-emerald-50/50 border-emerald-200' : 
-                                  isPast ? 'bg-slate-50/50 border-slate-200' : 
-                                  'bg-white border-slate-200'}`}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <div className="flex items-center space-x-2">
-                                    <h3 className="font-medium">
-                                      {appointment.title || "Randevu"}
-                                    </h3>
-                                    {isToday && (
-                                      <Badge className="bg-emerald-500 hover:bg-emerald-600">Bugün</Badge>
-                                    )}
-                                    {isPast && (
-                                      <Badge variant="outline" className="bg-slate-100">Geçmiş</Badge>
-                                    )}
-                                    {appointment.status === "completed" && (
-                                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">Tamamlandı</Badge>
-                                    )}
-                                    {appointment.status === "canceled" && (
-                                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">İptal Edildi</Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {format(appointmentDate, "EEEE, d MMMM yyyy", { locale: tr })} - {appointment.time}
-                                  </p>
-                                  {appointment.location && (
-                                    <p className="text-sm mt-2">
-                                      <span className="text-muted-foreground">Yer: </span> 
-                                      {appointment.location}
-                                    </p>
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-4">Notlar</h3>
+                      <div className="space-y-3">
+                        {Array.isArray(client?.client_visible_notes) && client.client_visible_notes.length > 0 ? (
+                          (client.client_visible_notes || []).map((note: any, idx: number) => {
+                            const noteContent = typeof note === 'string' ? note : note.content;
+                            const noteDate = typeof note === 'object' && note.created_at ? note.created_at : null;
+                            return (
+                              <div
+                                key={idx}
+                                className="group flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm hover:shadow-md transition-all duration-200 relative"
+                              >
+                                <div className="flex flex-col w-full">
+                                  <span className="text-base font-medium tracking-tight break-words">{noteContent}</span>
+                                  {noteDate && (
+                                    <span className="text-xs mt-2 self-end select-none">{new Date(noteDate).toLocaleString("tr-TR")}</span>
                                   )}
                                 </div>
-                                
-                                <div className="flex space-x-1 opacity-0 group-hover/app:opacity-100 transition-opacity">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    className="h-8 w-8 rounded-full hover:bg-emerald-100"
-                                    onClick={() => handleEditAppointment(appointment)}
-                                  >
-                                    <Pencil className="h-4 w-4 text-emerald-600" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    className="h-8 w-8 rounded-full hover:bg-red-100"
-                                    onClick={() => {
-                                      if (window.confirm("Bu randevuyu silmek istediğinizden emin misiniz?")) {
-                                        deleteAppointmentMutation.mutate(appointment.id);
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="ml-2 rounded-full hover:bg-green-50 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2"
+                                  onClick={async () => {
+                                    let notesArr: any[] = Array.isArray(client?.client_visible_notes) ? client.client_visible_notes : [];
+                                    const newNotes = notesArr.filter((_: any, i: number) => i !== idx);
+                                    await apiRequest(`/api/clients/${id}`, {
+                                      method: "PATCH",
+                                      body: JSON.stringify({ client_visible_notes: newNotes })
+                                    });
+                                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                                    toast({
+                                      title: "Not silindi",
+                                      description: "Not başarıyla silindi.",
+                                    });
+                                  }}
+                                  aria-label="Notu Sil"
+                                >
+                                  <Trash2 className="h-4 w-4 text-green-400 hover:text-red-500 transition-colors" />
+                                </Button>
                               </div>
-                              
-                              {appointment.notes && (
-                                <div className="mt-3 pt-3 border-t text-sm">
-                                  <p>{appointment.notes}</p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <div className="bg-slate-50 rounded-lg p-8 max-w-lg mx-auto">
-                        <Calendar className="w-12 h-12 mx-auto text-emerald-300 mb-4" />
-                        <p className="mb-2">Henüz randevu kaydı bulunmuyor.</p>
-                        <p className="text-sm mb-4">Danışan için kontrol randevuları, görüşmeler ve takip planı oluşturabilirsiniz.</p>
-                        <Button 
-                          variant="outline"
-                          className="rounded-xl hover:bg-emerald-100 transition-all"
-                          onClick={() => {
-                            form.reset({
-                              date: "",
-                              notes: ""
-                            });
-                            setOpenNewAppointmentDialog(true);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Yeni Randevu
-                        </Button>
+                            );
+                          })
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-10 text-green-300 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+                            <MessageSquare className="w-10 h-10 mb-2" />
+                            <span className="text-base font-medium">Henüz hiç not eklenmemiş</span>
+                            <span className="text-xs mt-1 text-green-400">Yukarıdan ilk notunuzu ekleyin</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
-
-              {/* Yeni Randevu Ekleme Dialog */}
-              <Dialog open={openNewAppointmentDialog} onOpenChange={setOpenNewAppointmentDialog}>
-                <DialogContent className="sm:max-w-[600px] rounded-xl border-none shadow-xl">
-                  <DialogHeader>
-                    <DialogTitle>Yeni Randevu Oluştur</DialogTitle>
-                    <DialogDescription>
-                      Danışan için yeni bir randevu veya görüşme ekleyin.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Form {...appointmentForm}>
-                    <form onSubmit={appointmentForm.handleSubmit((data) => {
-                      createAppointmentMutation.mutate(data);
-                    })} className="space-y-4">
-                      <FormField
-                        control={appointmentForm.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Başlık</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Kontrol Randevusu" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={appointmentForm.control}
-                          name="date"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Tarih</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={appointmentForm.control}
-                          name="time"
-                          render={({ field }) => {
-                            // Seçili tarihteki dolu saatleri bul
-                            const selectedDate = appointmentForm.watch('date');
-                            const bookedTimes = appointments
-                              ? appointments.filter((a: any) => a.date === selectedDate).map((a: any) => a.time)
-                              : [];
-                            return (
-                              <FormItem>
-                                <FormLabel>Saat</FormLabel>
-                                <FormControl>
-                                  <Select
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Saat seçin" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {APPOINTMENT_TIMES.map((time: string) => (
-                                        <SelectItem key={time} value={time} disabled={bookedTimes.includes(time)}>
-                                          {time}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      </div>
-
-                      <FormField
-                        control={appointmentForm.control}
-                        name="status"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Durum</FormLabel>
-                            <Select 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Durum seçin" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="scheduled">Planlanan</SelectItem>
-                                <SelectItem value="completed">Tamamlandı</SelectItem>
-                                <SelectItem value="canceled">İptal Edildi</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={appointmentForm.control}
-                        name="location"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Yer</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Klinik, Online görüşme, vb." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={appointmentForm.control}
-                        name="notes"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Notlar</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Randevu ile ilgili notlar..."
-                                className="min-h-[100px]"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <DialogFooter>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => {
-                            setOpenNewAppointmentDialog(false);
-                            appointmentForm.reset();
-                          }} 
-                          className="rounded-xl"
-                        >
-                          İptal
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
-                          disabled={createAppointmentMutation.isPending}
-                        >
-                          {createAppointmentMutation.isPending && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          )}
-                          Kaydet
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
             </TabsContent>
 
             <TabsContent value="analytics">
@@ -2385,7 +2316,10 @@ export default function ClientDetail() {
                                 const conditions = prompt("Kronik hastalıkları virgülle ayırarak girin:", client.medicalConditions || "");
                                 if (conditions !== null) {
                                   try {
-                                    await apiRequest("PATCH", `/api/clients/${id}`, { medicalConditions: conditions });
+                                    await apiRequest(`/api/clients/${id}`, {
+                                      method: "PATCH",
+                                      body: JSON.stringify({ medicalConditions: conditions })
+                                    });
                                     queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
                                     toast({
                                       title: "Sağlık bilgileri güncellendi",
@@ -2428,7 +2362,10 @@ export default function ClientDetail() {
                                 const allergies = prompt("Alerjileri virgülle ayırarak girin:", client.allergies || "");
                                 if (allergies !== null) {
                                   try {
-                                    await apiRequest("PATCH", `/api/clients/${id}`, { allergies: allergies });
+                                    await apiRequest(`/api/clients/${id}`, {
+                                      method: "PATCH",
+                                      body: JSON.stringify({ allergies: allergies })
+                                    });
                                     queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
                                     toast({
                                       title: "Sağlık bilgileri güncellendi",
@@ -2473,7 +2410,10 @@ export default function ClientDetail() {
                                 const medications = prompt("Kullandığı ilaçları virgülle ayırarak girin:", client.medications || "");
                                 if (medications !== null) {
                                   try {
-                                    await apiRequest("PATCH", `/api/clients/${id}`, { medications: medications });
+                                    await apiRequest(`/api/clients/${id}`, {
+                                      method: "PATCH",
+                                      body: JSON.stringify({ medications: medications })
+                                    });
                                     queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
                                     toast({
                                       title: "Sağlık bilgileri güncellendi",
@@ -2512,7 +2452,10 @@ export default function ClientDetail() {
                                 const notes = prompt("Sağlık ile ilgili ek notlar:", client.healthNotes || "");
                                 if (notes !== null) {
                                   try {
-                                    await apiRequest("PATCH", `/api/clients/${id}`, { healthNotes: notes });
+                                    await apiRequest(`/api/clients/${id}`, {
+                                      method: "PATCH",
+                                      body: JSON.stringify({ healthNotes: notes })
+                                    });
                                     queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
                                     toast({
                                       title: "Sağlık bilgileri güncellendi",
@@ -2703,6 +2646,145 @@ export default function ClientDetail() {
                                         </CardContent>
                   </Card>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="appointments">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Randevular</CardTitle>
+                    <CardDescription>
+                      Müşterinin randevu geçmişi ve planlanan randevular
+                    </CardDescription>
+                    <Button className="mt-2" onClick={() => { setEditingAppointment(undefined); setIsAppointmentDialogOpen(true); }}>
+                      <Plus className="w-4 h-4 mr-2" /> Randevu Ekle
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingAppointments ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    ) : appointments && appointments.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {appointments.map((appointment) => {
+                            const appointmentDate = new Date(appointment.date);
+                            const appointmentTime = appointment.time ? new Date(`${appointment.date}T${appointment.time}`) : null;
+                            const now = new Date();
+                            const isPast = appointmentTime ? appointmentTime < now : false;
+                            const isToday = appointmentDate.toDateString() === now.toDateString();
+                            const isUpcoming = appointmentTime ? appointmentTime > now : false;
+                            
+                            const getStatusColor = (status: string) => {
+                              switch (status) {
+                                case 'completed': return 'bg-green-100 text-green-800';
+                                case 'canceled': return 'bg-red-100 text-red-800';
+                                default: return 'bg-blue-100 text-blue-800';
+                              }
+                            };
+
+                            const getTimeStatus = () => {
+                              if (isPast) return { text: 'Geçmiş', color: 'text-gray-500' };
+                              if (isToday) return { text: 'Bugün', color: 'text-blue-600' };
+                              if (isUpcoming) return { text: 'Yaklaşan', color: 'text-green-600' };
+                              return { text: '', color: '' };
+                            };
+
+                            const timeStatus = getTimeStatus();
+                            const formattedTime = appointment.time
+                              || (appointment.startTime ? new Date(appointment.startTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '-');
+
+                            return (
+                              <Card key={appointment.id} className="shadow-md border border-gray-100 hover:shadow-lg transition-all duration-200">
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                  <div>
+                                    <CardTitle className="text-lg font-semibold text-emerald-700 flex items-center gap-2">
+                                      <Calendar className="w-5 h-5 text-emerald-500" />
+                                      {formatDate(appointment.date)}
+                                      {timeStatus.text && (
+                                        <Badge variant="outline" className={`ml-2 ${timeStatus.color}`}>
+                                          {timeStatus.text}
+                                        </Badge>
+                                      )}
+                                    </CardTitle>
+                                    <CardDescription className="text-gray-500 mt-1">
+                                      Saat: <span className="font-medium text-gray-800">
+                                        {formattedTime}
+                                      </span> |
+                                      Süre: <span className="font-medium text-gray-800">30 dk</span>
+                                    </CardDescription>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {!isPast && (
+                                      <>
+                                        <Button size="icon" variant="outline" onClick={() => { setEditingAppointment(appointment); setIsAppointmentDialogOpen(true); }} title="Düzenle">
+                                          <Pencil className="w-4 h-4" />
+                                        </Button>
+                                        <Button size="icon" variant="destructive" onClick={() => setDeletingAppointment(appointment)} title="Sil">
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge className={getStatusColor(appointment.status)}>
+                                      {appointment.status === 'completed' ? 'Tamamlandı' : 
+                                       appointment.status === 'canceled' ? 'İptal Edildi' : 
+                                       'Planlandı'}
+                                    </Badge>
+                                    <span className="text-xs text-gray-500">
+                                      Randevu Tipi: <span className="font-semibold">{appointmentTypeLabels[appointment.type] || appointment.type}</span>
+                                    </span>
+                                  </div>
+                                  {appointment.notes && (
+                                    <div className="text-sm text-gray-700 mt-2">
+                                      <Info className="inline w-4 h-4 mr-1 text-blue-400" />
+                                      {appointment.notes}
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <Alert>
+                        <AlertTitle>Bilgi</AlertTitle>
+                        <AlertDescription>
+                          Henüz randevu kaydı bulunmuyor.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <AppointmentDialog
+                      open={isAppointmentDialogOpen}
+                      onOpenChange={(open) => {
+                        setIsAppointmentDialogOpen(open);
+                        if (!open) setEditingAppointment(undefined);
+                      }}
+                      onSubmit={handleAddOrEditAppointment}
+                      appointment={editingAppointment}
+                      timeSlots={generateTimeSlots()}
+                      disabledTimes={disabledTimes}
+                    />
+                    <AlertDialog open={!!deletingAppointment} onOpenChange={open => !open && setDeletingAppointment(undefined)}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Randevuyu silmek istediğinize emin misiniz?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Bu işlem geri alınamaz.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteAppointment}>Sil</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>

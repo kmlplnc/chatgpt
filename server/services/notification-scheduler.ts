@@ -1,4 +1,8 @@
 import { storage } from "../storage";
+import { db } from "../db";
+import { notifications } from "../schema";
+import { eq, and, lte } from "drizzle-orm";
+import type { Notification } from "@shared/schema";
 
 // Sürekli kontrol edilecek zaman aralığı
 const CHECK_INTERVAL = 60 * 1000; // 60 saniye (gerçek uygulamada 5 dakika gibi daha uzun bir süre kullanılabilir)
@@ -104,3 +108,62 @@ class NotificationScheduler {
 
 // Tek bir örnek oluştur
 export const notificationScheduler = new NotificationScheduler();
+
+export async function scheduleNotification(data: Omit<Notification, "id" | "createdAt">) {
+  try {
+    const [notification] = await db
+      .insert(notifications)
+      .values(data)
+      .returning();
+      
+    return notification as Notification;
+  } catch (error) {
+    console.error("Error scheduling notification:", error);
+    throw error;
+  }
+}
+
+export async function getDueNotifications() {
+  try {
+    const now = new Date();
+    
+    const result = await db
+      .select()
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.status, "pending"),
+          lte(notifications.scheduledFor, now)
+        )
+      );
+      
+    return result as Notification[];
+  } catch (error) {
+    console.error("Error fetching due notifications:", error);
+    return [];
+  }
+}
+
+export async function markNotificationAsSent(id: number) {
+  try {
+    await db
+      .update(notifications)
+      .set({ status: "sent" })
+      .where(eq(notifications.id, id));
+  } catch (error) {
+    console.error("Error marking notification as sent:", error);
+    throw error;
+  }
+}
+
+export async function markNotificationAsFailed(id: number) {
+  try {
+    await db
+      .update(notifications)
+      .set({ status: "failed" })
+      .where(eq(notifications.id, id));
+  } catch (error) {
+    console.error("Error marking notification as failed:", error);
+    throw error;
+  }
+}

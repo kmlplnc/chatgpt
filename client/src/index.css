@@ -1,7 +1,11 @@
 @import './styles/animations.css';
+
+/* Tailwind CSS directives - these are valid but may show as errors in some editors */
+/* stylelint-disable */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable */
 
 /* Page transition animation */
 @keyframes fadeSlideIn {
@@ -91,6 +95,8 @@
   --sidebar-ring: 160 84% 39%;
 }
 
+/* Tailwind layer directives - these are valid but may show as errors in some editors */
+/* stylelint-disable */
 @layer base {
   * {
     @apply border-gray-200;
@@ -100,6 +106,7 @@
     @apply font-sans antialiased;
   }
 }
+/* stylelint-enable */
 
 /* Custom styles */
 .food-grid {
@@ -109,7 +116,9 @@
 }
 
 .nutrient-badge {
+  /* stylelint-disable */
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-opacity-10;
+  /* stylelint-enable */
 }
 
 /* Chat specific styles */
@@ -121,19 +130,24 @@ html, body, #root {
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  /* background and text color handled by Tailwind classes */
 }
 
 .chat-container {
+  /* stylelint-disable */
   @apply h-full flex flex-col;
+  /* stylelint-enable */
 }
 
 .chat-messages {
+  /* stylelint-disable */
   @apply flex-1 overflow-y-auto;
+  /* stylelint-enable */
 }
 
 .chat-input-container {
+  /* stylelint-disable */
   @apply flex-none border-t bg-background;
+  /* stylelint-enable */
 }
 
 /* Ensure proper height calculations */
@@ -154,7 +168,6 @@ html, body, #root {
 }
 
 /* Koyu modda özel hex override kaldırıldı, Tailwind'in kendi neutral-900 tonu kullanılacak */
-
 html.dark, body.dark, #root.dark {
   background-color: #171717 !important; /* Tailwind neutral-900 */
 }
@@ -178,31 +191,45 @@ html.dark, body.dark, #root.dark {
 
 /* Message typography styles */
 .message-content {
+  /* stylelint-disable */
   @apply text-[15px] leading-[1.6] tracking-[-0.011em] font-normal;
+  /* stylelint-enable */
 }
 
 .message-timestamp {
+  /* stylelint-disable */
   @apply text-[11px] tracking-[-0.006em] font-medium opacity-75;
+  /* stylelint-enable */
 }
 
 .message-header {
+  /* stylelint-disable */
   @apply text-xl font-semibold tracking-[-0.014em];
+  /* stylelint-enable */
 }
 
 .message-input {
+  /* stylelint-disable */
   @apply text-[15px] leading-[1.5] tracking-[-0.011em] font-normal;
+  /* stylelint-enable */
 }
 
 .empty-messages {
+  /* stylelint-disable */
   @apply text-base font-medium tracking-[-0.011em] text-muted-foreground;
+  /* stylelint-enable */
 }
 
 .empty-messages-subtitle {
+  /* stylelint-disable */
   @apply text-sm font-normal tracking-normal text-muted-foreground/80;
+  /* stylelint-enable */
 }
 
 .back-button-text {
+  /* stylelint-disable */
   @apply text-sm font-medium tracking-[-0.006em];
+  /* stylelint-enable */
 }
 
 /* Blob animations */
@@ -246,90 +273,96 @@ html.dark, body.dark, #root.dark {
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #888;
+  background: #909090;
 }
 
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 
+/* Base styles */
 html {
-  scrollbar-width: thin;
-  scrollbar-color: #b0b0b0 transparent;
+  box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Ensure scrollbar is always visible */
 * {
-  scrollbar-gutter: stable;
+  box-sizing: inherit;
+  margin: 0;
+  padding: 0;
 }
 
-/* Prevent layout shift when scrollbar appears */
 html {
-  overflow-y: scroll;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
 }
 
-/* Prevent horizontal scroll */
 body {
-  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Remove all custom overflow/scroll utility classes from global CSS */
-.overflow-hidden {}
-.overflow-y-auto {}
-.content-container {}
-.scroll-container {}
+/* Utility classes */
+.overflow-hidden {
+  overflow: hidden;
+}
 
-/* Ana İçerik Konteyneri */
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+.content-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+.scroll-container {
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Layout */
 .container {
   width: 100%;
-  max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-  box-sizing: border-box;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
-/* Navbar İçeriği */
 .navbar-inner {
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 24px;
-  padding-right: 24px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  height: 64px;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 
-/* Kartları Taşıyan Alan (3'lü Grid) */
 .cards-wrapper {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
 }
 
-/* Mobil Uyumlu Hale Getirmek İçin */
+/* Responsive styles */
 @media (max-width: 768px) {
   .cards-wrapper {
     grid-template-columns: 1fr;
   }
+
   .container, .navbar-inner {
-    padding-left: 16px;
-    padding-right: 16px;
-    margin-left: 0;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
 
-/* Scrollbar ve Sayfa Kenarı Ayarı */
+/* Reset */
 html, body {
-  overflow-x: hidden;
   margin: 0;
   padding: 0;
+  height: 100%;
 }
 
 

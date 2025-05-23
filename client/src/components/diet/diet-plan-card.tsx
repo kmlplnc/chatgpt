@@ -6,6 +6,8 @@ import { useMutation } from "@tanstack/react-query";
 import { deleteDietPlan, exportDietPlan } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 
 import {
   Card,
@@ -127,7 +129,9 @@ export default function DietPlanCard({ dietPlan, onEdit, onDelete }: DietPlanCar
         <div className="flex items-center text-sm text-muted-foreground space-x-4">
           <div className="flex items-center">
             <CalendarDays className="h-4 w-4 mr-1" />
-            <span>{formatDate(dietPlan.createdAt)}</span>
+            <span>{format(new Date(dietPlan.createdAt || new Date()), "d MMMM yyyy", {
+              locale: tr,
+            })}</span>
           </div>
           <div className="flex items-center">
             <Clock className="h-4 w-4 mr-1" />

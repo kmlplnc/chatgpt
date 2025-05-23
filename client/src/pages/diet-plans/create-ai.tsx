@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,82 +38,161 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { dietRequirementSchema, type DietRequirement, type Client, type Measurement } from "@shared/schema";
+import { CardFooter } from "@/components/ui/card";
 
-// Form doğrulama şeması
+// Form validation schema
 const formSchema = z.object({
-  name: z.string().min(2, { message: "İsim en az 2 karakter olmalıdır" }),
-  age: z.coerce.number().min(15, { message: "Yaş en az 15 olmalıdır" }).max(100, { message: "Yaş en fazla 100 olmalıdır" }),
-  gender: z.enum(["male", "female"], { message: "Lütfen cinsiyet seçin" }),
-  height: z.coerce.number().min(120, { message: "Boy en az 120 cm olmalıdır" }).max(220, { message: "Boy en fazla 220 cm olmalıdır" }),
-  weight: z.coerce.number().min(30, { message: "Kilo en az 30 kg olmalıdır" }).max(200, { message: "Kilo en fazla 200 kg olmalıdır" }),
-  activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"], { message: "Lütfen aktivite seviyesi seçin" }),
-  dietType: z.enum(["balanced", "low_carb", "high_protein", "vegetarian", "vegan", "keto", "paleo", "mediterranean", "custom"], { message: "Lütfen diyet türü seçin" }),
-  allergies: z.string().optional(),
-  healthConditions: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  age: z.coerce.number().min(1, "Age is required"),
+  gender: z.enum(["male", "female"]),
+  height: z.coerce.number().min(1, "Height is required"),
+  weight: z.coerce.number().min(1, "Weight is required"),
+  activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]),
+  dietType: z.enum(["balanced", "low_carb", "low_fat", "high_protein", "vegetarian", "vegan"]),
+  allergies: z.array(z.string()).default([]),
+  healthConditions: z.array(z.string()).default([]),
   calorieGoal: z.coerce.number().optional(),
-  proteinPercentage: z.coerce.number().min(0, { message: "Protein yüzdesi en az 0 olmalıdır" }).max(100, { message: "Protein yüzdesi en fazla 100 olmalıdır" }),
-  carbsPercentage: z.coerce.number().min(0, { message: "Karbonhidrat yüzdesi en az 0 olmalıdır" }).max(100, { message: "Karbonhidrat yüzdesi en fazla 100 olmalıdır" }),
-  fatPercentage: z.coerce.number().min(0, { message: "Yağ yüzdesi en az 0 olmalıdır" }).max(100, { message: "Yağ yüzdesi en fazla 100 olmalıdır" }),
-  meals: z.coerce.number().min(2, { message: "Öğün sayısı en az 2 olmalıdır" }).max(6, { message: "Öğün sayısı en fazla 6 olmalıdır" }),
+  proteinPercentage: z.coerce.number().min(0).max(100),
+  carbsPercentage: z.coerce.number().min(0).max(100),
+  fatPercentage: z.coerce.number().min(0).max(100),
+  meals: z.coerce.number().min(2).max(6),
+  includeSnacks: z.boolean().default(false),
   includeDessert: z.boolean().default(false),
-  includeSnacks: z.boolean().default(true),
-}).refine(data => {
-  // Makro besinlerin toplamı 100 olmalı
-  return (data.proteinPercentage + data.carbsPercentage + data.fatPercentage) === 100;
-}, {
-  message: "Protein, karbonhidrat ve yağ yüzdelerinin toplamı 100 olmalıdır",
-  path: ["proteinPercentage"], // Hangi alanda hata gösterileceği
 });
 
-// Aktivite seviyeleri
+type FormValues = z.infer<typeof formSchema>;
+
+// Activity levels
 const activityLevels = [
+  { value: "sedentary", label: "Sedentary (Little or no exercise)" },
   { value: "sedentary", label: "Hareketsiz (Masa başı çalışma, az veya hiç egzersiz yok)" },
   { value: "light", label: "Hafif (Haftada 1-3 kez hafif egzersiz)" },
   { value: "moderate", label: "Orta (Haftada 3-5 kez orta düzey egzersiz)" },
   { value: "active", label: "Aktif (Haftada 5-7 kez yoğun egzersiz)" },
   { value: "very_active", label: "Çok Aktif (Günde iki kez veya ağır fiziksel iş)" },
-];
+] as const;
 
-// Diyet türleri
-const dietTypes = [
-  { value: "balanced", label: "Dengeli (Genel sağlıklı beslenme)" },
-  { value: "low_carb", label: "Düşük Karbonhidrat" },
-  { value: "high_protein", label: "Yüksek Protein" },
-  { value: "vegetarian", label: "Vejetaryen" },
-  { value: "vegan", label: "Vegan" },
-  { value: "keto", label: "Ketojenik" },
-  { value: "paleo", label: "Paleo" },
-  { value: "mediterranean", label: "Akdeniz" },
-  { value: "custom", label: "Özel (Kendi makro dağılımınız)" },
-];
-
-// Danışan seçme formu için şema
+// Client selection schema
 const clientSelectSchema = z.object({
-  clientId: z.string().min(1, { message: "Lütfen bir danışan seçin" }),
+  clientId: z.string().min(1, "Please select a client"),
 });
+
+type ClientSelectFormData = z.infer<typeof clientSelectSchema>;
+
+// Diet type options
+const dietTypes = [
+  { value: "balanced", label: "Balanced" },
+  { value: "low_carb", label: "Low Carb" },
+  { value: "high_protein", label: "High Protein" },
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "vegan", label: "Vegan" },
+  { value: "keto", label: "Keto" },
+  { value: "paleo", label: "Paleo" },
+  { value: "mediterranean", label: "Mediterranean" },
+  { value: "custom", label: "Custom" },
+] as const;
+
+type DietType = typeof dietTypes[number]["value"];
+
+// Add this type guard function at the top of the file
+function isError(error: unknown): error is Error {
+  return error instanceof Error;
+}
+
+// Add type for the client info display
+interface ClientInfoItemProps {
+  label: string;
+  value: ReactNode;
+}
+
+function ClientInfoItem({ label, value }: ClientInfoItemProps) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <p className="font-medium">{value}</p>
+    </div>
+  );
+}
+
+function getActivityLevelLabel(level: string | undefined): string {
+  if (!level) return "Belirtilmemiş";
+  
+  switch (level) {
+    case "sedentary":
+      return "Hareketsiz";
+    case "light":
+      return "Hafif Hareketli";
+    case "moderate":
+      return "Orta Derecede Hareketli";
+    case "active":
+      return "Aktif";
+    case "very_active":
+      return "Çok Aktif";
+    default:
+      return "Belirtilmemiş";
+  }
+}
 
 export default function CreateAIDietPlan() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [isAdjustingMacros, setIsAdjustingMacros] = useState(false);
   const [selectedTab, setSelectedTab] = useState<string>("client");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [selectedClientData, setSelectedClientData] = useState<any>(null);
+  const [selectedClientData, setSelectedClientData] = useState<Partial<FormValues> | null>(null);
+
+  // Form initialization with proper types
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      age: 0,
+      gender: "male",
+      height: 0,
+      weight: 0,
+      activityLevel: "moderate",
+      dietType: "balanced",
+      allergies: [],
+      healthConditions: [],
+      proteinPercentage: 30,
+      carbsPercentage: 40,
+      fatPercentage: 30,
+      meals: 3,
+      includeSnacks: false,
+      includeDessert: false,
+    },
+  });
 
   // Danışanları getir
-  const { data: clients, isLoading: clientsLoading } = useQuery({
+  const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   // Seçilen danışanın ölçümlerini getir
-  const { data: measurements, isLoading: measurementsLoading } = useQuery({
+  const { data: measurements = [], isLoading: measurementsLoading } = useQuery<Measurement[]>({
     queryKey: ["/api/client-measurements", selectedClientId],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!selectedClientId,
   });
 
-  // En son ölçümü bul
+  // Danışan seçme formu
+  const clientSelectForm = useForm<ClientSelectFormData>({
+    resolver: zodResolver(clientSelectSchema),
+    defaultValues: {
+      clientId: "",
+    },
+  });
+
+  // Form değerlerini sıfırla
+  const resetForm = () => {
+    form.reset();
+    clientSelectForm.reset({
+      clientId: "",
+    });
+  };
+
+  // En son ölçümü bul ve form değerlerini güncelle
   useEffect(() => {
     if (measurements && measurements.length > 0 && selectedClientId) {
       const latestMeasurement = measurements.sort(
@@ -123,98 +202,82 @@ export default function CreateAIDietPlan() {
       const client = clients?.find(c => c.id.toString() === selectedClientId);
       
       if (client && latestMeasurement) {
-        const clientInfo = {
+        const clientInfo: Partial<FormValues> = {
           name: `${client.firstName} ${client.lastName}`,
-          height: latestMeasurement.height,
-          weight: latestMeasurement.weight,
-          gender: client.gender,
+          height: Number(latestMeasurement.height),
+          weight: Number(latestMeasurement.weight),
+          gender: client.gender.toLowerCase() as "male" | "female",
           age: client.birthDate 
             ? Math.floor((new Date().getTime() - new Date(client.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) 
             : 30,
-          activityLevel: latestMeasurement.activityLevel || "moderate",
-          allergies: client.allergies || "",
-          healthConditions: client.medicalConditions || "",
+          activityLevel: (latestMeasurement.activityLevel || "moderate") as FormValues["activityLevel"],
+          allergies: Array.isArray(client.allergies) ? client.allergies : [],
+          healthConditions: Array.isArray(client.medicalConditions) ? client.medicalConditions : [],
         };
 
         setSelectedClientData(clientInfo);
         
-        // Form değerlerini güncelle
-        form.setValue("name", client.firstName + " " + client.lastName);
-        form.setValue("height", Number(clientInfo.height));
-        form.setValue("weight", Number(clientInfo.weight));
-        form.setValue("gender", clientInfo.gender.toLowerCase() === "female" ? "female" : "male");
-        form.setValue("age", clientInfo.age);
-        form.setValue("activityLevel", clientInfo.activityLevel || "moderate");
-        form.setValue("allergies", clientInfo.allergies || "");
-        form.setValue("healthConditions", clientInfo.healthConditions || "");
+        // Update form values
+        Object.entries(clientInfo).forEach(([key, value]) => {
+          if (value !== undefined) {
+            form.setValue(key as keyof FormValues, value);
+          }
+        });
       }
     }
-  }, [measurements, selectedClientId, clients]);
+  }, [measurements, selectedClientId, clients, form]);
 
-  // Danışan seçme formu
-  const clientSelectForm = useForm<z.infer<typeof clientSelectSchema>>({
-    resolver: zodResolver(clientSelectSchema),
-    defaultValues: {
-      clientId: "",
-    },
-  });
+  // Handle diet type change
+  const handleDietTypeChange = (dietType: DietType) => {
+    switch (dietType) {
+      case "low_carb":
+        form.setValue("proteinPercentage", 40);
+        form.setValue("carbsPercentage", 20);
+        form.setValue("fatPercentage", 40);
+        break;
+      case "high_protein":
+        form.setValue("proteinPercentage", 50);
+        form.setValue("carbsPercentage", 30);
+        form.setValue("fatPercentage", 20);
+        break;
+      case "keto":
+        form.setValue("proteinPercentage", 25);
+        form.setValue("carbsPercentage", 5);
+        form.setValue("fatPercentage", 70);
+        break;
+      case "paleo":
+        form.setValue("proteinPercentage", 35);
+        form.setValue("carbsPercentage", 25);
+        form.setValue("fatPercentage", 40);
+        break;
+      case "mediterranean":
+        form.setValue("proteinPercentage", 20);
+        form.setValue("carbsPercentage", 50);
+        form.setValue("fatPercentage", 30);
+        break;
+      case "vegetarian":
+        form.setValue("proteinPercentage", 25);
+        form.setValue("carbsPercentage", 50);
+        form.setValue("fatPercentage", 25);
+        break;
+      case "vegan":
+        form.setValue("proteinPercentage", 20);
+        form.setValue("carbsPercentage", 60);
+        form.setValue("fatPercentage", 20);
+        break;
+      default:
+        form.setValue("proteinPercentage", 30);
+        form.setValue("carbsPercentage", 40);
+        form.setValue("fatPercentage", 30);
+    }
+  };
 
-  // Form oluşturma
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      age: 30,
-      gender: "male",
-      height: 170,
-      weight: 70,
-      activityLevel: "moderate",
-      dietType: "balanced",
-      allergies: "",
-      healthConditions: "",
-      calorieGoal: undefined,
-      proteinPercentage: 30,
-      carbsPercentage: 40,
-      fatPercentage: 30,
-      meals: 3,
-      includeDessert: false,
-      includeSnacks: true,
-    },
-  });
-  
-  // Form değerlerini sıfırla
-  const resetForm = () => {
-    form.reset({
-      name: "",
-      age: 30,
-      gender: "male",
-      height: 170,
-      weight: 70,
-      activityLevel: "moderate",
-      dietType: "balanced",
-      allergies: "",
-      healthConditions: "",
-      calorieGoal: undefined,
-      proteinPercentage: 30,
-      carbsPercentage: 40,
-      fatPercentage: 30,
-      meals: 3,
-      includeDessert: false,
-      includeSnacks: true,
-    });
-  };
-  
-  // Danışan seçildiğinde
-  const onClientSelect = (data: z.infer<typeof clientSelectSchema>) => {
-    console.log("Danışan seçildi:", data.clientId);
-    setSelectedClientId(data.clientId);
-    // Danışan verileri geldiğinde otomatik olarak form değişecek
-    // Ama henüz tab'ı değiştirmiyoruz, önce verileri göstermeliyiz
-  };
+  // Toplam makro yüzdeleri
+  const totalMacros = form.watch("proteinPercentage") + form.watch("carbsPercentage") + form.watch("fatPercentage");
 
   // Diyet planı oluşturma mutation'ı
   const createDietPlanMutation = useMutation({
-    mutationFn: async (values: any) => {
+    mutationFn: async (values: FormValues) => {
       const response = await apiRequest("POST", "/api/generate/diet-plan", values);
       return response.json();
     },
@@ -226,670 +289,620 @@ export default function CreateAIDietPlan() {
       });
       navigate("/diet-plans");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const errorMessage = isError(error) ? error.message : "Diyet planı oluşturulurken bir hata oluştu";
       toast({
         title: "Hata",
-        description: error.message || "Diyet planı oluşturulurken bir hata oluştu",
+        description: errorMessage,
         variant: "destructive",
       });
     },
   });
 
   // Form gönderme
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // Eğer danışan seçildiyse, istek içerisine clientId ekle
-    const requestPayload = {
-      ...values,
-      clientId: selectedClientId || undefined
-    };
-    
-    createDietPlanMutation.mutate(requestPayload);
-  };
-
-  // Diyet türü değiştiğinde makro besin dağılımını güncelle
-  const handleDietTypeChange = (value: string) => {
-    if (!isAdjustingMacros) {
-      let protein = 30;
-      let carbs = 40;
-      let fat = 30;
-
-      switch (value) {
-        case "low_carb":
-          protein = 35;
-          carbs = 25;
-          fat = 40;
-          break;
-        case "high_protein":
-          protein = 40;
-          carbs = 30;
-          fat = 30;
-          break;
-        case "keto":
-          protein = 20;
-          carbs = 10;
-          fat = 70;
-          break;
-        case "paleo":
-          protein = 30;
-          carbs = 30;
-          fat = 40;
-          break;
-        case "vegetarian":
-        case "vegan":
-          protein = 25;
-          carbs = 50;
-          fat = 25;
-          break;
-        case "mediterranean":
-          protein = 25;
-          carbs = 45;
-          fat = 30;
-          break;
-        default:
-          protein = 30;
-          carbs = 40;
-          fat = 30;
-      }
-
-      form.setValue("proteinPercentage", protein);
-      form.setValue("carbsPercentage", carbs);
-      form.setValue("fatPercentage", fat);
+  const onSubmit = async (data: FormValues) => {
+    try {
+      await createDietPlanMutation.mutateAsync(data);
+    } catch (error: unknown) {
+      const errorMessage = isError(error) ? error.message : "Failed to create diet plan";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
-  // Makro besin dağılımını düzenlerken diyet türünü 'custom' olarak ayarla
-  const handleMacroChange = () => {
-    setIsAdjustingMacros(true);
-    form.setValue("dietType", "custom");
+  // Danışan seçildiğinde
+  const onClientSelect = (data: ClientSelectFormData) => {
+    setSelectedClientId(data.clientId);
   };
 
-  // Toplam makro yüzdeleri
-  const totalMacros = form.watch("proteinPercentage") + form.watch("carbsPercentage") + form.watch("fatPercentage");
-
   return (
-    <ProtectedFeature featureName="Yapay Zeka ile Diyet Planı">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Yapay Zeka ile Diyet Planı Oluştur</h1>
-            <p className="text-muted-foreground mt-2">
-              Google Gemini AI destekli kişiselleştirilmiş diyet planları oluşturun.
-            </p>
-          </div>
-          <Sparkles className="h-8 w-8 text-blue-500" />
-        </div>
+    <ProtectedFeature featureName="AI Diet Plan Creation">
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid gap-6 max-w-7xl mx-auto">
+          <Card className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold">Create Diet Plan with AI</h1>
+                <p className="text-muted-foreground mt-2">
+                  Google Gemini AI destekli kişiselleştirilmiş diyet planları oluşturun.
+                </p>
+              </div>
+              <Sparkles className="h-8 w-8 text-blue-500" />
+            </div>
+          </Card>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto mb-6">
-            <TabsTrigger value="client" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Danışan Seç
-            </TabsTrigger>
-            <TabsTrigger value="manual" className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              Manuel Giriş
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="client" className="border rounded-md p-4">
-            <h3 className="text-lg font-medium mb-4">Danışan Seçin</h3>
-            <p className="text-muted-foreground mb-6">
-              Diyet planı oluşturmak istediğiniz danışanı seçin. Son ölçüm değerleri otomatik olarak kullanılacaktır.
-            </p>
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+            <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto mb-6">
+              <TabsTrigger value="client" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Danışan Seç
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Manuel Giriş
+              </TabsTrigger>
+            </TabsList>
             
-            <Form {...clientSelectForm}>
-              <form onSubmit={clientSelectForm.handleSubmit(onClientSelect)} className="space-y-6">
-                <FormField
-                  control={clientSelectForm.control}
-                  name="clientId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Danışan</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Diyet planı oluşturmak için bir danışan seçin" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {clientsLoading ? (
-                            <div className="flex items-center justify-center p-4">
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              <span>Danışanlar yükleniyor...</span>
-                            </div>
-                          ) : clients && clients.length > 0 ? (
-                            clients.map((client) => (
-                              <SelectItem key={client.id} value={client.id.toString()}>
-                                {client.firstName} {client.lastName}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="p-2 text-center">Danışan bulunamadı</div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <Button type="submit" disabled={clientsLoading}>
-                  {measurementsLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Yükleniyor...
-                    </>
-                  ) : (
-                    "Danışanı Seç"
-                  )}
-                </Button>
-              </form>
-            </Form>
+            <TabsContent value="client" className="border rounded-md p-4">
+              <h3 className="text-lg font-medium mb-4">Danışan Seçin</h3>
+              <p className="text-muted-foreground mb-6">
+                Diyet planı oluşturmak istediğiniz danışanı seçin. Son ölçüm değerleri otomatik olarak kullanılacaktır.
+              </p>
+              
+              <Form {...clientSelectForm}>
+                <form onSubmit={clientSelectForm.handleSubmit(onClientSelect)} className="space-y-6">
+                  <FormField
+                    control={clientSelectForm.control}
+                    name="clientId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Danışan</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Diyet planı oluşturmak için bir danışan seçin" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {clientsLoading ? (
+                              <div className="flex items-center justify-center p-4">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                <span>Danışanlar yükleniyor...</span>
+                              </div>
+                            ) : clients && clients.length > 0 ? (
+                              clients.map((client) => (
+                                <SelectItem key={client.id} value={client.id.toString()}>
+                                  {client.firstName} {client.lastName}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-center">Danışan bulunamadı</div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" disabled={clientsLoading}>
+                    {measurementsLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Yükleniyor...
+                      </>
+                    ) : (
+                      "Danışanı Seç"
+                    )}
+                  </Button>
+                </form>
+              </Form>
+              
+              {selectedClientData && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Danışan Bilgileri</CardTitle>
+                    <CardDescription>
+                      Diyet planı oluşturulacak danışanın bilgileri
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <ClientInfoItem 
+                        label="İsim" 
+                        value={selectedClientData.name} 
+                      />
+                      <ClientInfoItem 
+                        label="Yaş" 
+                        value={`${selectedClientData.age} yaşında`} 
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 mt-4">
+                      <ClientInfoItem 
+                        label="Boy" 
+                        value={`${selectedClientData.height} cm`} 
+                      />
+                      <ClientInfoItem 
+                        label="Kilo" 
+                        value={`${selectedClientData.weight} kg`} 
+                      />
+                      <ClientInfoItem 
+                        label="Cinsiyet" 
+                        value={selectedClientData.gender === "female" ? "Kadın" : "Erkek"} 
+                      />
+                    </div>
+                    
+                    <div className="mt-4">
+                      <ClientInfoItem 
+                        label="Aktivite Seviyesi" 
+                        value={getActivityLevelLabel(selectedClientData.activityLevel || '')} 
+                      />
+                    </div>
+                    
+                    {selectedClientData.allergies && selectedClientData.allergies.length > 0 && (
+                      <div className="mt-4">
+                        <ClientInfoItem 
+                          label="Alerjiler" 
+                          value={selectedClientData.allergies.join(", ")} 
+                        />
+                      </div>
+                    )}
+                    
+                    {selectedClientData.healthConditions && selectedClientData.healthConditions.length > 0 && (
+                      <div className="mt-4">
+                        <ClientInfoItem 
+                          label="Sağlık Durumu" 
+                          value={selectedClientData.healthConditions.join(", ")} 
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSelectedClientId(null);
+                        setSelectedClientData(null);
+                        resetForm();
+                        clientSelectForm.reset();
+                      }}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Başka Danışan Seç
+                    </Button>
+                    <Button 
+                      onClick={() => setSelectedTab("manual")}
+                      className="ml-auto"
+                    >
+                      Devam Et ve Diyet Planı Detaylarını Ayarla
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+            </TabsContent>
             
-            {selectedClientData && (
-              <Card className="mt-6">
+            <TabsContent value="manual">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Danışan Bilgileri</CardTitle>
+                  <CardTitle>Diyet Planı Gereksinimleri</CardTitle>
                   <CardDescription>
-                    Diyet planı oluşturulacak danışanın bilgileri
+                    Kişiselleştirilmiş diyet planı oluşturmak için aşağıdaki bilgileri giriniz.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>İsim</Label>
-                      <p className="font-medium">{selectedClientData.name}</p>
-                    </div>
-                    <div>
-                      <Label>Yaş</Label>
-                      <p className="font-medium">{selectedClientData.age} yaşında</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 mt-4">
-                    <div>
-                      <Label>Boy</Label>
-                      <p className="font-medium">{selectedClientData.height} cm</p>
-                    </div>
-                    <div>
-                      <Label>Kilo</Label>
-                      <p className="font-medium">{selectedClientData.weight} kg</p>
-                    </div>
-                    <div>
-                      <Label>Cinsiyet</Label>
-                      <p className="font-medium">{selectedClientData.gender === "female" ? "Kadın" : "Erkek"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <Label>Aktivite Seviyesi</Label>
-                    <p className="font-medium">{
-                      selectedClientData.activityLevel === "sedentary" ? "Hareketsiz" :
-                      selectedClientData.activityLevel === "light" ? "Hafif Hareketli" :
-                      selectedClientData.activityLevel === "moderate" ? "Orta Derecede Hareketli" :
-                      selectedClientData.activityLevel === "active" ? "Aktif" :
-                      selectedClientData.activityLevel === "very_active" ? "Çok Aktif" :
-                      "Belirtilmemiş"
-                    }</p>
-                  </div>
-                  
-                  {selectedClientData.allergies && (
-                    <div className="mt-4">
-                      <Label>Alerjiler</Label>
-                      <p className="font-medium">{selectedClientData.allergies}</p>
-                    </div>
-                  )}
-                  
-                  {selectedClientData.healthConditions && (
-                    <div className="mt-4">
-                      <Label>Sağlık Durumu</Label>
-                      <p className="font-medium">{selectedClientData.healthConditions}</p>
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSelectedClientId(null);
-                      setSelectedClientData(null);
-                      resetForm();
-                      clientSelectForm.reset();
-                    }}
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Başka Danışan Seç
-                  </Button>
-                  <Button 
-                    onClick={() => setSelectedTab("manual")}
-                    className="ml-auto"
-                  >
-                    Devam Et ve Diyet Planı Detaylarını Ayarla
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="manual">
-            <Card>
-              <CardHeader>
-                <CardTitle>Diyet Planı Gereksinimleri</CardTitle>
-                <CardDescription>
-                  Kişiselleştirilmiş diyet planı oluşturmak için aşağıdaki bilgileri giriniz.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold">Kişisel Bilgiler</h3>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                          <h3 className="text-lg font-semibold">Kişisel Bilgiler</h3>
 
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>İsim</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Danışanın adı" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>İsim</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Danışanın adı" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="age"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Yaş</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cinsiyet</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Cinsiyet seçin" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="male">Erkek</SelectItem>
-                                <SelectItem value="female">Kadın</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="height"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Boy (cm)</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="weight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Kilo (kg)</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="activityLevel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Aktivite Seviyesi</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Aktivite seviyesi seçin" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {activityLevels.map((level) => (
-                                <SelectItem key={level.value} value={level.value}>
-                                  {level.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="healthConditions"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sağlık Durumları</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Diyabet, hipertansiyon, kalp hastalığı vb."
-                              {...field}
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="age"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Yaş</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormDescription>
-                            Dikkate alınması gereken tüm sağlık durumlarını belirtin
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
 
-                    <FormField
-                      control={form.control}
-                      name="allergies"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Alerjiler / İntoleranslar</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Fıstık, gluten, süt ürünleri vb."
-                              {...field}
+                            <FormField
+                              control={form.control}
+                              name="gender"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Cinsiyet</FormLabel>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Cinsiyet seçin" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="male">Erkek</SelectItem>
+                                      <SelectItem value="female">Kadın</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          </div>
 
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold">Diyet Gereksinimleri</h3>
-
-                    <FormField
-                      control={form.control}
-                      name="dietType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Diyet Türü</FormLabel>
-                          <Select
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              handleDietTypeChange(value);
-                            }}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Diyet türü seçin" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {dietTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="calorieGoal"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kalori Hedefi (opsiyonel)</FormLabel>
-                          <HoverCard>
-                            <HoverCardTrigger>
-                              <FormLabel className="flex items-center gap-1">
-                                <InfoIcon className="h-4 w-4 text-muted-foreground" />
-                              </FormLabel>
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-80">
-                              <p className="text-sm">
-                                Boş bırakırsanız, aktivite seviyesi ve vücut bilgilerine göre otomatik olarak hesaplanacaktır.
-                              </p>
-                            </HoverCardContent>
-                          </HoverCard>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="Boş bırakın otomatik hesaplansın"
-                              {...field}
-                              value={field.value || ""}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="height"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Boy (cm)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormDescription>
-                            Kalori hedefini manuel olarak belirtmek için doldurun
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
 
-                    <div className="space-y-8 pt-4">
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium">Makro Besin Dağılımı</h4>
-                          <span className={totalMacros === 100 ? "text-green-500" : "text-red-500"}>
-                            Toplam: {totalMacros}%
-                          </span>
+                            <FormField
+                              control={form.control}
+                              name="weight"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Kilo (kg)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="activityLevel"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Aktivite Seviyesi</FormLabel>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Aktivite seviyesi seçin" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {activityLevels.map((level) => (
+                                      <SelectItem key={level.value} value={level.value}>
+                                        {level.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="healthConditions"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Sağlık Durumları</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Diyabet, hipertansiyon, kalp hastalığı vb."
+                                    {...field}
+                                    onChange={e => field.onChange(e.target.value.split(',').map(s => s.trim()))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="allergies"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Alerjiler / İntoleranslar</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Fıstık, gluten, süt ürünleri vb."
+                                    {...field}
+                                    onChange={e => field.onChange(e.target.value.split(',').map(s => s.trim()))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
 
-                        <FormField
-                          control={form.control}
-                          name="proteinPercentage"
-                          render={({ field }) => (
-                            <FormItem className="space-y-2">
-                              <div className="flex justify-between">
-                                <FormLabel>Protein</FormLabel>
-                                <span>{field.value}%</span>
-                              </div>
-                              <FormControl>
-                                <Slider
-                                  defaultValue={[field.value]}
-                                  min={0}
-                                  max={100}
-                                  step={5}
-                                  onValueChange={(values) => {
-                                    field.onChange(values[0]);
-                                    handleMacroChange();
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        <div className="space-y-6">
+                          <h3 className="text-lg font-semibold">Diyet Gereksinimleri</h3>
 
-                        <FormField
-                          control={form.control}
-                          name="carbsPercentage"
-                          render={({ field }) => (
-                            <FormItem className="space-y-2">
-                              <div className="flex justify-between">
-                                <FormLabel>Karbonhidrat</FormLabel>
-                                <span>{field.value}%</span>
-                              </div>
-                              <FormControl>
-                                <Slider
-                                  defaultValue={[field.value]}
-                                  min={0}
-                                  max={100}
-                                  step={5}
-                                  onValueChange={(values) => {
-                                    field.onChange(values[0]);
-                                    handleMacroChange();
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                          <FormField
+                            control={form.control}
+                            name="dietType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Diet Type</FormLabel>
+                                <Select 
+                                  onValueChange={(value: DietType) => {
+                                    field.onChange(value);
+                                    handleDietTypeChange(value);
+                                  }} 
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select diet type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {dietTypes.map((type) => (
+                                      <SelectItem key={type.value} value={type.value}>
+                                        {type.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                        <FormField
-                          control={form.control}
-                          name="fatPercentage"
-                          render={({ field }) => (
-                            <FormItem className="space-y-2">
-                              <div className="flex justify-between">
-                                <FormLabel>Yağ</FormLabel>
-                                <span>{field.value}%</span>
+                          <FormField
+                            control={form.control}
+                            name="calorieGoal"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Kalori Hedefi (opsiyonel)</FormLabel>
+                                <HoverCard>
+                                  <HoverCardTrigger>
+                                    <FormLabel className="flex items-center gap-1">
+                                      <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                                    </FormLabel>
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-80">
+                                    <p className="text-sm">
+                                      Boş bırakırsanız, aktivite seviyesi ve vücut bilgilerine göre otomatik olarak hesaplanacaktır.
+                                    </p>
+                                  </HoverCardContent>
+                                </HoverCard>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="Boş bırakın otomatik hesaplansın"
+                                    {...field}
+                                    onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="space-y-8 pt-4">
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-medium">Makro Besin Dağılımı</h4>
+                                <span className={totalMacros === 100 ? "text-green-500" : "text-red-500"}>
+                                  Toplam: {totalMacros}%
+                                </span>
                               </div>
-                              <FormControl>
-                                <Slider
-                                  defaultValue={[field.value]}
-                                  min={0}
-                                  max={100}
-                                  step={5}
-                                  onValueChange={(values) => {
-                                    field.onChange(values[0]);
-                                    handleMacroChange();
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+
+                              <FormField
+                                control={form.control}
+                                name="proteinPercentage"
+                                render={({ field }) => (
+                                  <FormItem className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <FormLabel>Protein</FormLabel>
+                                      <span>{field.value}%</span>
+                                    </div>
+                                    <FormControl>
+                                      <Slider
+                                        defaultValue={[field.value]}
+                                        min={0}
+                                        max={100}
+                                        step={5}
+                                        onValueChange={(values) => {
+                                          field.onChange(values[0]);
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="carbsPercentage"
+                                render={({ field }) => (
+                                  <FormItem className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <FormLabel>Karbonhidrat</FormLabel>
+                                      <span>{field.value}%</span>
+                                    </div>
+                                    <FormControl>
+                                      <Slider
+                                        defaultValue={[field.value]}
+                                        min={0}
+                                        max={100}
+                                        step={5}
+                                        onValueChange={(values) => {
+                                          field.onChange(values[0]);
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="fatPercentage"
+                                render={({ field }) => (
+                                  <FormItem className="space-y-2">
+                                    <div className="flex justify-between">
+                                      <FormLabel>Yağ</FormLabel>
+                                      <span>{field.value}%</span>
+                                    </div>
+                                    <FormControl>
+                                      <Slider
+                                        defaultValue={[field.value]}
+                                        min={0}
+                                        max={100}
+                                        step={5}
+                                        onValueChange={(values) => {
+                                          field.onChange(values[0]);
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            <Separator />
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField
+                                control={form.control}
+                                name="meals"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Günlük Öğün Sayısı</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="number" 
+                                        min={2} 
+                                        max={6} 
+                                        {...field} 
+                                        onChange={e => field.onChange(Number(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            <div className="space-y-4">
+                              <FormField
+                                control={form.control}
+                                name="includeSnacks"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between space-y-0 rounded-lg border p-4">
+                                    <div className="space-y-1">
+                                      <FormLabel className="text-base">Atıştırmalık Dahil Et</FormLabel>
+                                      <FormDescription>
+                                        Diyet planına atıştırmalıklar eklensin mi?
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="includeDessert"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between space-y-0 rounded-lg border p-4">
+                                    <div className="space-y-1">
+                                      <FormLabel className="text-base">Tatlı Dahil Et</FormLabel>
+                                      <FormDescription>
+                                        Diyet planına tatlılar eklensin mi?
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      <Separator />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="meals"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Günlük Öğün Sayısı</FormLabel>
-                              <FormControl>
-                                <Input type="number" min={2} max={6} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
+                      <div className="pt-6 space-x-2 flex justify-end items-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate("/diet-plans")}
+                        >
+                          İptal
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={form.formState.isSubmitting}
+                          className="gap-2"
+                        >
+                          {form.formState.isSubmitting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
                           )}
-                        />
+                          {form.formState.isSubmitting ? "Oluşturuluyor..." : "Diyet Planı Oluştur"}
+                        </Button>
                       </div>
-
-                      <div className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="includeSnacks"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between space-y-0 rounded-lg border p-4">
-                              <div className="space-y-1">
-                                <FormLabel className="text-base">Atıştırmalık Dahil Et</FormLabel>
-                                <FormDescription>
-                                  Diyet planına atıştırmalıklar eklensin mi?
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="includeDessert"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between space-y-0 rounded-lg border p-4">
-                              <div className="space-y-1">
-                                <FormLabel className="text-base">Tatlı Dahil Et</FormLabel>
-                                <FormDescription>
-                                  Diyet planına tatlılar eklensin mi?
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-6 space-x-2 flex justify-end items-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate("/diet-plans")}
-                  >
-                    İptal
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createDietPlanMutation.isPending}
-                    className="gap-2"
-                  >
-                    {createDietPlanMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                    {createDietPlanMutation.isPending ? "Oluşturuluyor..." : "Diyet Planı Oluştur"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-        </TabsContent>
-        </Tabs>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </ProtectedFeature>
   );

@@ -2,8 +2,9 @@ import express, { Request, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { fromZodError } from "zod-validation-error";
+import { isValidUUID } from "../utils/uuid-validator";
 
-const notificationsRouter = express.Router();
+const router = express.Router();
 
 // Notification types
 export enum NotificationType {
@@ -31,16 +32,17 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
 };
 
 // Create a new notification
-notificationsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
     const notificationData = notificationSchema.parse(req.body);
     
     const notification = await storage.createNotification({
-      ...notificationData,
       userId,
-      isRead: false,
-      createdAt: new Date()
+      title: notificationData.title,
+      content: notificationData.message,
+      type: notificationData.type,
+      isRead: false
     });
     
     // Emit notification through WebSocket if available
@@ -61,8 +63,8 @@ notificationsRouter.post("/", requireAuth, async (req: Request, res: Response) =
   }
 });
 
-// Bildirimleri getir - sadece diyetisyenin kendi danışanları için
-notificationsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
+// Get notifications for the authenticated user
+router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
     const { type, isRead, limit = 50, offset = 0 } = req.query;
@@ -81,14 +83,11 @@ notificationsRouter.get("/", requireAuth, async (req: Request, res: Response) =>
   }
 });
 
-// Okunmamış bildirim sayısını getir - sadece diyetisyenin kendi danışanları için
-notificationsRouter.get("/unread-count", requireAuth, async (req: Request, res: Response) => {
+// Get unread notification count
+router.get("/unread-count", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    
-    // Basitleştirilmiş sayma işlemi
     const count = await storage.getUnreadNotificationCount(userId);
-    
     res.json({ count });
   } catch (error) {
     console.error("Unread notification count error:", error);
@@ -96,8 +95,8 @@ notificationsRouter.get("/unread-count", requireAuth, async (req: Request, res: 
   }
 });
 
-// Bildirimi okundu olarak işaretle
-notificationsRouter.post("/:id/mark-read", requireAuth, async (req: Request, res: Response) => {
+// Mark notification as read
+router.post("/:id/mark-read", requireAuth, async (req: Request, res: Response) => {
   try {
     const notificationId = parseInt(req.params.id);
     const userId = req.session.user!.id;
@@ -116,21 +115,19 @@ notificationsRouter.post("/:id/mark-read", requireAuth, async (req: Request, res
       return res.status(403).json({ message: "Bu işlem için yetkiniz yok" });
     }
     
-    await storage.markNotificationAsRead(notificationId);
-    
-    res.status(200).json({ success: true });
+    const updatedNotification = await storage.markNotificationAsRead(notificationId);
+    res.status(200).json(updatedNotification);
   } catch (error) {
     console.error("Mark notification as read error:", error);
     res.status(500).json({ message: "Bildirim okundu olarak işaretlenemedi" });
   }
 });
 
-// Tüm bildirimleri okundu olarak işaretle
-notificationsRouter.post("/mark-all-read", requireAuth, async (req: Request, res: Response) => {
+// Mark all notifications as read
+router.post("/mark-all-read", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
     await storage.markAllNotificationsAsRead(userId);
-    
     res.status(200).json({ success: true });
   } catch (error) {
     console.error("Mark all notifications as read error:", error);
@@ -138,8 +135,8 @@ notificationsRouter.post("/mark-all-read", requireAuth, async (req: Request, res
   }
 });
 
-// Tüm bildirimleri silme endpoint'i
-notificationsRouter.delete("/", requireAuth, async (req: Request, res: Response) => {
+// Delete all notifications
+router.delete("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
     await storage.deleteAllNotifications(userId);
@@ -150,4 +147,26 @@ notificationsRouter.delete("/", requireAuth, async (req: Request, res: Response)
   }
 });
 
-export default notificationsRouter;
+// Get notifications for a specific user (admin only)
+router.get("/user/:userId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!isValidUUID(userId)) {
+      return res.status(400).json({ error: "Invalid user ID format" });
+    }
+    
+    // Check if user is admin
+    if (req.session.user!.role !== 'admin') {
+      return res.status(403).json({ message: "Bu işlem için yetkiniz yok" });
+    }
+    
+    const notifications = await storage.getNotificationsByUserId(userId);
+    res.json(notifications);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
+
+export default router;

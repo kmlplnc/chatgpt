@@ -43,6 +43,8 @@ interface ClientData {
   last_name: string;
   email: string;
   client_visible_notes?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface Measurement {
@@ -51,8 +53,8 @@ interface Measurement {
   weight: string;
   height: string;
   bmi: string;
-  basal_metabolic_rate?: number;
-  total_daily_energy_expenditure?: number;
+  basalMetabolicRate?: number;
+  totalDailyEnergyExpenditure?: number;
   created_at: string;
 }
 
@@ -70,6 +72,11 @@ export default function ClientPortalDashboard() {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  
+  // Debug log
+  console.log('clientData:', clientData);
+  console.log('measurements:', measurements);
   
   // Verileri yüklemek için bir fonksiyon tanımlayalım
   const fetchData = useCallback(async () => {
@@ -77,10 +84,15 @@ export default function ClientPortalDashboard() {
       // Fetch client data
       const clientResponse = await apiRequest('GET', '/api/client-portal/me');
       if (!clientResponse.ok) {
+        if (clientResponse.status === 401) {
+          // Oturum geçersiz, login sayfasına yönlendir
+          navigate('/client-portal');
+          return;
+        }
         throw new Error('Danışan bilgileri alınamadı');
       }
       const clientData = await clientResponse.json();
-      setClientData(clientData);
+      setClientData(clientData.client);
 
       // Fetch measurements
       const measurementsResponse = await apiRequest('GET', '/api/client-portal/measurements');
@@ -96,9 +108,21 @@ export default function ClientPortalDashboard() {
         setRecommendations(recommendationsData);
       }
 
+      // Fetch appointments
+      const appointmentsResponse = await apiRequest('GET', '/api/appointments?clientPortal=1');
+      if (appointmentsResponse.ok) {
+        const appointmentsData = await appointmentsResponse.json();
+        setAppointments(appointmentsData);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching client data:', error);
+      if (error instanceof Error && error.message.includes('401')) {
+        // Oturum geçersiz, login sayfasına yönlendir
+        navigate('/client-portal');
+        return;
+      }
       toast({
         title: 'Hata',
         description: 'Veriler yüklenirken bir hata oluştu. Lütfen tekrar giriş yapın.',
@@ -113,11 +137,11 @@ export default function ClientPortalDashboard() {
     fetchData();
   }, [fetchData]);
   
-  // Her 10 saniyede bir verileri otomatik güncelle
+  // Her 30 saniyede bir verileri otomatik güncelle
   useEffect(() => {
     const intervalId = setInterval(() => {
       fetchData();
-    }, 10000); // 10 saniyede bir güncelle
+    }, 30000); // 30 saniyede bir güncelle
     
     // Component unmount olduğunda intervali temizle
     return () => clearInterval(intervalId);
@@ -199,9 +223,7 @@ export default function ClientPortalDashboard() {
       return { 
         icon: <FaMeh className="text-yellow-500 text-xl" />, 
         trend: 'stable',
-        trendIcon: null,
-        change: 0,
-        percent: '0'
+        change: 0
       };
     }
   };
@@ -260,6 +282,68 @@ export default function ClientPortalDashboard() {
     }
   };
 
+  // Yaklaşan randevuyu bul
+  const now = new Date();
+  const upcomingAppointments = appointments
+    ?.filter((a: any) => a.startTime && new Date(a.startTime) > now)
+    .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  const nextAppointment = upcomingAppointments?.[0];
+
+  // Renk ve animasyon state
+  let appointmentColor = {
+    panel: "bg-gradient-to-r from-green-200 via-green-100 to-green-50 border-l-8 border-green-500",
+    icon: "text-green-600",
+    title: "text-green-800",
+    subtitle: "text-green-900",
+    date: "text-green-700",
+    location: "text-green-600"
+  };
+  if (nextAppointment && nextAppointment.startTime) {
+    const diffMs = new Date(nextAppointment.startTime).getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 2) {
+      appointmentColor = {
+        panel: "bg-gradient-to-r from-red-200 via-red-100 to-red-50 border-l-8 border-red-500",
+        icon: "text-red-600",
+        title: "text-red-800",
+        subtitle: "text-red-900",
+        date: "text-red-700",
+        location: "text-red-600"
+      };
+    } else if (diffDays <= 6) {
+      appointmentColor = {
+        panel: "bg-gradient-to-r from-yellow-200 via-yellow-100 to-yellow-50 border-l-8 border-yellow-500",
+        icon: "text-yellow-600",
+        title: "text-yellow-800",
+        subtitle: "text-yellow-900",
+        date: "text-yellow-700",
+        location: "text-yellow-600"
+      };
+    }
+  }
+  const [showPulse, setShowPulse] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowPulse(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Tavsiyeleri manuel yenilemek için fonksiyon
+  const refreshRecommendations = async () => {
+    try {
+      const recommendationsResponse = await apiRequest('GET', '/api/client-portal/recommendations');
+      if (recommendationsResponse.ok) {
+        const recommendationsData = await recommendationsResponse.json();
+        setRecommendations(recommendationsData);
+      }
+    } catch (error) {
+      toast({
+        title: 'Hata',
+        description: 'Tavsiyeler güncellenemedi',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen bg-background flex flex-col">
@@ -279,16 +363,20 @@ export default function ClientPortalDashboard() {
     );
   }
 
-  const latestMeasurement = measurements.length > 0 
-    ? measurements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-    : null;
+  // Ölçümleri tarihe göre artan şekilde sırala (en eski başta, en yeni sonda)
+  const sortedMeasurements = measurements.slice().sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const latestMeasurement = sortedMeasurements[sortedMeasurements.length - 1] || null;
+  const previousMeasurement = sortedMeasurements[sortedMeasurements.length - 2] || null;
+
+  const firstName = clientData?.first_name || "";
+  const lastName = clientData?.last_name || "";
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold">
-            Hoş Geldiniz, {clientData?.first_name || 'Danışan'}
+            Hoş Geldiniz, {firstName} {lastName}
           </h1>
           <p className="text-muted-foreground mt-1">
             Sağlıklı yaşam yolculuğunuzu takip edin
@@ -336,16 +424,18 @@ export default function ClientPortalDashboard() {
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm text-muted-foreground">Ad Soyad</Label>
-                    <p className="font-medium">{clientData?.first_name} {clientData?.last_name}</p>
+                    <p className="font-medium">
+                      {clientData?.first_name || clientData?.firstName || "-"} {clientData?.last_name || clientData?.lastName || "-"}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">E-posta</Label>
-                    <p className="font-medium">{clientData?.email}</p>
+                    <p className="font-medium">{clientData?.email || "-"}</p>
                   </div>
                   {clientData?.client_visible_notes && (
                     <div>
                       <Label className="text-sm text-muted-foreground">Notlar</Label>
-                      <p className="text-sm text-muted-foreground">{clientData.client_visible_notes}</p>
+                      <p className="text-sm text-muted-foreground">{clientData?.client_visible_notes}</p>
                     </div>
                   )}
                 </div>
@@ -457,24 +547,26 @@ export default function ClientPortalDashboard() {
                 <div className="space-y-3">
                   <div>
                     <p className="text-2xl font-bold">
-                      {latestMeasurement?.basal_metabolic_rate ? latestMeasurement.basal_metabolic_rate.toFixed(0) : "N/A"} kcal
+                      {latestMeasurement?.basalMetabolicRate != null
+                        ? Number(latestMeasurement.basalMetabolicRate).toFixed(0)
+                        : "N/A"} kcal
                     </p>
                     {measurements.length > 1 && (
                       <div className="flex items-center gap-1 mt-2 text-sm">
-                        {measurements[0].basal_metabolic_rate && measurements[1].basal_metabolic_rate && (
+                        {measurements[0].basalMetabolicRate && measurements[1].basalMetabolicRate && (
                           <>
-                            {measurements[0].basal_metabolic_rate > measurements[1].basal_metabolic_rate ? (
+                            {measurements[0].basalMetabolicRate > measurements[1].basalMetabolicRate ? (
                               <>
                                 <TrendingUp className="h-4 w-4 text-green-500" />
                                 <span className="text-green-500">
-                                  +{(measurements[0].basal_metabolic_rate - measurements[1].basal_metabolic_rate).toFixed(0)} kcal
+                                  +{(measurements[0].basalMetabolicRate - measurements[1].basalMetabolicRate).toFixed(0)} kcal
                                 </span>
                               </>
-                            ) : measurements[0].basal_metabolic_rate < measurements[1].basal_metabolic_rate ? (
+                            ) : measurements[0].basalMetabolicRate < measurements[1].basalMetabolicRate ? (
                               <>
                                 <TrendingDown className="h-4 w-4 text-yellow-500" />
                                 <span className="text-yellow-500">
-                                  -{(measurements[1].basal_metabolic_rate - measurements[0].basal_metabolic_rate).toFixed(0)} kcal
+                                  -{(measurements[1].basalMetabolicRate - measurements[0].basalMetabolicRate).toFixed(0)} kcal
                                 </span>
                               </>
                             ) : (
@@ -491,6 +583,21 @@ export default function ClientPortalDashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Yaklaşan Randevu Paneli */}
+            {Array.isArray(upcomingAppointments) && upcomingAppointments.length > 0 && nextAppointment && (
+              <Card className={`rounded-3xl min-h-[80px] flex items-center shadow-2xl transition-all duration-500 border-0 ${showPulse ? 'animate-pulse' : ''} ${appointmentColor.panel} col-span-2`}>
+                <div className="mr-8 ml-6 flex-shrink-0">
+                  <Calendar className={`w-10 h-10 ${showPulse ? 'animate-bounce' : ''} ${appointmentColor.icon}`} />
+                </div>
+                <div className="py-4">
+                  <div className={`font-extrabold text-xl mb-2 tracking-wide ${appointmentColor.title}`}>Yaklaşan Randevu</div>
+                  <div className={`text-lg font-bold mb-1 ${appointmentColor.subtitle}`}>{nextAppointment.title}</div>
+                  <div className={`text-base mb-1 ${appointmentColor.date}`}>{formatDate(nextAppointment.startTime)} - {nextAppointment.time || (nextAppointment.startTime ? new Date(nextAppointment.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "")}</div>
+                  <div className={`text-sm ${appointmentColor.location}`}>{nextAppointment.location}</div>
+                </div>
+              </Card>
+            )}
           </div>
 
           {/* Measurement History */}
@@ -559,7 +666,7 @@ export default function ClientPortalDashboard() {
                                   </td>
                                   <td className="p-3 text-sm">{measurement.height}</td>
                                   <td className="p-3 text-sm">{measurement.bmi}</td>
-                                  <td className="p-3 text-sm">{measurement.basal_metabolic_rate || "-"}</td>
+                                  <td className="p-3 text-sm">{measurement.basalMetabolicRate || "-"}</td>
                                   <td className="p-3 text-sm">{bmiStatus}</td>
                                 </tr>
                               );
@@ -577,28 +684,81 @@ export default function ClientPortalDashboard() {
             </Card>
           </div>
 
-          {/* Recommendations */}
+          {/* Randevu Bilgileri */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {recommendations.map(recommendation => (
-              <Card key={recommendation.id} className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-medium">{recommendation.title}</CardTitle>
-                    <span className="text-xs text-muted-foreground">{formatDate(recommendation.created_at)}</span>
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-full">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-blue-500" />
+                  Randevu Bilgileri
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(upcomingAppointments) && upcomingAppointments.length > 0 ? (
+                  <div className="space-y-3">
+                    {upcomingAppointments.map((appt, idx) => (
+                      <div key={appt.id || idx} className="border border-slate-200 rounded-xl px-4 py-3 bg-white shadow-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-blue-700">{appt.type}</span>
+                          <span className="text-xs text-muted-foreground">{formatDate(appt.startTime)}</span>
+                          <span className="text-xs text-muted-foreground">{appt.time || (appt.startTime ? new Date(appt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "")}</span>
+                        </div>
+                        {appt.notes && <div className="text-xs text-slate-600 mt-1">{appt.notes}</div>}
+                      </div>
+                    ))}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{recommendation.content}</p>
-                </CardContent>
-              </Card>
-            ))}
-            {recommendations.length === 0 && (
-              <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-full">
-                <CardContent className="text-center py-6">
-                  <p className="text-muted-foreground">Henüz tavsiye bulunamadı.</p>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <p className="text-muted-foreground">Yaklaşan randevunuz bulunmuyor.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tavsiyeler */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="bg-white/80 dark:bg-slate-900/80 border-slate-200/50 dark:border-slate-700/50 col-span-full">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-green-500" />
+                  Tavsiyeler
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(clientData?.client_visible_notes) ? (
+                  clientData.client_visible_notes.length > 0 ? (
+                    <div className="space-y-3">
+                      {clientData.client_visible_notes.map((note: any, idx: number) => {
+                        const noteContent = typeof note === 'string' ? note : note.content;
+                        const noteDate = typeof note === 'object' && note.created_at ? note.created_at : null;
+                        return (
+                          <div key={idx} className="border border-slate-200 rounded-xl px-5 py-4 shadow-md bg-white">
+                            <span className="text-base font-medium tracking-tight break-words">{noteContent}</span>
+                            {noteDate && (
+                              <span className="block text-xs mt-2 text-muted-foreground">{new Date(noteDate).toLocaleString('tr-TR')}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Henüz diyetisyeninizden bir tavsiye eklenmemiş.</p>
+                  )
+                ) : clientData?.client_visible_notes ? (
+                  <div className="border border-slate-200 rounded-xl px-5 py-4 shadow-md bg-white">
+                    <span className="text-base font-medium tracking-tight break-words">
+                      {typeof clientData.client_visible_notes === 'object' && clientData.client_visible_notes !== null && 'content' in (clientData.client_visible_notes as any)
+                        ? (clientData.client_visible_notes as any).content
+                        : clientData.client_visible_notes}
+                    </span>
+                    {typeof clientData.client_visible_notes === 'object' && clientData.client_visible_notes !== null && 'created_at' in (clientData.client_visible_notes as any) && (clientData.client_visible_notes as any).created_at && (
+                      <span className="block text-xs mt-2 text-muted-foreground">{new Date((clientData.client_visible_notes as any).created_at).toLocaleString('tr-TR')}</span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Henüz diyetisyeninizden bir tavsiye eklenmemiş.</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </>
       )}

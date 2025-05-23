@@ -56,7 +56,7 @@ export function MessageList({
   }
   
   async function markMessagesAsRead() {
-    const clientMessages = messages.filter(m => m.fromClient && !m.isRead);
+    const clientMessages = messages.filter(m => m.fromClient && !m.read);
     if (clientMessages.length === 0) return;
     
     const messageIds = clientMessages.map(m => m.id);
@@ -109,7 +109,7 @@ export function MessageList({
   // Mesajları otomatik olarak okundu olarak işaretle
   useEffect(() => {
     if (!isLoading && messages && messages.length > 0) {
-      const hasUnreadMessages = messages.some(m => m.fromClient && !m.isRead);
+      const hasUnreadMessages = messages.some(m => m.fromClient && !m.read);
       if (hasUnreadMessages) {
         markMessagesAsReadMutation.mutate();
       }

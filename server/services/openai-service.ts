@@ -17,36 +17,57 @@ class OpenAIService {
   // Generate a diet plan based on user requirements
   async generateDietPlan(requirements: DietRequirement) {
     try {
-      // Construct a prompt for the diet plan
-      const prompt = this.buildDietPlanPrompt(requirements);
-
-      // Call OpenAI API
-      const response = await this.openai.chat.completions.create({
-        model: MODEL,
+      const prompt = `Create a personalized diet plan based on the following requirements:
+        Name: ${requirements.name}
+        Age: ${requirements.age}
+        Gender: ${requirements.gender}
+        Height: ${requirements.height} cm
+        Weight: ${requirements.weight} kg
+        Activity Level: ${requirements.activityLevel}
+        Diet Type: ${requirements.dietType}
+        Allergies: ${requirements.allergies?.join(", ") || "None"}
+        Health Conditions: ${requirements.healthConditions?.join(", ") || "None"}
+        
+        Please provide a detailed diet plan including:
+        1. Daily calorie target
+        2. Macronutrient distribution
+        3. Meal timing and frequency
+        4. Food recommendations
+        5. Portion sizes
+        6. Hydration guidelines
+        7. Any specific considerations based on the provided information`;
+      
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4",
         messages: [
-          { 
-            role: "system", 
-            content: "You are a professional dietician specializing in personalized nutrition plans. Create comprehensive, evidence-based meal plans with specific portion sizes and nutritional information."
+          {
+            role: "system",
+            content: "You are a professional dietitian and nutritionist. Provide detailed, personalized diet plans based on user requirements.",
           },
-          { role: "user", content: prompt }
+          {
+            role: "user",
+            content: prompt,
+          },
         ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
       });
-
-      const generatedContent = JSON.parse(response.choices[0].message.content);
-
-      // Format the response
+      
+      const response = completion.choices[0]?.message?.content;
+      
+      if (!response) {
+        throw new Error("No response from OpenAI");
+      }
+      
       return {
-        description: generatedContent.summary || "Personalized diet plan",
-        content: generatedContent,
-        tags: this.generateTags(requirements),
-        durationDays: 7,
-        status: "active"
+        success: true,
+        data: response,
       };
     } catch (error) {
-      console.error("OpenAI diet plan generation error:", error);
-      throw new Error(`Failed to generate diet plan: ${error.message}`);
+      console.error("Error generating diet plan:", error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "An unknown error occurred",
+      };
     }
   }
 

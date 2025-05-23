@@ -60,12 +60,29 @@ appointmentsRouter.get("/:id", requireAuth, async (req: Request, res: Response) 
 // Create appointment
 appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
+    console.log("Session user:", req.session.user);
     console.log("Randevu verisi:", JSON.stringify(req.body, null, 2));
     
+    // ÇAKIŞMA KONTROLÜ EKLE (startTime üzerinden)
+    const allAppointments = await storage.getUserAppointments(req.session.user!.id);
+    const isConflict = allAppointments.some(a => {
+      if (!a.startTime || !req.body.startTime) return false;
+      const aDate = new Date(a.startTime).toISOString().split('T')[0];
+      const aHourMin = new Date(a.startTime).toISOString().substring(11, 16);
+      const reqDate = new Date(req.body.startTime).toISOString().split('T')[0];
+      const reqHourMin = new Date(req.body.startTime).toISOString().substring(11, 16);
+      return aDate === reqDate && aHourMin === reqHourMin;
+    });
+
+    if (isConflict) {
+      return res.status(409).json({ message: "Bu saat dilimi dolu. Lütfen başka bir saat seçin." });
+    }
+    
     // String tarihleri Date nesnelerine dönüştür
+    const { userId: _, ...restBody } = req.body; // userId'yi request body'den çıkar
     const formattedData = {
-      ...req.body,
-      userId: req.session.user!.id,
+      ...restBody,
+      userId: req.session.user!.id, // Her zaman session'daki UUID'yi kullan
       date: req.body.date ? new Date(req.body.date) : undefined,
       startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
       endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
@@ -97,7 +114,7 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
             userId: appointment.userId,
             clientId: appointment.clientId,
             title: "Randevu Hatırlatması",
-            content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
+            content: `${client.first_name} ${client.last_name} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} tarihinde randevunuz var.`,
             type: "appointment",
             relatedId: appointment.id,
             isRead: false,
@@ -115,7 +132,7 @@ appointmentsRouter.post("/", requireAuth, async (req: Request, res: Response) =>
             userId: appointment.userId,
             clientId: appointment.clientId,
             title: "Randevu Hatırlatması",
-            content: `${client.firstName} ${client.lastName} ile bugün ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
+            content: `${client.first_name} ${client.last_name} ile bugün ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
             type: "appointment",
             relatedId: appointment.id,
             isRead: false,
@@ -149,25 +166,21 @@ appointmentsRouter.patch("/:id", requireAuth, async (req: Request, res: Response
     if (!appointment) {
       return res.status(404).json({ message: "Randevu bulunamadı" });
     }
-    
     // Sadece randevuyu oluşturan kullanıcı güncelleyebilir
     if (appointment.userId !== req.session.user!.id) {
       return res.status(403).json({ message: "Bu randevuyu güncelleme izniniz yok" });
     }
-    
     // String tarihleri Date nesnelerine dönüştür
     const formattedData = {
       ...req.body,
+      userId: req.session.user!.id, // Her zaman session'daki UUID'yi kullan
       date: req.body.date ? new Date(req.body.date) : undefined,
       startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
       endTime: req.body.endTime ? new Date(req.body.endTime) : undefined
     };
-    
     console.log("Güncellenen randevu verisi:", JSON.stringify(formattedData, null, 2));
-    
     // Update appointment
     const updatedAppointment = await storage.updateAppointment(appointmentId, formattedData);
-    
     res.json(updatedAppointment);
   } catch (error) {
     console.error("Randevu güncellenemedi:", error);
@@ -183,19 +196,15 @@ appointmentsRouter.patch("/:id", requireAuth, async (req: Request, res: Response
 appointmentsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const appointmentId = Number(req.params.id);
-    
     // Önce randevuyu bul
     const appointment = await storage.getAppointment(appointmentId);
-    
     if (!appointment) {
       return res.status(404).json({ message: "Randevu bulunamadı" });
     }
-    
     // Kullanıcının sadece kendi randevularına erişimi olmalı
     if (appointment.userId !== req.session.user!.id) {
       return res.status(403).json({ message: "Bu randevuyu silme izniniz yok" });
     }
-    
     await storage.deleteAppointment(appointmentId);
     res.json({ message: "Randevu başarıyla silindi" });
   } catch (error) {

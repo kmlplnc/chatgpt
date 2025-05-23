@@ -63,10 +63,10 @@ adminRouter.post("/users", requireAdmin, async (req: Request, res: Response) => 
       username,
       password: hashedPassword,
       email,
-      full_name: full_name || null,
+      name: full_name || null,
       role: role || "user",
-      subscription_status: subscription_status || "free",
-      subscription_plan: subscription_plan || null
+      subscriptionStatus: subscription_status || "free",
+      subscriptionPlan: subscription_plan || null
     });
 
     // Parola bilgisini çıkar
@@ -104,7 +104,7 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
     
     if (username) updates.username = username;
     if (email) updates.email = email;
-    if (full_name !== undefined) updates.full_name = full_name;
+    if (full_name !== undefined) updates.name = full_name;
     if (role) updates.role = role;
     
     // Parola güncellemesi
@@ -117,12 +117,12 @@ adminRouter.patch("/users/:id", requireAdmin, async (req: Request, res: Response
     let hasSubscriptionUpdates = false;
     
     if (subscription_status) {
-      subscriptionUpdates.subscription_status = subscription_status;
+      subscriptionUpdates.subscriptionStatus = subscription_status;
       hasSubscriptionUpdates = true;
     }
     
     if (subscription_plan !== undefined) {
-      subscriptionUpdates.subscription_plan = subscription_plan || null;
+      subscriptionUpdates.subscriptionPlan = subscription_plan || null;
       hasSubscriptionUpdates = true;
     }
     

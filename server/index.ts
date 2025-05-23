@@ -43,6 +43,11 @@ app.post('/test-body', (req, res) => {
   res.json({ body: req.body });
 });
 
+app.post('/api/test-log', (req, res) => {
+  console.log('==== TEST LOG ====', req.body);
+  res.json({ ok: true });
+});
+
 (async () => {
   const server = await registerRoutes(app);
 

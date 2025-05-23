@@ -19,7 +19,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  name?: string;
+  fullName?: string;
   role: string;
   subscriptionStatus: string;
   subscriptionPlan?: string;
@@ -29,7 +29,7 @@ interface User {
 interface EditUserForm {
   username: string;
   email: string;
-  name?: string;
+  fullName?: string;
   role: string;
   subscriptionStatus: string;
   subscriptionPlan?: string;
@@ -49,7 +49,7 @@ export default function UserManagement() {
   const [createForm, setCreateForm] = useState<EditUserForm>({
     username: "",
     email: "",
-    name: "",
+    fullName: "",
     role: "user",
     subscriptionStatus: "free",
     subscriptionPlan: "",
@@ -170,7 +170,7 @@ export default function UserManagement() {
       setCreateForm({
         username: "",
         email: "",
-        name: "",
+        fullName: "",
         role: "user",
         subscriptionStatus: "free",
         subscriptionPlan: "",
@@ -193,7 +193,7 @@ export default function UserManagement() {
     setEditForm({
       username: user.username,
       email: user.email || "",
-      name: user.name || "",
+      fullName: user.fullName || "",
       role: user.role,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionPlan: user.subscriptionPlan || "",
@@ -274,7 +274,7 @@ export default function UserManagement() {
     return (
       user.username.toLowerCase().includes(searchTerm) ||
       (user.email && user.email.toLowerCase().includes(searchTerm)) ||
-      (user.name && user.name.toLowerCase().includes(searchTerm))
+      (user.fullName && user.fullName.toLowerCase().includes(searchTerm))
     );
   });
 
@@ -381,8 +381,8 @@ export default function UserManagement() {
                               </TableCell>
                               <TableCell>
                                 <Input 
-                                  value={editForm?.name || ''} 
-                                  onChange={(e) => updateFormField('name', e.target.value)}
+                                  value={editForm?.fullName || ''} 
+                                  onChange={(e) => updateFormField('fullName', e.target.value)}
                                   className="w-32"
                                 />
                               </TableCell>
@@ -451,7 +451,7 @@ export default function UserManagement() {
                               <TableCell>{user.id}</TableCell>
                               <TableCell>{user.username}</TableCell>
                               <TableCell>{user.email || '-'}</TableCell>
-                              <TableCell>{user.name || '-'}</TableCell>
+                              <TableCell>{user.fullName || '-'}</TableCell>
                               <TableCell>{getRoleBadge(user.role)}</TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
@@ -580,13 +580,13 @@ export default function UserManagement() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+              <Label htmlFor="fullName" className="text-right">
                 Ad
               </Label>
               <Input
-                id="name"
-                value={createForm.name}
-                onChange={(e) => updateCreateFormField('name', e.target.value)}
+                id="fullName"
+                value={createForm.fullName}
+                onChange={(e) => updateCreateFormField('fullName', e.target.value)}
                 className="col-span-3"
               />
             </div>

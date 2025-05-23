@@ -32,12 +32,12 @@ function AdminStats() {
   // Son 30 günde eklenen kullanıcılar
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const newUsers = users.filter(user => new Date(user.createdAt) > thirtyDaysAgo).length;
+  const newUsers = users.filter(user => user.createdAt ? new Date(user.createdAt) > thirtyDaysAgo : false).length;
   
   // Son hafta eklenen kullanıcılar
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const lastWeekUsers = users.filter(user => new Date(user.createdAt) > sevenDaysAgo).length;
+  const lastWeekUsers = users.filter(user => user.createdAt ? new Date(user.createdAt) > sevenDaysAgo : false).length;
 
   return (
     <div className="space-y-6">

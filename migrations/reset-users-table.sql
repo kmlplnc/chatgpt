@@ -1,9 +1,12 @@
+-- UUID desteği için pgcrypto uzantısını yükle
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Önce mevcut users tablosunu sil
 DROP TABLE IF EXISTS users CASCADE;
 
--- Users tablosunu yeniden oluştur
+-- Users tablosunu yeniden oluştur (UUID id ile)
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,

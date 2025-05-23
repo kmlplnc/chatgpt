@@ -15,12 +15,48 @@ interface SearchParams {
   sortOrder?: "asc" | "desc";
 }
 
+// USDA API response interfaces
+interface USDANutrient {
+  id: number;
+  number: string;
+  name: string;
+  amount: number;
+  unitName: string;
+  derivationCode: string;
+  derivationDescription: string;
+}
+
+interface USDAFood {
+  fdcId: number;
+  dataType: string;
+  description: string;
+  brandName?: string;
+  ingredients?: string;
+  servingSize?: number;
+  servingSizeUnit?: string;
+  foodCategory?: string;
+  publishedDate?: string;
+  foodAttributes?: any;
+  foodNutrients?: USDANutrient[];
+}
+
+interface USDASearchResponse {
+  foods: USDAFood[];
+  totalHits: number;
+  currentPage: number;
+  totalPages: number;
+}
+
 class USDAService {
   private apiKey: string;
 
   constructor() {
     // Get API key from environment variables
-    this.apiKey = process.env.USDA_API_KEY;
+    const apiKey = process.env.USDA_API_KEY;
+    if (!apiKey) {
+      throw new Error("USDA_API_KEY environment variable is not set");
+    }
+    this.apiKey = apiKey;
   }
 
   /**
@@ -49,10 +85,10 @@ class USDAService {
         throw new Error(`USDA API error: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as USDASearchResponse;
       
       // Map response to our schema
-      const foods: Food[] = data.foods.map((food: any) => this.mapFoodFromUSDA(food));
+      const foods: Food[] = data.foods.map((food: USDAFood) => this.mapFoodFromUSDA(food));
       
       return {
         foods,
@@ -60,9 +96,12 @@ class USDAService {
         currentPage: params.page || 1,
         totalPages: Math.ceil((data.totalHits || 0) / (params.pageSize || 20))
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error searching USDA foods:", error);
-      throw new Error(`Failed to search foods: ${error.message}`);
+      if (error instanceof Error) {
+        throw new Error(`Failed to search foods: ${error.message}`);
+      }
+      throw new Error("Failed to search foods: Unknown error");
     }
   }
 
@@ -82,13 +121,16 @@ class USDAService {
         throw new Error(`USDA API error: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as USDAFood;
       
       // Map response to our schema
       return this.mapFoodFromUSDA(data);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error fetching food details for ${fdcId}:`, error);
-      throw new Error(`Failed to get food details: ${error.message}`);
+      if (error instanceof Error) {
+        throw new Error(`Failed to get food details: ${error.message}`);
+      }
+      throw new Error("Failed to get food details: Unknown error");
     }
   }
 
@@ -108,7 +150,7 @@ class USDAService {
         throw new Error(`USDA API error: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as USDAFood;
       
       // Add debug logging to see the structure of the response
       console.log('USDA API Food Response for nutrients:', JSON.stringify({
@@ -125,16 +167,19 @@ class USDAService {
       const nutrients: InsertFoodNutrient[] = this.mapNutrientsFromUSDA(fdcId, data.foodNutrients || []);
       
       return nutrients;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error fetching food nutrients for ${fdcId}:`, error);
-      throw new Error(`Failed to get food nutrients: ${error.message}`);
+      if (error instanceof Error) {
+        throw new Error(`Failed to get food nutrients: ${error.message}`);
+      }
+      throw new Error("Failed to get food nutrients: Unknown error");
     }
   }
 
   /**
    * Map a food object from USDA API format to our schema
    */
-  private mapFoodFromUSDA(usdaFood: any): Food {
+  private mapFoodFromUSDA(usdaFood: USDAFood): Food {
     const food: Food = {
       fdcId: usdaFood.fdcId.toString(),
       dataType: usdaFood.dataType || "",
@@ -156,7 +201,7 @@ class USDAService {
   /**
    * Map food nutrients from USDA API format to our schema
    */
-  private mapNutrientsFromUSDA(fdcId: string, usdaNutrients: any[]): InsertFoodNutrient[] {
+  private mapNutrientsFromUSDA(fdcId: string, usdaNutrients: USDANutrient[]): InsertFoodNutrient[] {
     const commonNutrients = [
       "Protein",
       "Total lipid (fat)",
@@ -192,55 +237,19 @@ class USDAService {
     return usdaNutrients
       .filter(nutrient => {
         // Handle different USDA API response formats
-        const hasNutrientName = nutrient.nutrientName || 
-                               (nutrient.nutrient && nutrient.nutrient.name);
-        const hasValue = nutrient.value > 0 || 
-                        (nutrient.amount && nutrient.amount > 0);
+        const hasNutrientName = nutrient.name;
+        const hasValue = nutrient.amount > 0;
         
         return hasNutrientName && hasValue;
       })
-      .map(nutrient => {
-        // Handle different USDA API response formats
-        const rawName = nutrient.nutrientName || 
-                       (nutrient.nutrient && nutrient.nutrient.name) || 
-                       '';
-        const value = nutrient.value || 
-                     nutrient.amount || 
-                     0;
-        const unitName = nutrient.unitName || 
-                        (nutrient.nutrient && nutrient.nutrient.unitName) || 
-                        'g';
-        
-        // Normalize nutrient names
-        let name = rawName;
-        
-        if (name === "Total lipid (fat)") name = "Total Fat";
-        if (name === "Carbohydrate, by difference") name = "Carbohydrates";
-        if (name === "Energy") name = "Calories";
-        if (name === "Sugars, total including NLEA") name = "Sugars";
-        if (name === "Fiber, total dietary") name = "Fiber";
-        
-        // Map to our schema
-        return {
-          fdcId,
-          nutrientId: nutrient.nutrientId || (nutrient.nutrient && nutrient.nutrient.id) || 0,
-          name,
-          amount: value,
-          unit: unitName,
-          percentDailyValue: nutrient.percentDailyValue || null
-        };
-      })
-      // Sort nutrients to put common ones first
-      .sort((a, b) => {
-        const aIndex = commonNutrients.indexOf(a.name);
-        const bIndex = commonNutrients.indexOf(b.name);
-        
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
-        
-        return a.name.localeCompare(b.name);
-      });
+      .map(nutrient => ({
+        fdcId,
+        nutrientId: nutrient.id,
+        name: nutrient.name,
+        amount: nutrient.amount,
+        unit: nutrient.unitName,
+        percentDailyValue: null // USDA API doesn't provide this
+      }));
   }
 }
 

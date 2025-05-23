@@ -586,93 +586,100 @@ export default function ClientsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  clients.map((client, index) => (
-                    <TableRow 
-                      key={client.id}
-                      className={cn(
-                        "transition-all duration-300 hover:bg-muted/50 cursor-pointer",
-                        `animate-fade-up-delay-${Math.min(index + 2, 5)}`
-                      )}
-                      onClick={async () => {
-                        try {
-                          const clientDetail = await fetchClientDetail(client.id);
-                          setSelectedClient(clientDetail);
-                          setLocation(`/clients/${client.id}`);
-                        } catch (error) {
-                          console.error("Danışan detayı alınamadı:", error);
-                        }
-                      }}
-                    >
-                      <TableCell className="font-medium">
-                        {client.first_name} {client.last_name}
-                      </TableCell>
-                      <TableCell>{client.email}</TableCell>
-                      <TableCell>{client.phone}</TableCell>
-                      <TableCell>{client.occupation}</TableCell>
-                      <TableCell>
-                        <span className={cn(
-                          "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
-                          client.status === "active" 
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        )}>
-                          {client.status === "active" ? "Aktif" : "Pasif"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:scale-110 transition-transform duration-300"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const clientDetail = await fetchClientDetail(client.id);
-                                setShowDialog(true);
-                                setIsEditing(true);
-                                setSelectedClient(clientDetail);
-                                setFormData({
-                                  first_name: clientDetail.first_name,
-                                  last_name: clientDetail.last_name,
-                                  email: clientDetail.email,
-                                  phone: clientDetail.phone,
-                                  occupation: clientDetail.occupation,
-                                  status: clientDetail.status,
-                                  gender: clientDetail.gender,
-                                  height: clientDetail.height,
-                                  birth_date: clientDetail.birth_date,
-                                  address: clientDetail.address,
-                                  notes: clientDetail.notes
-                                });
-                              } catch (error) {
-                                console.error("Danışan detayı alınamadı:", error);
-                              }
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:scale-110 transition-transform duration-300"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const clientDetail = await fetchClientDetail(client.id);
-                                setSelectedClient(clientDetail);
-                                setShowDeleteDialog(true);
-                              } catch (error) {
-                                console.error("Danışan detayı alınamadı:", error);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  clients.map((client, index) => {
+                    const firstName = client.first_name || client.firstName || "";
+                    const lastName = client.last_name || client.lastName || "";
+                    const birthDate = client.birth_date || client.birthDate || "";
+                    const registrationDate = client.created_at || client.registration_date || client.start_date || "";
+                    const age = birthDate ? getAge(birthDate) : "-";
+                    return (
+                      <TableRow 
+                        key={client.id}
+                        className={cn(
+                          "transition-all duration-300 hover:bg-muted/50 cursor-pointer",
+                          `animate-fade-up-delay-${Math.min(index + 2, 5)}`
+                        )}
+                        onClick={async () => {
+                          try {
+                            const clientDetail = await fetchClientDetail(client.id);
+                            setSelectedClient(clientDetail);
+                            setLocation(`/clients/${client.id}`);
+                          } catch (error) {
+                            console.error("Danışan detayı alınamadı:", error);
+                          }
+                        }}
+                      >
+                        <TableCell className="font-medium">
+                          {firstName} {lastName}
+                        </TableCell>
+                        <TableCell>{client.email}</TableCell>
+                        <TableCell>{client.phone}</TableCell>
+                        <TableCell>{client.occupation}</TableCell>
+                        <TableCell>
+                          <span className={cn(
+                            "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                            client.status === "active" 
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          )}>
+                            {client.status === "active" ? "Aktif" : "Pasif"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:scale-110 transition-transform duration-300"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const clientDetail = await fetchClientDetail(client.id);
+                                  setShowDialog(true);
+                                  setIsEditing(true);
+                                  setSelectedClient(clientDetail);
+                                  setFormData({
+                                    first_name: clientDetail.first_name,
+                                    last_name: clientDetail.last_name,
+                                    email: clientDetail.email,
+                                    phone: clientDetail.phone,
+                                    occupation: clientDetail.occupation,
+                                    status: clientDetail.status,
+                                    gender: clientDetail.gender,
+                                    height: clientDetail.height,
+                                    birth_date: clientDetail.birth_date,
+                                    address: clientDetail.address,
+                                    notes: clientDetail.notes
+                                  });
+                                } catch (error) {
+                                  console.error("Danışan detayı alınamadı:", error);
+                                }
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:scale-110 transition-transform duration-300"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const clientDetail = await fetchClientDetail(client.id);
+                                  setSelectedClient(clientDetail);
+                                  setShowDeleteDialog(true);
+                                } catch (error) {
+                                  console.error("Danışan detayı alınamadı:", error);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -696,49 +703,6 @@ export default function ClientsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {selectedClient && (
-        (() => { console.log("[DEBUG] Seçili danışan:", selectedClient); return null; })()
-      )}
-      {selectedClient && (
-        <div className="mt-4 p-4 border rounded-lg">
-          <h2 className="text-2xl font-bold mb-4">Danışan Bilgileri</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-muted-foreground">Ad Soyad</div>
-              <div className="font-medium">{selectedClient.first_name} {selectedClient.last_name}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Cinsiyet</div>
-              <div className="font-medium">{selectedClient.gender === "male" ? "Erkek" : selectedClient.gender === "female" ? "Kadın" : "-"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">E-posta</div>
-              <div className="font-medium">{selectedClient.email || "-"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Telefon</div>
-              <div className="font-medium">{selectedClient.phone || "-"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Yaş</div>
-              <div className="font-medium">{selectedClient.birth_date ? getAge(selectedClient.birth_date) : "-"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Meslek</div>
-              <div className="font-medium">{selectedClient.occupation || "-"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Kayıt Tarihi</div>
-              <div className="font-medium">{selectedClient.created_at ? formatDate(selectedClient.created_at) : "-"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Boy</div>
-              <div className="font-medium">{selectedClient.height ? `${selectedClient.height} cm` : "-"}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

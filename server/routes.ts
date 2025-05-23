@@ -15,7 +15,7 @@ import {
 import { openaiService } from "./services/openai-service";
 import { geminiService } from "./services/gemini-service";
 import { usdaService } from "./services/usda-service";
-import { clientsRouter } from './routes/clients';
+import clientsRouter from "./routes/clients";
 import { authRouter } from './routes/auth';
 import { subscriptionRouter } from './routes/subscription';
 import { adminRouter } from './routes/admin';
@@ -64,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000
     }
@@ -119,10 +119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Diet Plans API Routes
   app.get("/api/diet-plans", async (req, res) => {
     try {
-      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const userId = req.query.userId as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      const dietPlans = await storage.getDietPlan(userId);
+      const dietPlans = await storage.getUserDietPlans(userId, limit);
       res.json(dietPlans);
     } catch (err) {
       handleError(err, res);
@@ -146,7 +146,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/diet-plans", async (req, res) => {
     try {
-      const validatedData = insertDietPlanSchema.parse(req.body);
+      const validatedData = insertDietPlanSchema.parse({
+        ...req.body,
+        userId: req.session?.user?.id || null
+      });
+      
       const dietPlan = await storage.createDietPlan(validatedData);
       res.status(201).json(dietPlan);
     } catch (err) {
@@ -251,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Save foods to local storage
       for (const food of searchResults.foods) {
-        const existingFood = await storage.getFoodById(food.fdcId);
+        const existingFood = await storage.getFood(food.fdcId);
         if (!existingFood) {
           await storage.createFood({
             fdcId: food.fdcId,
@@ -278,24 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/foods/:fdcId", async (req, res) => {
     try {
       const fdcId = req.params.fdcId;
-      
-      // Try to get from local storage first
-      let food = await storage.getFoodById(fdcId);
-      
-      // If not found, fetch from USDA
-      if (!food) {
-        try {
-          food = await usdaService.getFoodDetails(fdcId);
-          
-          // Save to local storage
-          if (food) {
-            await storage.createFood(food);
-          }
-        } catch (usdaError) {
-          console.error("USDA API error:", usdaError);
-          return res.status(404).json({ message: "Food not found" });
-        }
-      }
+      const food = await storage.getFood(fdcId);
       
       if (!food) {
         return res.status(404).json({ message: "Food not found" });
@@ -310,25 +297,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/foods/:fdcId/nutrients", async (req, res) => {
     try {
       const fdcId = req.params.fdcId;
+      const food = await storage.getFood(fdcId);
       
-      // Try to get nutrients from local storage first
-      let nutrients = await storage.getFoodNutrients(fdcId);
-      
-      // If not found or empty, fetch from USDA
-      if (!nutrients || nutrients.length === 0) {
-        try {
-          const nutrientsData = await usdaService.getFoodNutrients(fdcId);
-          
-          // Save to local storage
-          if (nutrientsData && nutrientsData.length > 0) {
-            nutrients = await storage.createFoodNutrients(nutrientsData);
-          }
-        } catch (usdaError) {
-          console.error("USDA API error:", usdaError);
-          return res.status(404).json({ message: "Food nutrients not found" });
-        }
+      if (!food) {
+        return res.status(404).json({ message: "Food not found" });
       }
       
+      // Extract nutrients from food data
+      const nutrients = food.foodNutrients || [];
       res.json(nutrients);
     } catch (err) {
       handleError(err, res);
@@ -337,9 +313,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/foods/recent", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
-      const recentFoods = await storage.getRecentFoods(limit);
-      res.json(recentFoods);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const foods = await storage.searchFoods("", limit);
+      res.json(foods);
     } catch (err) {
       handleError(err, res);
     }
@@ -349,8 +325,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/saved-foods", async (req, res) => {
     try {
       // In a real app, we would use the authenticated user's ID
-      // For this demo, we'll use a default user ID of 1
-      const userId = req.query.userId ? parseInt(req.query.userId as string) : 1;
+      // For this demo, we'll use a default user ID
+      const userId = req.query.userId ? req.query.userId as string : "00000000-0000-0000-0000-000000000001";
       
       const savedFoods = await storage.getSavedFood(userId);
       res.json(savedFoods);
@@ -369,8 +345,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // In a real app, we would use the authenticated user's ID
-      // For this demo, we'll use a default user ID of 1
-      const userId = 1;
+      // For this demo, we'll use a default user ID
+      const userId = "00000000-0000-0000-0000-000000000001";
       
       // Check if the food is already saved
       const isSaved = await storage.isFoodSaved(userId, fdcId);
@@ -383,7 +359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const savedFood = await storage.createSavedFood({ userId, fdcId });
       
       // Get the food details
-      const food = await storage.getFoodById(fdcId);
+      const food = await storage.getFood(fdcId);
       
       res.status(201).json({ savedFood, food });
     } catch (err) {
@@ -396,8 +372,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fdcId = req.params.fdcId;
       
       // In a real app, we would use the authenticated user's ID
-      // For this demo, we'll use a default user ID of 1
-      const userId = 1;
+      // For this demo, we'll use a default user ID
+      const userId = "00000000-0000-0000-0000-000000000001";
       
       const success = await storage.deleteSavedFood(userId, fdcId);
       
@@ -470,7 +446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Veritabanına kaydet
       const savedPlan = await storage.createDietPlan({
-        userId: parseInt(req.session.user.id),
+        userId: req.session.user.id,
         name: `${validationResult.data.name} için Diyet Planı`,
         description: dietPlan.description,
         content: dietPlan.content,
@@ -509,11 +485,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         email: user.email,
-        full_name: user.full_name,
+        name: user.name,
         role: user.role,
-        subscription_status: user.subscription_status,
-        subscription_plan: user.subscription_plan,
-        created_at: user.created_at
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionPlan: user.subscriptionPlan,
+        createdAt: user.createdAt
       }));
 
       return res.json(sanitizedUsers);
@@ -529,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const { username, password, email, full_name, role, subscription_status, subscription_plan } = req.body;
+      const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
 
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
@@ -538,18 +514,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         username,
-        password_hash: hashedPassword,
+        password: hashedPassword,
         email,
-        full_name,
+        name,
         role: role || "user",
-        subscription_status: subscription_status || "free",
-        subscription_plan: subscription_plan || null,
-        subscription_start_date: null,
-        subscription_end_date: null
+        subscriptionStatus: subscriptionStatus || "free",
+        subscriptionPlan: subscriptionPlan || null
       });
 
       // Remove password from response
-      const { password_hash: _, ...safeUser } = user;
+      const { password: _, ...safeUser } = user;
       res.status(201).json(safeUser);
     } catch (error) {
       console.error("Error creating user:", error);
@@ -564,11 +538,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized" });
       }
 
-      const userId = parseInt(req.params.id);
-      const { username, password, email, full_name, role, subscription_status, subscription_plan } = req.body;
+      const userId = req.params.id;
+      const { username, password, email, name, role, subscriptionStatus, subscriptionPlan } = req.body;
       
       // Kullanıcının var olup olmadığını kontrol et
-      const user = await storage.getUser(userId.toString());
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "Kullanıcı bulunamadı" });
       }
@@ -586,43 +560,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (username) updates.username = username;
       if (email) updates.email = email;
-      if (full_name !== undefined) updates.full_name = full_name;
+      if (name !== undefined) updates.name = name;
       if (role) updates.role = role;
       
       // Parola güncellemesi
       if (password && password.trim() !== "") {
-        updates.password_hash = await hashPassword(password);
+        updates.password = await hashPassword(password);
       }
       
       // Abonelik bilgileri
       const subscriptionUpdates: any = {};
       let hasSubscriptionUpdates = false;
       
-      if (subscription_status) {
-        subscriptionUpdates.subscription_status = subscription_status;
+      if (subscriptionStatus) {
+        subscriptionUpdates.subscriptionStatus = subscriptionStatus;
         hasSubscriptionUpdates = true;
       }
       
-      if (subscription_plan !== undefined) {
-        subscriptionUpdates.subscription_plan = subscription_plan || null;
+      if (subscriptionPlan !== undefined) {
+        subscriptionUpdates.subscriptionPlan = subscriptionPlan || null;
         hasSubscriptionUpdates = true;
       }
       
       try {
         // Kullanıcıyı güncelle
-        const updatedUser = await storage.updateUser(userId.toString(), updates);
+        const updatedUser = await storage.updateUser(userId, updates);
         
         // Abonelik bilgilerini güncelle
         if (hasSubscriptionUpdates) {
-          await storage.updateUserSubscription(userId.toString(), subscriptionUpdates);
+          await storage.updateUserSubscription(userId, subscriptionUpdates);
         }
         
         // Güncel kullanıcıyı tekrar getir
-        const refreshedUser = await storage.getUser(userId.toString());
+        const refreshedUser = await storage.getUser(userId);
         
         // Parola bilgisini çıkar
         if (refreshedUser) {
-          const { password_hash: _, ...safeUser } = refreshedUser;
+          const { password: _, ...safeUser } = refreshedUser;
           return res.json(safeUser);
         } else {
           return res.status(404).json({ message: "Kullanıcı bulunamadı" });
@@ -644,21 +618,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized" });
       }
 
-      const userId = parseInt(req.params.id);
+      const userId = req.params.id;
       
       // Admin kendisini silmeye çalışıyorsa engelle
-      if (req.session?.user?.id === userId.toString()) {
+      if (req.session?.user?.id === userId) {
         return res.status(400).json({ message: "Kendi hesabınızı silemezsiniz" });
       }
       
       // Kullanıcının var olup olmadığını kontrol et
-      const user = await storage.getUser(userId.toString());
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "Kullanıcı bulunamadı" });
       }
       
       // Kullanıcıyı sil
-      await storage.deleteUser(userId.toString());
+      await storage.deleteUser(userId);
       res.status(200).json({ message: "Kullanıcı başarıyla silindi" });
     } catch (error) {
       console.error("Error deleting user:", error);

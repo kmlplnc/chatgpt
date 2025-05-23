@@ -1,7 +1,10 @@
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertClientSchema, insertMeasurementSchema, updateClientSchema } from "@shared/schema";
+import { insertClientSchema, insertMeasurementSchema, updateClientSchema, clients } from "@shared/schema";
+import db from "../db";
+import { eq } from "drizzle-orm";
+import type { Client } from "@shared/schema";
 
 const clientsRouter = Router();
 
@@ -21,41 +24,11 @@ const isAdmin = (req: Request): boolean => {
 // Get all clients for the authenticated user
 clientsRouter.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    // Giriş yapmış kullanıcının ID'sini al
-    const userId = Number(req.session.user!.id);
-    
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
-    
-    // Admin kullanıcıları tüm danışanları görebilir
-    // Normal kullanıcılar sadece kendi danışanlarını görebilir
-    const clients = admin
-      ? await storage.getClients()
-      : await storage.getClients(userId);
-    
-    // Her danışan için son ölçümü ekle
-    const clientsWithLastMeasurement = await Promise.all(
-      clients.map(async (client) => {
-        try {
-          const lastMeasurement = await storage.getLastMeasurement(client.id);
-          return {
-            ...client,
-            lastMeasurement,
-          };
-        } catch (error) {
-          console.error(`Error fetching last measurement for client ${client.id}:`, error);
-          return {
-            ...client,
-            lastMeasurement: null,
-          };
-        }
-      })
-    );
-    
-    return res.json(clientsWithLastMeasurement);
+    const result = await db.select().from(clients);
+    res.json(result);
   } catch (error) {
     console.error("Error fetching clients:", error);
-    return res.status(500).json({ message: "Failed to fetch clients" });
+    res.status(500).json({ error: "Failed to fetch clients" });
   }
 });
 
@@ -79,11 +52,11 @@ clientsRouter.get("/admin/users", requireAuth, async (req: Request, res: Respons
       id: user.id,
       username: user.username,
       email: user.email,
-      full_name: user.full_name,
+      name: user.name,
       role: user.role,
-      subscription_status: user.subscription_status,
-      subscription_plan: user.subscription_plan,
-      created_at: user.created_at
+      subscriptionStatus: user.subscriptionStatus,
+      subscriptionPlan: user.subscriptionPlan,
+      createdAt: user.createdAt
     }));
     console.log("[ADMIN USERS] Sanitized users:", sanitizedUsers);
 
@@ -97,47 +70,66 @@ clientsRouter.get("/admin/users", requireAuth, async (req: Request, res: Respons
 // Get a specific client by ID
 clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid client ID" });
+    const { id } = req.params;
+    const numericId = parseInt(id, 10);
+    
+    if (isNaN(numericId)) {
+      return res.status(400).json({ error: "Invalid client ID" });
     }
     
-    // Kullanıcı ID'sini al
-    const userId = Number(req.session.user!.id);
-
-    const client = await storage.getClient(id);
+    const [client] = await db
+      .select()
+      .from(clients)
+      .where(eq(clients.id, numericId))
+      .limit(1);
+      
     if (!client) {
-      return res.status(404).json({ message: "Client not found" });
+      return res.status(404).json({ error: "Client not found" });
     }
     
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
-    
-    // Sadece admin kullanıcıları tüm danışanları görebilir
-    // Normal kullanıcılar sadece kendi danışanlarını görebilir
-    if (!admin && client.user_id !== userId) {
-      return res.status(403).json({ message: "Bu danışana erişim izniniz yok" });
-    }
-
-    return res.json(client);
+    res.json(client);
   } catch (error) {
     console.error("Error fetching client:", error);
-    return res.status(500).json({ message: "Failed to fetch client" });
+    res.status(500).json({ error: "Failed to fetch client" });
   }
 });
 
 // Create a new client
 clientsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
+    console.log("DEBUG: req.body", req.body);
+    // Alan isimlerini normalize et
+    const clientData = {
+      ...req.body,
+      first_name: req.body.first_name || req.body.firstName,
+      last_name: req.body.last_name || req.body.lastName,
+    };
+    console.log("Gelen client verisi:", clientData);
+
+    const [client] = await db
+      .insert(clients)
+      .values(clientData)
+      .returning();
+    res.status(201).json(client);
+  } catch (error) {
+    console.error("Error creating client:", error);
+    res.status(500).json({ error: "Failed to create client" });
+  }
+});
+
+// Update a client
+clientsRouter.put("/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
     console.log("Gelen istek:", req.body);
     console.log("[BACKEND] Gelen veri:", req.body);
     const validatedData = insertClientSchema.parse(req.body);
     // Kullanıcının ID'sini al
-    const userId = Number(req.session.user!.id);
+    const userId = req.session.user!.id;
     // Danışanı kullanıcı ID'si ile ilişkilendir
     const clientData = {
       ...validatedData,
-      user_id: userId
+      userId: userId
     };
     console.log("[BACKEND] storage.createClient'e giden veri:", clientData);
     const client = await storage.createClient(clientData);
@@ -164,7 +156,7 @@ clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => 
     }
     
     // Kullanıcının ID'sini al
-    const userId = Number(req.session.user!.id);
+    const userId = req.session.user!.id;
 
     const client = await storage.getClient(id);
     if (!client) {
@@ -229,7 +221,7 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
     }
     
     // Kullanıcının ID'sini al
-    const userId = Number(req.session.user!.id);
+    const userId = req.session.user!.id;
     
     // Danışanı kontrol et
     const client = await storage.getClient(id);
@@ -251,123 +243,78 @@ clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) =>
       return res.status(404).json({ message: "Client not found" });
     }
 
-    return res.status(204).end();
+    return res.status(204).send();
   } catch (error) {
     console.error("Error deleting client:", error);
     return res.status(500).json({ message: "Failed to delete client" });
   }
 });
 
-// Get measurements for a client
+// Get client measurements
 clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
   try {
-    const clientId = Number(req.params.id);
-    const userId = Number(req.session.user!.id);
-    
-    // Danışanın kullanıcıya ait olup olmadığını kontrol et (admin değilse)
-    const client = await storage.getClient(clientId);
-    if (!client) {
-      return res.status(404).json({ message: "Danışan bulunamadı" });
-    }
-    
-    if (client.user_id !== userId && !isAdmin(req)) {
-      return res.status(403).json({ message: "Bu danışanın verilerine erişim izniniz yok" });
-    }
-    
-    // Danışanın ölçümlerini getir
-    const clientMeasurements = await storage.getMeasurements(clientId);
-    
-    res.json(clientMeasurements);
-  } catch (error) {
-    console.error("Error fetching client measurements:", error);
-    res.status(500).json({ message: "Failed to fetch client measurements" });
-  }
-});
-
-// Add measurement for a client
-clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
-  try {
-    const clientId = parseInt(req.params.id);
-    if (isNaN(clientId)) {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid client ID" });
     }
-
-    const client = await storage.getClient(clientId);
+    
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
+    
+    // Danışanı kontrol et
+    const client = await storage.getClient(id);
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
     }
-
-    // Get client details for BMH calculation
-    const birthDateStr = client.birth_date;
-    let age = 30; // default age if not available
     
-    if (birthDateStr) {
-      const birthDate = new Date(birthDateStr);
-      const today = new Date();
-      age = today.getFullYear() - birthDate.getFullYear();
-      
-      // Adjust age if birthday hasn't occurred yet this year
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    
+    // Sadece admin kullanıcıları tüm danışanların ölçümlerini görebilir
+    // Normal kullanıcılar sadece kendi danışanlarının ölçümlerini görebilir
+    if (!admin && client.user_id !== userId) {
+      return res.status(403).json({ message: "Bu danışanın ölçümlerine erişim izniniz yok" });
     }
 
-    // Calculate BMI
-    const weight = parseFloat(req.body.weight);
-    const height = parseFloat(req.body.height) / 100; // convert to meters
-    const bmi = weight / (height * height);
-    
-    // Calculate BMH (Bazal Metabolizma Hızı) using Harris-Benedict equation
-    let bmh = 0;
-    if (client.gender === 'male') {
-      bmh = 88.362 + (13.397 * weight) + (4.799 * (height * 100)) - (5.677 * age);
-    } else {
-      bmh = 447.593 + (9.247 * weight) + (3.098 * (height * 100)) - (4.330 * age);
+    const measurements = await storage.getClientMeasurements(id);
+    return res.json(measurements);
+  } catch (error) {
+    console.error("Error fetching client measurements:", error);
+    return res.status(500).json({ message: "Failed to fetch client measurements" });
+  }
+});
+
+// Add a new measurement
+clientsRouter.post("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
+  console.log('==== REQ.BODY DEBUG ====', req.body);
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid client ID" });
     }
-    
-    // Calculate TDEE (Total Daily Energy Expenditure)
-    let tdee = 0;
-    const activityLevel = req.body.activityLevel || 'moderate';
-    
-    switch(activityLevel) {
-      case 'sedentary':
-        tdee = bmh * 1.2;
-        break;
-      case 'light':
-        tdee = bmh * 1.375;
-        break;
-      case 'moderate':
-        tdee = bmh * 1.55;
-        break;
-      case 'active':
-        tdee = bmh * 1.725;
-        break;
-      case 'very_active':
-        tdee = bmh * 1.9;
-        break;
-      default:
-        tdee = bmh * 1.55; // default to moderate
+    // Kullanıcının ID'sini al
+    const userId = req.session.user!.id;
+    // Danışanı kontrol et
+    const client = await storage.getClient(id);
+    if (!client) {
+      return res.status(404).json({ message: "Client not found" });
     }
-    
-    // Add client ID to the measurement data
-    const measurementData = { 
+    // Admin kullanıcı kontrolü
+    const admin = isAdmin(req);
+    if (!admin && client.user_id !== userId) {
+      return res.status(403).json({ message: "Bu danışana ölçüm ekleme yetkiniz yok" });
+    }
+    // Validate and prepare measurement data
+    const validatedData = insertMeasurementSchema.parse({
       ...req.body,
-      clientId,
-      updatedAt: new Date(), // Şema gereksinimine uygun olarak updatedAt ekliyoruz
-      bmi: bmi.toFixed(2),
-      basalMetabolicRate: Math.round(bmh),
-      totalDailyEnergyExpenditure: Math.round(tdee)
-    };
-    
-    // Zorunlu alanları kontrol et
-    if (!measurementData.date) {
-      measurementData.date = new Date().toISOString().split('T')[0];
-    }
-    
-    // Ölçüm oluştur ve yanıt döndür
-    const measurement = await storage.createMeasurement(measurementData);
-    console.log("Measurement created:", measurement);
+      clientId: id,
+      basalMetabolicRate: req.body.basal_metabolic_rate ? Number(req.body.basal_metabolic_rate) : null,
+      totalDailyEnergyExpenditure: req.body.total_daily_energy_expenditure ? Number(req.body.total_daily_energy_expenditure) : null
+    });
+    console.log('validatedData:', validatedData);
+    // Create measurement
+    const measurement = await storage.createMeasurement(validatedData);
+    console.log('measurement:', measurement);
     return res.status(201).json(measurement);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -376,131 +323,53 @@ clientsRouter.post("/:id/measurements", async (req: Request, res: Response) => {
         errors: error.errors 
       });
     }
-    
     console.error("Error creating measurement:", error);
     return res.status(500).json({ message: "Failed to create measurement" });
   }
 });
 
-// Update measurement
-clientsRouter.patch("/:id/measurements/:measurementId", async (req: Request, res: Response) => {
+// Delete a measurement
+clientsRouter.delete("/:id/measurements/:measurementId", requireAuth, async (req: Request, res: Response) => {
   try {
     const clientId = parseInt(req.params.id);
     const measurementId = parseInt(req.params.measurementId);
     
     if (isNaN(clientId) || isNaN(measurementId)) {
-      return res.status(400).json({ message: "Invalid ID format" });
+      return res.status(400).json({ message: "Invalid client ID or measurement ID" });
     }
-
+    
+    // Get user ID from session
+    const userId = req.session.user!.id;
+    
     // Check if client exists
     const client = await storage.getClient(clientId);
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
     }
-
-    // Check if measurement exists and belongs to the client
+    
+    // Check if measurement exists
     const measurement = await storage.getMeasurement(measurementId);
     if (!measurement) {
       return res.status(404).json({ message: "Measurement not found" });
     }
     
+    // Check if measurement belongs to the client
     if (measurement.clientId !== clientId) {
-      return res.status(403).json({ message: "Measurement does not belong to this client" });
-    }
-
-    // Log girişleri ile gelen verileri kontrol et
-    console.log("Ölçüm güncelleme - gelen veri:", JSON.stringify(req.body, null, 2));
-    
-    // Veriyi manuel olarak temizle ve hazırla - şema validasyonu sorunlu olabilir
-    const cleanedData: Partial<any> = {};
-    
-    // Temel alanlar
-    if (req.body.date) cleanedData.date = req.body.date;
-    
-    // Sayısal değerler - string'e dönüştür
-    if (req.body.weight !== undefined) cleanedData.weight = String(req.body.weight);
-    if (req.body.height !== undefined) cleanedData.height = String(req.body.height);
-    if (req.body.bmi !== undefined) cleanedData.bmi = String(req.body.bmi);
-    
-    // İsteğe bağlı ölçümler - null veya string
-    const optionalNumericFields = [
-      'bodyFatPercentage', 'waistCircumference', 'hipCircumference',
-      'chestCircumference', 'armCircumference', 'thighCircumference',
-      'calfCircumference'
-    ];
-    
-    optionalNumericFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        if (req.body[field] === null) {
-          cleanedData[field] = null;
-        } else {
-          cleanedData[field] = String(req.body[field]);
-        }
-      }
-    });
-    
-    // Diğer alanlar
-    if (req.body.notes !== undefined) cleanedData.notes = req.body.notes || null;
-    if (req.body.activityLevel !== undefined) cleanedData.activityLevel = req.body.activityLevel || null;
-    if (req.body.clientId !== undefined) cleanedData.clientId = req.body.clientId;
-    
-    // Güncellenme zamanı
-    cleanedData.updatedAt = new Date();
-    
-    console.log("Temizlenmiş veri:", JSON.stringify(cleanedData, null, 2));
-    
-    // Update the measurement with cleaned data
-    const updatedMeasurement = await storage.updateMeasurement(measurementId, cleanedData);
-
-    if (!updatedMeasurement) {
-      return res.status(404).json({ message: "Failed to update measurement" });
-    }
-
-    return res.status(200).json(updatedMeasurement);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error("Zod validation error:", JSON.stringify(error.errors, null, 2));
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: error.errors 
-      });
+      return res.status(400).json({ message: "Measurement does not belong to this client" });
     }
     
-    console.error("Error updating measurement:", error);
-    return res.status(500).json({ message: "Failed to update measurement: " + (error as Error).message });
-  }
-});
-
-// Delete measurement
-clientsRouter.delete("/:id/measurements/:measurementId", async (req: Request, res: Response) => {
-  try {
-    const clientId = parseInt(req.params.id);
-    const measurementId = parseInt(req.params.measurementId);
+    // Admin user check
+    const admin = isAdmin(req);
     
-    if (isNaN(clientId) || isNaN(measurementId)) {
-      return res.status(400).json({ message: "Invalid ID format" });
-    }
-
-    // Check if client exists
-    const client = await storage.getClient(clientId);
-    if (!client) {
-      return res.status(404).json({ message: "Client not found" });
-    }
-
-    // Check if measurement exists and belongs to the client
-    const measurement = await storage.getMeasurement(measurementId);
-    if (!measurement) {
-      return res.status(404).json({ message: "Measurement not found" });
-    }
-    
-    if (measurement.clientId !== clientId) {
-      return res.status(403).json({ message: "Measurement does not belong to this client" });
+    // Only admin users can delete measurements for all clients
+    // Normal users can only delete measurements for their own clients
+    if (!admin && client.user_id !== userId) {
+      return res.status(403).json({ message: "You don't have permission to delete this measurement" });
     }
 
     // Delete the measurement
     await storage.deleteMeasurement(measurementId);
-
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ message: "Measurement deleted successfully" });
   } catch (error) {
     console.error("Error deleting measurement:", error);
     return res.status(500).json({ message: "Failed to delete measurement" });
@@ -516,7 +385,7 @@ clientsRouter.post("/:id/access-code", requireAuth, async (req: Request, res: Re
     }
     
     // Kullanıcının ID'sini al
-    const userId = Number(req.session.user!.id);
+    const userId = req.session.user!.id;
     
     // Danışanı kontrol et
     const client = await storage.getClient(clientId);
@@ -534,12 +403,63 @@ clientsRouter.post("/:id/access-code", requireAuth, async (req: Request, res: Re
 
     // Erişim kodu oluştur
     const accessCode = await storage.generateClientAccessCode(clientId);
-    
-    return res.status(200).json({ accessCode });
+    // Güncellenmiş client objesini tekrar al
+    const updatedClient = await storage.getClient(clientId);
+    return res.status(200).json(updatedClient);
   } catch (error) {
     console.error("Error generating access code:", error);
     return res.status(500).json({ message: "Erişim kodu oluşturulamadı" });
   }
 });
 
-export { clientsRouter };
+// Çoklu notlar: GET /api/clients/:id/notes
+clientsRouter.get('/:id/notes', async (req: Request, res: Response) => {
+  try {
+    const clientId = Number(req.params.id);
+    if (isNaN(clientId)) return res.status(400).json({ message: 'Geçersiz client id' });
+    const notes = await storage.getClientNotes(clientId);
+    res.json(notes);
+  } catch (error) {
+    console.error('Get client notes error:', error);
+    res.status(500).json({ message: 'Notlar getirilirken hata oluştu' });
+  }
+});
+
+// Çoklu notlar: POST /api/clients/:id/notes
+clientsRouter.post('/:id/notes', async (req: Request, res: Response) => {
+  try {
+    const clientId = Number(req.params.id);
+    const { content, user_id } = req.body;
+    if (isNaN(clientId) || !content || !user_id) return res.status(400).json({ message: 'Eksik parametre' });
+    const note = await storage.addClientNote(clientId, user_id, content);
+    res.status(201).json(note);
+  } catch (error) {
+    console.error('Add client note error:', error);
+    res.status(500).json({ message: 'Not eklenirken hata oluştu' });
+  }
+});
+
+// Not silme endpointi
+clientsRouter.delete("/:id/notes/:noteId", requireAuth, async (req: Request, res: Response) => {
+  console.log('DELETE /api/clients/:id/notes/:noteId', req.params);
+  const clientId = req.params.id;
+  const noteId = req.params.noteId;
+  if (!clientId || !noteId) {
+    return res.status(400).json({ message: "Eksik parametre" });
+  }
+  try {
+    // Notun gerçekten bu client'a ait olup olmadığını kontrol et
+    const notes = await storage.getClientNotes(Number(clientId));
+    const note = notes.find((n: any) => n.id === Number(noteId));
+    if (!note) {
+      return res.status(404).json({ message: "Not bulunamadı" });
+    }
+    // Sil
+    await storage.deleteClientNote(Number(noteId));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: "Not silinemedi", error: (err as Error)?.message });
+  }
+});
+
+export default clientsRouter;

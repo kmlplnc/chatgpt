@@ -109,25 +109,9 @@ export default function Dashboard() {
     <div className="flex-1">
       <div className="w-full min-h-screen bg-background dark:bg-neutral-900">
         <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-20 pb-12">
-          {/* TEST: Ortada mı? */}
-          {/* <div style={{ position: 'relative', width: '100%', height: 0 }}>
-            <div style={{
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              top: 0,
-              width: 40,
-              height: 40,
-              background: 'red',
-              borderRadius: '50%',
-              zIndex: 9999,
-              border: '3px solid white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-            }} />
-          </div> */}
-          <section className="flex flex-col md:flex-row items-center justify-between gap-8 animate-fade-up">
+          <section className="flex flex-col md:flex-row items-center justify-between gap-8 animate-fade-up mb-12">
             {/* Left: Headline & Description */}
-            <div className="flex-1 flex flex-col items-start justify-center">
+            <div className="flex flex-col items-start justify-center w-full">
               <h1 className="font-serif font-bold text-4xl md:text-6xl tracking-tight text-neutral-900 dark:text-white mb-4 animate-fade-up">
                 DietKEM: Akıllı Beslenme ve Danışan Takip Platformu
               </h1>
@@ -394,7 +378,7 @@ function FeatureCard({ title, description, href, className }: { title: string; d
   };
 
   return (
-    <Link href={getRoute(title)} className={`block bg-white dark:bg-neutral-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-200 p-6 border border-neutral-200 dark:border-neutral-700 cursor-pointer transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-96 flex flex-col justify-between ${className || ''}`}>
+    <Link href={getRoute(title)} className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-200 p-6 border border-neutral-200 dark:border-neutral-700 cursor-pointer transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-96 flex flex-col justify-between ${className || ''}`}>
       <div>
         <div className="flex items-center gap-4 mb-3 justify-center">
           <span className="text-3xl">{getFeatureIcon(title)}</span>

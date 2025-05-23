@@ -36,7 +36,9 @@ const appointmentFormSchema = z.object({
   description: z.string().optional(),
   appointmentDate: z.date({ required_error: 'Lütfen bir tarih seçin' }),
   appointmentTime: z.string({ required_error: 'Lütfen bir saat seçin' }),
-  durationMinutes: z.string().transform(val => parseInt(val, 10)),
+  durationMinutes: z.string().refine((val) => !isNaN(parseInt(val, 10)), {
+    message: 'Geçerli bir süre giriniz'
+  }),
   status: z.enum(['bekleyen', 'onaylanmış', 'iptal edilmiş', 'tamamlanmış']),
   location: z.string().optional(),
   notes: z.string().optional(),

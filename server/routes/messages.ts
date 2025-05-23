@@ -3,6 +3,10 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { insertMessageSchema } from "@shared/schema";
 import { NotificationType } from "./notifications";
+import db from "../db";
+import { messages } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import type { Message } from "@shared/schema";
 
 const messagesRouter = Router();
 
@@ -59,6 +63,7 @@ messagesRouter.get("/", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Bu danışana ait mesajlara erişim izniniz yok" });
     }
     
+    // Get messages using the correct user ID from session
     const messages = await storage.getMessages(clientIdNum, userId);
     res.json(messages);
   } catch (error) {
@@ -433,6 +438,96 @@ messagesRouter.delete("/conversation/:clientId", requireAuth, async (req: Reques
   } catch (error) {
     console.error("Sohbet silme hatası:", error);
     res.status(500).json({ message: "Sohbet silinemedi" });
+  }
+});
+
+// Get messages for a client
+messagesRouter.get("/client/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const numericClientId = parseInt(clientId, 10);
+    
+    if (isNaN(numericClientId)) {
+      return res.status(400).json({ error: "Invalid client ID" });
+    }
+    
+    const result = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.clientId, numericClientId))
+      .orderBy(messages.createdAt);
+      
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+// Create new message
+messagesRouter.post("/", async (req, res) => {
+  try {
+    const messageData = req.body as Omit<Message, "id" | "createdAt">;
+    
+    const [message] = await db
+      .insert(messages)
+      .values(messageData)
+      .returning();
+      
+    res.status(201).json(message);
+  } catch (error) {
+    console.error("Error creating message:", error);
+    res.status(500).json({ error: "Failed to create message" });
+  }
+});
+
+// Update message
+messagesRouter.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const numericId = parseInt(id, 10);
+    
+    if (isNaN(numericId)) {
+      return res.status(400).json({ error: "Invalid message ID" });
+    }
+    
+    const messageData = req.body as Partial<Message>;
+    
+    const [message] = await db
+      .update(messages)
+      .set(messageData)
+      .where(eq(messages.id, numericId))
+      .returning();
+      
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+    
+    res.json(message);
+  } catch (error) {
+    console.error("Error updating message:", error);
+    res.status(500).json({ error: "Failed to update message" });
+  }
+});
+
+// Delete message
+messagesRouter.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const numericId = parseInt(id, 10);
+    
+    if (isNaN(numericId)) {
+      return res.status(400).json({ error: "Invalid message ID" });
+    }
+    
+    await db
+      .delete(messages)
+      .where(eq(messages.id, numericId));
+      
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    res.status(500).json({ error: "Failed to delete message" });
   }
 });
 

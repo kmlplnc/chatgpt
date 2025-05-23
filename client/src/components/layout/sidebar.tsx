@@ -201,16 +201,31 @@ export default function Navbar() {
                     onMouseLeave={handleMouseLeave}
                   >
                     {group.items.map((item) => (
-                      <button
-                        key={item.name}
-                        onClick={() => navigate(item.href)}
-                        className={cn(
-                          "px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 hover:text-black transition font-serif",
-                          location === item.href && "font-semibold text-primary"
-                        )}
-                      >
-                        {item.name}
-                      </button>
+                      group.label === "Portal" && item.href === "/client-portal" ? (
+                        <a
+                          key={item.name}
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 hover:text-black transition font-serif w-full text-left block",
+                            location === item.href && "font-semibold text-primary"
+                          )}
+                        >
+                          {item.name}
+                        </a>
+                      ) : (
+                        <button
+                          key={item.name}
+                          onClick={() => navigate(item.href)}
+                          className={cn(
+                            "px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 hover:text-black transition font-serif",
+                            location === item.href && "font-semibold text-primary"
+                          )}
+                        >
+                          {item.name}
+                        </button>
+                      )
                     ))}
                   </div>
                 )}

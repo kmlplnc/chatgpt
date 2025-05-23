@@ -25,12 +25,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Appointment } from "@/types/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const appointmentSchema = z.object({
   date: z.string(),
   time: z.string(),
-  duration: z.string(),
-  type: z.string(),
+  type: z.string().min(1, "Randevu tipi gereklidir"),
   notes: z.string().optional(),
 });
 
@@ -42,6 +42,8 @@ interface AppointmentDialogProps {
   onSubmit: (data: AppointmentFormValues) => void;
   appointment?: Appointment;
   isLoading?: boolean;
+  timeSlots: string[];
+  disabledTimes: string[];
 }
 
 export function AppointmentDialog({
@@ -50,13 +52,14 @@ export function AppointmentDialog({
   onSubmit,
   appointment,
   isLoading,
+  timeSlots,
+  disabledTimes,
 }: AppointmentDialogProps) {
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
     defaultValues: {
       date: appointment?.date || format(new Date(), "yyyy-MM-dd"),
       time: appointment?.time || "",
-      duration: appointment?.duration?.toString() || "60",
       type: appointment?.type || "",
       notes: appointment?.notes || "",
     },
@@ -95,21 +98,19 @@ export function AppointmentDialog({
                 <FormItem>
                   <FormLabel>Saat</FormLabel>
                   <FormControl>
-                    <Input type="time" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="duration"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Süre (dakika)</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} />
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Saat seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map((slot) => (
+                          <SelectItem key={slot} value={slot} disabled={disabledTimes.includes(slot)}>
+                            {slot}
+                            {disabledTimes.includes(slot) && " (Dolu)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -123,7 +124,18 @@ export function AppointmentDialog({
                 <FormItem>
                   <FormLabel>Randevu Tipi</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Randevu tipi seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Görüşme">Görüşme</SelectItem>
+                        <SelectItem value="Kontrol">Kontrol</SelectItem>
+                        <SelectItem value="Online">Online</SelectItem>
+                        <SelectItem value="Telefon">Telefon</SelectItem>
+                        <SelectItem value="Takip">Takip</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

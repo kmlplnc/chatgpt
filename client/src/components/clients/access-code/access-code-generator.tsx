@@ -58,7 +58,7 @@ export function AccessCodeGenerator({
       console.error('Error generating access code:', error);
       toast({
         title: 'Hata',
-        description: error.message || 'Erişim kodu oluşturulurken bir hata oluştu.',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
         variant: 'destructive',
       });
     } finally {

@@ -43,8 +43,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       setProfile({
-        firstName: user.name?.split(" ")[0] || "",
-        lastName: user.name?.split(" ").slice(1).join(" ") || "",
+        firstName: user.fullName?.split(" ")[0] || "",
+        lastName: user.fullName?.split(" ").slice(1).join(" ") || "",
         email: user.email || "",
         phone: (user as any).phone || "",
         avatar: (user as any).avatar || "",

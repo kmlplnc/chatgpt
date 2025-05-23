@@ -9,7 +9,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
-  name: text("name"),
+  fullName: text("full_name"),
   role: text("role").default("user"),
   // Subscription fields
   subscriptionStatus: text("subscription_status").default("free").notNull(), // "free", "trial", "active", "expired", "canceled"
@@ -22,26 +22,26 @@ export const users = pgTable("users", {
 // Clients (danışanlar) schema
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
+  user_id: uuid("user_id").references(() => users.id),
+  first_name: text("first_name").notNull(),
+  last_name: text("last_name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
-  birthDate: date("birth_date"),
+  birth_date: date("birth_date"),
   gender: text("gender").notNull(), // "male", "female"
   height: numeric("height", { precision: 5, scale: 2 }), // cm cinsinden boy
   occupation: text("occupation"),
-  medicalConditions: text("medical_conditions"),
+  medical_conditions: text("medical_conditions"),
   allergies: text("allergies"),
   medications: text("medications"),
   notes: text("notes"),
-  clientVisibleNotes: text("client_visible_notes"),
+  client_visible_notes: jsonb("client_visible_notes"),
   status: text("status").default("active").notNull(),
-  startDate: date("start_date").defaultNow().notNull(),
-  endDate: date("end_date"),
-  accessCode: text("access_code").unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  start_date: date("start_date").defaultNow().notNull(),
+  end_date: date("end_date"),
+  access_code: text("access_code").unique(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Client Measurements schema (ölçümler)
@@ -71,7 +71,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
-  name: true,
+  fullName: true,
   role: true,
   subscriptionStatus: true,
   subscriptionPlan: true,
@@ -82,7 +82,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 // Diet Plans schema
 export const dietPlans = pgTable("diet_plans", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id),
   name: text("name").notNull(),
   description: text("description"),
   calorieGoal: integer("calorie_goal").notNull(),
@@ -166,7 +166,7 @@ export const insertFoodSchema = createInsertSchema(foods).omit({
 // SavedFood schema
 export const savedFoods = pgTable("saved_foods", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id),
   fdcId: text("fdc_id").references(() => foods.fdcId),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -208,9 +208,9 @@ export const insertClientSchema = createInsertSchema(clients, {
   status: z.enum(["active", "inactive"]),
 }).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
-  userId: true,
+  created_at: true,
+  updated_at: true,
+  user_id: true,
 });
 
 // Update Client schema
@@ -220,13 +220,26 @@ export const updateClientSchema = createSelectSchema(clients, {
   status: z.enum(["active", "inactive"]),
 }).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
-  userId: true,
+  created_at: true,
+  updated_at: true,
+  user_id: true,
 }).partial();
 
 // Create Measurement schema
-export const insertMeasurementSchema = createInsertSchema(measurements).omit({
+export const insertMeasurementSchema = createInsertSchema(measurements, {
+  basalMetabolicRate: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  totalDailyEnergyExpenditure: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  bodyFatPercentage: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  waistCircumference: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  hipCircumference: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  chestCircumference: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  armCircumference: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  thighCircumference: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  calfCircumference: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number().nullable().optional()),
+  weight: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number()),
+  height: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number()),
+  bmi: z.preprocess(val => val === "" || val == null ? null : Number(val), z.number()),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -235,6 +248,13 @@ export const insertMeasurementSchema = createInsertSchema(measurements).omit({
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+
+export type UpdateSubscriptionInput = {
+  subscriptionStatus: string;
+  subscriptionPlan?: string | null;
+  subscriptionStartDate?: Date | null;
+  subscriptionEndDate?: Date | null;
+};
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;
@@ -259,18 +279,27 @@ export type InsertFoodNutrient = z.infer<typeof insertFoodNutrientSchema>;
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   date: timestamp("date").notNull(),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
-  status: text("status").notNull().default("pending"), // pending, confirmed, cancelled, completed
+  status: text("status").notNull().default("pending"),
   notes: text("notes"),
-  title: text("title").notNull(),
+  type: text("type"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+export const insertAppointmentSchema = createInsertSchema(appointments, {
+  userId: z.preprocess(
+    val => String(val),
+    z.string().refine(
+      val => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val),
+      { message: "Invalid UUID format" }
+    )
+  ),
+  type: z.string().min(1, "Randevu tipi zorunludur"),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -280,7 +309,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   content: text("content").notNull(),
   fromClient: boolean("from_client").notNull().default(false),
   isRead: boolean("is_read").notNull().default(false),
@@ -304,7 +333,7 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 // Bildirimler tablosu
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id),
   clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   content: text("content").notNull(),
@@ -330,3 +359,11 @@ export interface FoodSearchResult {
   currentPage: number;
   totalPages: number;
 }
+
+export const clientNotes = pgTable("client_notes", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().references(() => clients.id),
+  user_id: uuid("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
