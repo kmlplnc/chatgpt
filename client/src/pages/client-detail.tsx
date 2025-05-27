@@ -19,7 +19,8 @@ import {
   Link, 
   KeyRound, 
   Copy,
-  Loader2
+  Loader2,
+  Calculator
 } from "lucide-react";
 import { AppointmentDialog } from "@/components/appointments/appointment-dialog";
 import { MessageList } from "@/components/messages/message-list";
@@ -121,6 +122,7 @@ import {
 import { useSession } from "@/hooks/use-session";
 import { Appointment } from "@/types/client";
 import { ErrorBoundary } from '@/components/error-boundary';
+import ReactSelect from 'react-select';
 
 // Client interface definition
 interface Client {
@@ -133,9 +135,10 @@ interface Client {
   birth_date?: string;
   height?: string;
   occupation?: string;
-  medicalConditions?: string;
+  medical_conditions?: string;
   allergies?: string;
   medications?: string;
+  diet_preferences?: string;
   healthNotes?: string;
   clientVisibleNotes?: string;
   client_visible_notes?: string[];
@@ -156,6 +159,33 @@ interface Measurement {
   bmi: string;
   basalMetabolicRate: number;
   totalDailyEnergyExpenditure: number;
+  // Micro-nutrients
+  vitaminA?: string;
+  vitaminC?: string;
+  vitaminD?: string;
+  vitaminE?: string;
+  vitaminK?: string;
+  thiamin?: string;
+  riboflavin?: string;
+  niacin?: string;
+  vitaminB6?: string;
+  folate?: string;
+  vitaminB12?: string;
+  biotin?: string;
+  pantothenicAcid?: string;
+  calcium?: string;
+  iron?: string;
+  magnesium?: string;
+  phosphorus?: string;
+  zinc?: string;
+  potassium?: string;
+  sodium?: string;
+  copper?: string;
+  manganese?: string;
+  selenium?: string;
+  chromium?: string;
+  molybdenum?: string;
+  iodine?: string;
 }
 
 // Ölçüm şeması
@@ -172,7 +202,32 @@ const measurementSchema = z.object({
   bodyFatPercentage: z.string().optional(),
   activityLevel: z.string().min(1, "Aktivite seviyesi seçilmelidir"),
   notes: z.string().optional(),
-  time: z.string().nonempty("Saat gereklidir"),
+  time: z.string().optional(),
+  // Mikrobesinler
+  vitaminA: z.string().optional(),
+  vitaminC: z.string().optional(),
+  vitaminD: z.string().optional(),
+  vitaminE: z.string().optional(),
+  vitaminK: z.string().optional(),
+  thiamin: z.string().optional(),
+  riboflavin: z.string().optional(),
+  niacin: z.string().optional(),
+  vitaminB6: z.string().optional(),
+  folate: z.string().optional(),
+  vitaminB12: z.string().optional(),
+  calcium: z.string().optional(),
+  iron: z.string().optional(),
+  magnesium: z.string().optional(),
+  phosphorus: z.string().optional(),
+  zinc: z.string().optional(),
+  potassium: z.string().optional(),
+  sodium: z.string().optional(),
+  copper: z.string().optional(),
+  manganese: z.string().optional(),
+  selenium: z.string().optional(),
+  chromium: z.string().optional(),
+  molybdenum: z.string().optional(),
+  iodine: z.string().optional(),
 });
 
 type MeasurementFormData = z.infer<typeof measurementSchema>;
@@ -311,8 +366,10 @@ const getClient = async (id: string): Promise<Client> => {
 
 const getMeasurements = async (id: string): Promise<Measurement[]> => {
   const response = await apiRequest(`/api/clients/${id}/measurements`);
-  if (!response.ok) throw new Error("Ölçüm verileri yüklenemedi");
-  return response.data as Measurement[];
+  if (!response.ok) {
+    throw new Error("Ölçümler alınamadı");
+  }
+  return response.data;
 };
 
 const createMeasurement = async (id: string, data: any) => {
@@ -443,13 +500,18 @@ const generateAccessCode = async (id: string) => {
 };
 
 export default function ClientDetailWrapper() {
-  return <ClientDetail />;
+  const { id } = useParams();
+  const [_, navigate] = useLocation();
+
+  if (!id) {
+    return <div>Geçersiz müşteri ID'si</div>;
+  }
+
+  return <ClientDetail id={id} navigate={navigate} />;
 }
 
-function ClientDetail() {
+function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
   console.log('ClientDetail render');
-  const [_, setLocation] = useLocation();
-  const { id } = useParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { session } = useSession();
@@ -458,7 +520,6 @@ function ClientDetail() {
   // All useState hooks
   const [viewedTab, setViewedTab] = useState<"measurements" | "health" | "diet" | "notes" | "appointments">('measurements');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isMeasurementDialogOpen, setIsMeasurementDialogOpen] = useState(false);
   const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = useState(false);
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
   const [isAccessCodeDialogOpen, setIsAccessCodeDialogOpen] = useState(false);
@@ -473,9 +534,20 @@ function ClientDetail() {
   const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<string>("");
   const [selectedAppointment, setSelectedAppointment] = useState<{ date: string } | null>(null);
   const [openEditMeasurementDialog, setOpenEditMeasurementDialog] = useState(false);
+  const [showMicroNutrientsDialog, setShowMicroNutrientsDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [medicalState, setMedicalState] = useState<any[]>([]);
+  const [allergyState, setAllergyState] = useState<any[]>([]);
+  const [medicationState, setMedicationState] = useState<any[]>([]);
+  const [dietPreferencesState, setDietPreferencesState] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [hasDietChanges, setHasDietChanges] = useState(false);
 
   // All useForm hooks
-  const form = useForm<z.infer<typeof measurementSchema>>({
+  const form = useForm<MeasurementFormData>({
     resolver: zodResolver(measurementSchema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
@@ -484,9 +556,33 @@ function ClientDetail() {
       waistCircumference: "",
       hipCircumference: "",
       bodyFatPercentage: "",
-      activityLevel: "light",
+      activityLevel: "sedentary",
       notes: "",
-      time: "",
+      // Mikrobesinler
+      vitaminA: "",
+      vitaminC: "",
+      vitaminD: "",
+      vitaminE: "",
+      vitaminK: "",
+      thiamin: "",
+      riboflavin: "",
+      niacin: "",
+      vitaminB6: "",
+      folate: "",
+      vitaminB12: "",
+      calcium: "",
+      iron: "",
+      magnesium: "",
+      phosphorus: "",
+      zinc: "",
+      potassium: "",
+      sodium: "",
+      copper: "",
+      manganese: "",
+      selenium: "",
+      chromium: "",
+      molybdenum: "",
+      iodine: "",
     },
   });
 
@@ -524,7 +620,7 @@ function ClientDetail() {
     enabled: !!id,
   });
 
-  const { data: measurements, isLoading: isLoadingMeasurements } = useQuery({
+  const { data: measurements, isLoading: isLoadingMeasurements, error: measurementsError } = useQuery({
     queryKey: [`/api/clients/${id}/measurements`],
     queryFn: () => getMeasurements(id as string),
     retry: 1,
@@ -552,19 +648,22 @@ function ClientDetail() {
   });
 
   const updateMeasurementMutation = useMutation({
-    mutationFn: (data: any) => updateMeasurement(id as string, selectedMeasurement?.id as number, data),
+    mutationFn: (data: MeasurementFormData) => {
+      if (!selectedMeasurement) return Promise.reject("Ölçüm seçilmedi");
+      return updateMeasurement(id, selectedMeasurement.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      setShowEditDialog(false);
       toast({
         title: "Başarılı",
-        description: "Ölçüm güncellendi",
+        description: "Ölçüm başarıyla güncellendi",
       });
-      setOpenEditMeasurementDialog(false);
     },
     onError: (error: any) => {
       toast({
         title: "Hata",
-        description: error.message,
+        description: error.message || "Ölçüm güncellenemedi",
         variant: "destructive",
       });
     },
@@ -577,17 +676,28 @@ function ClientDetail() {
         title: "Başarılı",
         description: "Müşteri başarıyla silindi.",
       });
-      setLocation("/clients");
+      navigate("/clients");
     },
   });
 
   const deleteMeasurementMutation = useMutation({
-    mutationFn: (measurementId: number) => deleteMeasurement(id as string, measurementId),
+    mutationFn: () => {
+      if (!selectedMeasurement) return Promise.reject("Ölçüm seçilmedi");
+      return deleteMeasurement(id, selectedMeasurement.id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] });
+      setShowDeleteDialog(false);
       toast({
         title: "Başarılı",
-        description: "Ölçüm başarıyla silindi.",
+        description: "Ölçüm başarıyla silindi",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.message || "Ölçüm silinemedi",
+        variant: "destructive",
       });
     },
   });
@@ -698,11 +808,11 @@ function ClientDetail() {
         date: editingMeasurement.date,
         weight: editingMeasurement.weight,
         height: editingMeasurement.height,
-        waistCircumference: editingMeasurement.waistCircumference,
-        hipCircumference: editingMeasurement.hipCircumference,
-        bodyFatPercentage: editingMeasurement.bodyFatPercentage,
-        activityLevel: editingMeasurement.activityLevel,
-        notes: editingMeasurement.notes,
+        waistCircumference: editingMeasurement.waistCircumference || "",
+        hipCircumference: editingMeasurement.hipCircumference || "",
+        bodyFatPercentage: editingMeasurement.bodyFatPercentage || "",
+        activityLevel: editingMeasurement.activityLevel || "light",
+        notes: editingMeasurement.notes || "",
       });
     }
   }, [editingMeasurement, editForm]);
@@ -718,6 +828,31 @@ function ClientDetail() {
       });
     }
   }, [client, id, queryClient]);
+
+  // Seçili ölçüm değiştiğinde form değerlerini güncelle
+  useEffect(() => {
+    if (selectedMeasurement) {
+      form.reset({
+        date: selectedMeasurement.date,
+        weight: selectedMeasurement.weight,
+        height: selectedMeasurement.height,
+        waistCircumference: selectedMeasurement.waistCircumference || "",
+        hipCircumference: selectedMeasurement.hipCircumference || "",
+        bodyFatPercentage: selectedMeasurement.bodyFatPercentage || "",
+        activityLevel: selectedMeasurement.activityLevel,
+        notes: selectedMeasurement.notes || "",
+      });
+    }
+  }, [selectedMeasurement, form]);
+
+  useEffect(() => {
+    setMedicalState(parseMultiValue(client?.medical_conditions));
+    setAllergyState(parseMultiValue(client?.allergies));
+    setMedicationState(parseMultiValue(client?.medications));
+    setDietPreferencesState(parseMultiValue(client?.diet_preferences));
+    setHasChanges(false);
+    setHasDietChanges(false);
+  }, [client]);
 
   // All useCallback hooks
   const handleEditMeasurement = useCallback((measurement: Measurement) => {
@@ -735,11 +870,29 @@ function ClientDetail() {
     setOpenEditMeasurementDialog(true);
   }, [editForm]);
 
-  const handleDeleteMeasurement = useCallback((measurementId: number) => {
-    if (window.confirm("Bu ölçümü silmek istediğinizden emin misiniz?")) {
-      deleteMeasurementMutation.mutate(measurementId);
+  const handleDeleteMeasurement = async () => {
+    if (!selectedMeasurement) return;
+    
+    try {
+      await deleteMeasurement(id, selectedMeasurement.id);
+      toast({
+        title: "Başarılı",
+        description: "Ölçüm başarıyla silindi",
+      });
+      setShowDeleteDialog(false);
+      setSelectedMeasurement(null);
+      // Refresh measurements list
+      const updatedMeasurements = await getMeasurements(id);
+      setMeasurements(updatedMeasurements);
+    } catch (error) {
+      console.error("Error deleting measurement:", error);
+      toast({
+        title: "Hata",
+        description: "Ölçüm silinirken bir hata oluştu",
+        variant: "destructive",
+      });
     }
-  }, [deleteMeasurementMutation]);
+  };
 
   const handleEditAppointment = useCallback((appointment: any) => {
     setEditingAppointment({
@@ -938,7 +1091,7 @@ function ClientDetail() {
       if (bf < 16) return { status: "Çok Düşük", color: "text-amber-500" };
       if (bf >= 16 && bf < 24) return { status: "Atletik", color: "text-green-500" };
       if (bf >= 24 && bf < 30) return { status: "Fit", color: "text-green-500" };
-      if (bf >= 30 && bf < 32) return { status: "Normal", color: "text-green-500" };
+      if (bf >= 30 && bf < 35) return { status: "Normal", color: "text-green-500" };
       return { status: "Yüksek", color: "text-red-500" };
     }
   };
@@ -981,7 +1134,7 @@ function ClientDetail() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <p className="text-lg">Danışan bulunamadı</p>
-        <Button onClick={() => setLocation("/clients")} className="mt-4">
+        <Button onClick={() => navigate("/clients")} className="mt-4">
           <ChevronLeft className="mr-2 h-4 w-4" /> Danışanlara Dön
         </Button>
       </div>
@@ -1087,6 +1240,31 @@ function ClientDetail() {
       bmi,
       basalMetabolicRate: bmr,
       totalDailyEnergyExpenditure: tdee,
+      // Mikrobesinler
+      vitaminA: data.vitaminA,
+      vitaminC: data.vitaminC,
+      vitaminD: data.vitaminD,
+      vitaminE: data.vitaminE,
+      vitaminK: data.vitaminK,
+      thiamin: data.thiamin,
+      riboflavin: data.riboflavin,
+      niacin: data.niacin,
+      vitaminB6: data.vitaminB6,
+      folate: data.folate,
+      vitaminB12: data.vitaminB12,
+      calcium: data.calcium,
+      iron: data.iron,
+      magnesium: data.magnesium,
+      phosphorus: data.phosphorus,
+      zinc: data.zinc,
+      potassium: data.potassium,
+      sodium: data.sodium,
+      copper: data.copper,
+      manganese: data.manganese,
+      selenium: data.selenium,
+      chromium: data.chromium,
+      molybdenum: data.molybdenum,
+      iodine: data.iodine,
     };
 
     createMeasurementMutation.mutate(measurementData);
@@ -1134,6 +1312,252 @@ function ClientDetail() {
     takip: "Takip"
   };
 
+  const activityLevelDescriptions: Record<string, string> = {
+    sedentary: "Hareketsiz (ofis işi)",
+    light: "Hafif aktivite (haftada 1-3 gün egzersiz)",
+    moderate: "Orta aktivite (haftada 3-5 gün egzersiz)",
+    active: "Aktif (haftada 6-7 gün egzersiz)",
+    veryActive: "Çok aktif (günde çift antrenman)"
+  };
+
+  // Dialog'ları kapatırken seçili ölçümü temizle
+  const handleCloseEditDialog = () => {
+    setShowEditDialog(false);
+    setSelectedMeasurement(null);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setShowDeleteDialog(false);
+    setSelectedMeasurement(null);
+  };
+
+  const handleCloseMicroNutrientsDialog = () => {
+    setShowMicroNutrientsDialog(false);
+    setSelectedMeasurement(null);
+  };
+
+  // Checkbox seçenekleri
+  const medicalOptions = [
+    { value: "tip1", label: "🩸 Tip 1 Diyabet" },
+    { value: "tip2", label: "🩸 Tip 2 Diyabet" },
+    { value: "insulin_resistance", label: "💉 İnsülin Direnci" },
+    { value: "metabolic_syndrome", label: "🧬 Metabolik Sendrom" },
+    { value: "obesity", label: "⚖️ Obezite" },
+    { value: "pcos", label: "👩‍🦱 Polikistik Over Sendromu (PCOS)" },
+    { value: "hypothyroidism", label: "🦋 Hipotiroidi" },
+    { value: "hyperthyroidism", label: "🦋 Hipertiroidi" },
+    { value: "hashimoto", label: "🦋 Hashimoto Tiroiditi" },
+    { value: "addison", label: "🧑‍⚕️ Addison Hastalığı" },
+    { value: "hypertension", label: "💉 Hipertansiyon" },
+    { value: "prehypertension", label: "💉 Prehipertansiyon" },
+    { value: "hypercholesterolemia", label: "🧬 Yüksek Kolesterol (Hiperkolesterolemi)" },
+    { value: "high_triglycerides", label: "🧬 Trigliserid Yüksekliği" },
+    { value: "coronary_artery", label: "❤️ Koroner Arter Hastalığı" },
+    { value: "heart_failure", label: "❤️ Kalp Yetmezliği" },
+    { value: "arrhythmia", label: "❤️ Aritmi" },
+    { value: "celiac", label: "🌾 Çölyak Hastalığı" },
+    { value: "non_celiac_gluten", label: "🌾 Non-çölyak gluten hassasiyeti" },
+    { value: "ibs", label: "💩 İrritabl Bağırsak Sendromu (IBS)" },
+    { value: "crohn", label: "🦠 Crohn Hastalığı" },
+    { value: "ulcerative_colitis", label: "🦠 Ülseratif Kolit" },
+    { value: "reflux", label: "🤢 Reflü (GERD)" },
+    { value: "gastritis", label: "🤢 Gastrit" },
+    { value: "peptic_ulcer", label: "🤢 Peptik Ülser" },
+    { value: "chronic_constipation", label: "🚽 Kronik Kabızlık" },
+    { value: "chronic_diarrhea", label: "🚽 Kronik İshal" },
+    { value: "chronic_kidney_failure", label: "🩺 Kronik Böbrek Yetmezliği" },
+    { value: "nephrotic_syndrome", label: "🩺 Nefrotik Sendrom" },
+    { value: "kidney_stones", label: "🪨 Taş Oluşumu (Böbrek taşı)" },
+    { value: "fatty_liver", label: "🟠 Karaciğer Yağlanması (NAFLD)" },
+    { value: "cirrhosis", label: "🟠 Siroz" },
+    { value: "hepatitis", label: "🟠 Hepatit B/C" },
+    { value: "anemia", label: "🩸 Anemi (Demir Eksikliği)" },
+    { value: "b12_deficiency", label: "🩸 B12 Eksikliği" },
+    { value: "vitamin_d_deficiency", label: "🌞 D Vitamini Eksikliği" },
+    { value: "epilepsy", label: "⚡ Epilepsi" },
+    { value: "migraine", label: "🤕 Migren" },
+    { value: "depression", label: "😔 Depresyon" },
+    { value: "anxiety", label: "😰 Anksiyete Bozukluğu" },
+    { value: "eating_disorders", label: "🍽️ Yeme Bozuklukları (Anoreksiya, Bulimia)" },
+    { value: "cancer", label: "🎗️ Kanser (kemoterapi alan)" },
+    { value: "osteoporosis", label: "🦴 Kemik Erimesi (Osteoporoz)" },
+    { value: "rheumatoid_arthritis", label: "🦴 Romatoid Artrit" },
+    { value: "lupus", label: "🦋 Lupus" },
+    { value: "ms", label: "🧠 Multipl Skleroz (MS)" },
+  ];
+  const allergyOptions = [
+    { value: "gluten", label: "🌾 Gluten" },
+    { value: "lactose", label: "🥛 Laktoz" },
+    { value: "casein", label: "🧀 Süt Proteini (Kazein)" },
+    { value: "egg_white", label: "🥚 Yumurta Beyazı" },
+    { value: "egg_yolk", label: "🥚 Yumurta Sarısı" },
+    { value: "hazelnut", label: "🌰 Fındık" },
+    { value: "walnut", label: "🌰 Ceviz" },
+    { value: "almond", label: "🌰 Badem" },
+    { value: "peanut", label: "🥜 Yer Fıstığı" },
+    { value: "pistachio", label: "🥜 Antep Fıstığı" },
+    { value: "shrimp", label: "🦐 Karides" },
+    { value: "mussel", label: "🦪 Midye" },
+    { value: "fish", label: "🐟 Balık" },
+    { value: "mollusks", label: "🐙 Yumuşakçalar (kalamar, ahtapot)" },
+    { value: "soy", label: "🌱 Soya" },
+    { value: "sesame", label: "🌻 Susam" },
+    { value: "corn", label: "🌽 Mısır" },
+    { value: "strawberry", label: "🍓 Çilek" },
+    { value: "tomato", label: "🍅 Domates" },
+    { value: "citrus", label: "🍊 Portakal / Turunçgiller" },
+    { value: "kiwi", label: "🥝 Kivi" },
+    { value: "mushroom", label: "🍄 Mantar" },
+    { value: "pea", label: "🟢 Bezelye" },
+    { value: "mustard", label: "🌶️ Hardal" },
+    { value: "sulfites", label: "🧪 Sülfitler (koruyucu katkı maddesi)" },
+    { value: "aspartame", label: "🍬 Aspartam" },
+    { value: "pollen", label: "🌼 Polen" },
+    { value: "dust_mites", label: "🪳 Toz Akarları" },
+    { value: "animal_dander", label: "🐾 Hayvan Tüyü (kedi/köpek)" },
+    { value: "food_colorings", label: "🧃 Gıda Boyaları (ör. tartrazin)" },
+  ];
+  const medicationOptions = [
+    { value: "metformin", label: "💊 Metformin" },
+    { value: "insulin", label: "💉 İnsülin (kısa ve uzun etkili)" },
+    { value: "euthyrox", label: "💊 Euthyrox / Levotiroksin" },
+    { value: "warfarin", label: "💊 Warfarin (Coumadin)" },
+    { value: "heparin", label: "💉 Heparin" },
+    { value: "statins", label: "💊 Statinler (Atorvastatin, Simvastatin)" },
+    { value: "ace_inhibitors", label: "💊 ACE İnhibitörleri (Ramipril, Enalapril)" },
+    { value: "beta_blockers", label: "💊 Beta Blokerler (Metoprolol, Bisoprolol)" },
+    { value: "calcium_channel_blockers", label: "💊 Kalsiyum Kanal Blokerleri" },
+    { value: "diuretics", label: "💊 Diüretikler (Furosemid, Hidroklorotiazid)" },
+    { value: "antidepressants", label: "💊 Antidepresanlar (SSRI: Sertralin, Fluoksetin)" },
+    { value: "snri", label: "💊 SNRI'lar (Duloksetin)" },
+    { value: "antipsychotics", label: "💊 Antipsikotikler (Olanzapin, Risperidon)" },
+    { value: "corticosteroids", label: "💊 Kortikosteroidler (Prednizolon)" },
+    { value: "antihistamines", label: "💊 Antihistaminikler (Loratadin, Feksadin)" },
+    { value: "birth_control", label: "💊 Doğum Kontrol Hapları (Yaz, Diane-35)" },
+    { value: "immunosuppressants", label: "💊 İmmünosupresanlar (Azathioprin)" },
+    { value: "chemotherapy", label: "💉 Kemoterapi İlaçları (Cisplatin, Methotrexate)" },
+    { value: "nsaid", label: "💊 NSAID'ler (İbuprofen, Naproksen)" },
+    { value: "antibiotics", label: "💊 Antibiyotikler (Amoksisilin, Doksisiklin)" },
+    { value: "iron_supplements", label: "💉 Demir Takviyeleri" },
+    { value: "b12_injections", label: "💉 B12 Enjeksiyonları" },
+    { value: "omega3", label: "🧬 Omega-3 Takviyeleri" },
+    { value: "multivitamins", label: "💊 Multivitaminler" },
+    { value: "antacids", label: "💊 Antiasitler (Nexium, Pantoprazol)" },
+    { value: "laxatives", label: "💊 Laksatifler" },
+    { value: "antiemetics", label: "💊 Antiemetikler (Zofran)" },
+    { value: "antiepileptics", label: "💊 Antiepileptikler (Karbamazepin)" },
+    { value: "levothyronine", label: "💊 Levothyronin (T3 hormonu)" },
+    { value: "glp1_analogs", label: "💉 GLP-1 Analogları (Ozempic, Wegovy)" },
+    { value: "sglt2_inhibitors", label: "💊 SGLT2 İnhibitörleri (Jardiance, Forxiga)" },
+  ];
+
+  const dietOptions = [
+    { value: "vegan", label: "🌱 Vegan" },
+    { value: "vegetarian", label: "🥗 Vejetaryen" },
+    { value: "pescatarian", label: "🐟 Pesketaryen" },
+    { value: "gluten_free", label: "🌾 Glutensiz" },
+    { value: "lactose_free", label: "🥛 Laktozsuz" },
+    { value: "keto", label: "🥑 Ketojenik" },
+    { value: "paleo", label: "🥩 Paleo" },
+    { value: "mediterranean", label: "🫒 Akdeniz" },
+    { value: "dash", label: "💪 DASH" },
+    { value: "low_carb", label: "🍞 Düşük Karbonhidrat" },
+    { value: "low_fat", label: "🥑 Düşük Yağ" },
+    { value: "low_sodium", label: "🧂 Düşük Sodyum" },
+    { value: "low_sugar", label: "🍬 Düşük Şeker" },
+    { value: "high_protein", label: "🥩 Yüksek Protein" },
+    { value: "halal", label: "🕌 Helal" },
+    { value: "kosher", label: "✡️ Koşer" },
+    { value: "raw_food", label: "🥕 Çiğ Beslenme" },
+    { value: "macrobiotic", label: "🍚 Makrobiyotik" },
+    { value: "ayurvedic", label: "🧘 Ayurvedik" },
+    { value: "fodmap", label: "🥬 FODMAP" },
+    { value: "anti_inflammatory", label: "🌿 Anti-inflamatuar" },
+    { value: "diabetic", label: "🩸 Diyabetik" },
+    { value: "heart_healthy", label: "❤️ Kalp Sağlığı" },
+    { value: "weight_loss", label: "⚖️ Kilo Verme" },
+    { value: "weight_gain", label: "💪 Kilo Alma" },
+    { value: "muscle_gain", label: "💪 Kas Kazanımı" },
+    { value: "sports", label: "🏃 Sporcu Beslenmesi" },
+    { value: "pregnancy", label: "🤰 Hamilelik" },
+    { value: "breastfeeding", label: "🤱 Emzirme" },
+    { value: "child", label: "👶 Çocuk Beslenmesi" },
+    { value: "elderly", label: "👴 Yaşlı Beslenmesi" },
+    { value: "detox", label: "🧪 Detoks" },
+    { value: "immune_boosting", label: "🛡️ Bağışıklık Güçlendirici" },
+    { value: "gut_health", label: "🦠 Bağırsak Sağlığı" },
+    { value: "brain_health", label: "🧠 Beyin Sağlığı" },
+    { value: "bone_health", label: "🦴 Kemik Sağlığı" },
+    { value: "skin_health", label: "✨ Cilt Sağlığı" },
+    { value: "hair_health", label: "💇 Saç Sağlığı" },
+    { value: "energy_boosting", label: "⚡ Enerji Artırıcı" },
+    { value: "sleep_improving", label: "😴 Uyku Düzenleyici" },
+    { value: "stress_reducing", label: "🧘 Stres Azaltıcı" },
+    { value: "hormone_balancing", label: "⚖️ Hormon Dengeleyici" },
+    { value: "thyroid_support", label: "🦋 Tiroid Desteği" },
+    { value: "adrenal_support", label: "🧬 Adrenal Desteği" },
+    { value: "liver_support", label: "🟠 Karaciğer Desteği" },
+    { value: "kidney_support", label: "🩺 Böbrek Desteği" },
+    { value: "joint_support", label: "🦵 Eklem Desteği" },
+    { value: "eye_health", label: "👁️ Göz Sağlığı" },
+    { value: "dental_health", label: "🦷 Diş Sağlığı" },
+    { value: "allergen_free", label: "🚫 Alerjen İçermeyen" }
+  ];
+
+  function normalizeMedicalValue(val: string) {
+    if (!val) return "";
+    const v = val.toLowerCase().replace(/\s+/g, "");
+    if (v === "tip1" || v === "tip1diyabet" || v === "tip1 diyabet" || v === "tip1diyabeti") return "tip1";
+    if (v === "tip2" || v === "tip2diyabet" || v === "tip2 diyabet" || v === "tip2diyabeti") return "tip2";
+    return val;
+  }
+
+  function parseMultiValue(val: any) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.map(normalizeMedicalValue);
+    if (typeof val === "string") {
+      if (val.trim().startsWith("[")) {
+        try { return JSON.parse(val).map(normalizeMedicalValue); } catch { return []; }
+      }
+      return val.split(",").map((v) => normalizeMedicalValue(v.trim())).filter(Boolean);
+    }
+    return [];
+  }
+
+  const handleSaveHealthInfo = async () => {
+    setSaving(true);
+    await apiRequest(`/api/clients/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        medical_conditions: JSON.stringify(medicalState),
+        allergies: JSON.stringify(allergyState),
+        medications: JSON.stringify(medicationState),
+      })
+    });
+    await queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+    toast({ title: "Başarılı", description: "Sağlık bilgileri kaydedildi." });
+    setSaving(false);
+    setHasChanges(false);
+  };
+
+  const handleSaveDietPreferences = async () => {
+    setSaving(true);
+    await apiRequest(`/api/clients/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        diet_preferences: JSON.stringify(dietPreferencesState)
+      })
+    });
+    await queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+    toast({ title: "Başarılı", description: "Diyet tercihleri kaydedildi." });
+    setSaving(false);
+    setHasDietChanges(false);
+  };
+
+  console.log("client:", client);
+  console.log("medical_conditions:", client?.medical_conditions);
+  console.log("parsed medicalState:", parseMultiValue(client?.medical_conditions));
+
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-8 pt-10 pb-12 min-h-[calc(100vh-64px)]">
       {/* Danışan detay başlığı ve içerik */}
@@ -1144,7 +1568,7 @@ function ClientDetail() {
               variant="outline" 
               size="icon"
               className="rounded-full h-10 w-10 hover:bg-slate-100 hover:scale-110 transition-all duration-300 shadow-sm" 
-              onClick={() => setLocation("/clients")}
+              onClick={() => navigate("/clients")}
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -1170,7 +1594,7 @@ function ClientDetail() {
             </div>
           </div>
 
-          <Tabs defaultValue="overview" className="mb-10">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-10">
             <TabsList
               className="rounded-lg bg-white shadow-md p-1.5 border-none mb-10 flex w-full gap-2 overflow-x-hidden custom-scrollbar-hide"
               style={{ overflowX: 'hidden' }}
@@ -1181,6 +1605,7 @@ function ClientDetail() {
               <TabsTrigger value="measurements" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
                 Ölçümler
               </TabsTrigger>
+              <TabsTrigger value="health-info" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[140px] text-sm font-medium">Sağlık Bilgileri</TabsTrigger>
               <TabsTrigger value="analytics" className="rounded-md data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none transition-all duration-200 px-5 py-2 min-w-[110px] text-sm font-medium">
                 Analiz
               </TabsTrigger>
@@ -1447,18 +1872,31 @@ function ClientDetail() {
                   <div className="flex justify-between items-center">
                     <CardDescription>Tüm ölçüm kayıtları ve vücut kompozisyon verileri</CardDescription>
                     <Button 
-                      className="rounded-xl bg-blue-600 hover:bg-blue-700 hover:scale-105 transition-all duration-300"
-                      onClick={() => setIsMeasurementDialogOpen(true)}
+                      variant="outline"
+                      className="mt-4 rounded-xl hover:bg-blue-100 transition-all"
+                      onClick={() => navigate("/health-calculator")}
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Yeni Ölçüm
+                      İlk Ölçümü Ekle
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-5 overflow-auto">
                   {isLoadingMeasurements ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                      <p className="mt-2 text-muted-foreground">Ölçümler yükleniyor...</p>
+                    </div>
+                  ) : measurementsError ? (
+                    <div className="text-center py-8 text-red-500">
+                      <p>Ölçümler yüklenirken bir hata oluştu.</p>
+                      <Button 
+                        variant="outline"
+                        className="mt-4 rounded-xl hover:bg-blue-100 transition-all"
+                        onClick={() => queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}/measurements`] })}
+                      >
+                        Yeniden Dene
+                      </Button>
                     </div>
                   ) : measurements && measurements.length > 0 ? (
                     <Table>
@@ -1472,47 +1910,69 @@ function ClientDetail() {
                           <TableHead className="text-center">Bel (cm)</TableHead>
                           <TableHead className="text-center">Kalça (cm)</TableHead>
                           <TableHead className="text-center">Aktivite</TableHead>
+                          <TableHead className="text-center">Mikro Besinler</TableHead>
                           <TableHead className="text-center">İşlemler</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {[...sortedMeasurements].reverse().map((measurement: any) => (
-                          <TableRow key={measurement.id} className="hover:bg-blue-50/50 transition-colors group/row">
-                            <TableCell className="text-center font-medium">{formatDate(measurement.date)}</TableCell>
+                        {measurements.map((measurement) => (
+                          <TableRow key={measurement.id}>
+                            <TableCell className="text-center">{formatDate(measurement.date)}</TableCell>
                             <TableCell className="text-center">{measurement.weight}</TableCell>
                             <TableCell className="text-center">{measurement.height}</TableCell>
                             <TableCell className="text-center">
-                              <span className={getHealthStatus(parseFloat(measurement.bmi)).color}>
+                              <span className={getBMIColor(parseFloat(measurement.bmi))}>
                                 {measurement.bmi}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center">{measurement.bodyFatPercentage || "-"}</TableCell>
+                            <TableCell className="text-center">
+                              {measurement.bodyFatPercentage ? (
+                                <span className={getBodyFatColor(parseFloat(measurement.bodyFatPercentage), client.gender)}>
+                                  {measurement.bodyFatPercentage}
+                                </span>
+                              ) : "-"}
+                            </TableCell>
                             <TableCell className="text-center">{measurement.waistCircumference || "-"}</TableCell>
                             <TableCell className="text-center">{measurement.hipCircumference || "-"}</TableCell>
                             <TableCell className="text-center">
-                              {measurement.activityLevel === "sedentary" && "Hareketsiz"}
-                              {measurement.activityLevel === "light" && "Hafif Aktif"}
-                              {measurement.activityLevel === "moderate" && "Orta Aktif"}
-                              {measurement.activityLevel === "active" && "Aktif"}
-                              {measurement.activityLevel === "veryActive" && "Çok Aktif"}
+                              {activityLevelDescriptions[measurement.activityLevel] || "-"}
                             </TableCell>
                             <TableCell className="text-center">
-                              <div className="flex justify-center space-x-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  className="h-8 w-8 rounded-full hover:bg-blue-100"
-                                  onClick={() => handleEditMeasurement(measurement)}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 hover:bg-slate-100"
+                                onClick={() => {
+                                  setSelectedMeasurement(measurement);
+                                  setShowMicroNutrientsDialog(true);
+                                }}
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 hover:bg-slate-100"
+                                  onClick={() => {
+                                    setSelectedMeasurement(measurement);
+                                    setShowEditDialog(true);
+                                  }}
                                 >
-                                  <Pencil className="h-4 w-4 text-blue-600" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  className="h-8 w-8 rounded-full hover:bg-red-100"
-                                  onClick={() => handleDeleteMeasurement(measurement.id)}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 hover:bg-red-100 text-red-600"
+                                  onClick={() => {
+                                    setSelectedMeasurement(measurement);
+                                    setShowDeleteDialog(true);
+                                  }}
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -1536,505 +1996,220 @@ function ClientDetail() {
                 </CardContent>
               </Card>
 
-              {/* Yeni Ölçüm Ekleme Dialog */}
-              <Dialog open={isMeasurementDialogOpen} onOpenChange={setIsMeasurementDialogOpen}>
-                <DialogContent className="sm:max-w-[600px] rounded-xl border-none shadow-xl">
+              {/* Silme Dialog */}
+              <Dialog open={showDeleteDialog} onOpenChange={handleCloseDeleteDialog}>
+                <DialogContent className="sm:max-w-[425px] rounded-xl border-none shadow-xl">
                   <DialogHeader>
-                    <DialogTitle>Yeni Ölçüm Ekle</DialogTitle>
+                    <DialogTitle>Ölçümü Sil</DialogTitle>
                     <DialogDescription>
-                      Danışanın yeni ölçüm ve vücut kompozisyon verilerini girin.
+                      Bu ölçümü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
                     </DialogDescription>
                   </DialogHeader>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="date"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Tarih</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} onChange={e => {
-                                  field.onChange(e);
-                                  setSelectedAppointmentDate(e.target.value);
-                                  setSelectedAppointment({ ...selectedAppointment, date: e.target.value });
-                                }} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="activityLevel"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Aktivite Seviyesi</FormLabel>
-                              <Select 
-                                onValueChange={field.onChange} 
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Aktivite seviyesi seçin" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="sedentary">Hareketsiz (ofis işi)</SelectItem>
-                                  <SelectItem value="light">Hafif Aktif (haftada 1-3 gün egzersiz)</SelectItem>
-                                  <SelectItem value="moderate">Orta Aktif (haftada 3-5 gün egzersiz)</SelectItem>
-                                  <SelectItem value="active">Aktif (haftada 6-7 gün egzersiz)</SelectItem>
-                                  <SelectItem value="veryActive">Çok Aktif (günde çift antrenman)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="weight"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Kilo (kg)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="height"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Boy (cm)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="waistCircumference"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bel Çevresi (cm)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="hipCircumference"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Kalça Çevresi (cm)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <FormField
-                        control={form.control}
-                        name="bodyFatPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="notes"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Notlar</FormLabel>
-                            <FormControl>
-                              <Textarea {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <DialogFooter>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => setIsMeasurementDialogOpen(false)} 
-                          className="rounded-xl"
-                        >
-                          İptal
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          className="rounded-xl"
-                          disabled={createMeasurementMutation.isPending}
-                        >
-                          {createMeasurementMutation.isPending && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          )}
-                          Kaydet
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={handleCloseDeleteDialog}>
+                      İptal
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="destructive"
+                      onClick={() => deleteMeasurementMutation.mutate()}
+                    >
+                      Sil
+                    </Button>
+                  </div>
                 </DialogContent>
               </Dialog>
-              
-              {/* Ölçüm Düzenleme Dialog */}
-              <Dialog open={isMeasurementDialogOpen} onOpenChange={setIsMeasurementDialogOpen}>
+
+              {/* Mikrobesinler Dialog */}
+              <Dialog open={showMicroNutrientsDialog} onOpenChange={handleCloseMicroNutrientsDialog}>
                 <DialogContent className="sm:max-w-[600px] rounded-xl border-none shadow-xl">
                   <DialogHeader>
-                    <DialogTitle>Ölçüm Düzenle</DialogTitle>
+                    <DialogTitle>Mikrobesin Değerleri</DialogTitle>
                     <DialogDescription>
-                      Seçili ölçüm verilerini düzenleyin.
+                      {selectedMeasurement && formatDate(selectedMeasurement.date)} tarihli ölçümün mikrobesin değerleri
                     </DialogDescription>
                   </DialogHeader>
-                  <Form {...editForm}>
-                    <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                      {/* Tarih alanı */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={editForm.control}
-                          name="date"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Tarih</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={editForm.control}
-                          name="activityLevel"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Aktivite Seviyesi</FormLabel>
-                              <Select 
-                                onValueChange={field.onChange} 
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Aktivite seviyesi seçin" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="sedentary">Hareketsiz (ofis işi)</SelectItem>
-                                  <SelectItem value="light">Hafif Aktif (haftada 1-3 gün egzersiz)</SelectItem>
-                                  <SelectItem value="moderate">Orta Aktif (haftada 3-5 gün egzersiz)</SelectItem>
-                                  <SelectItem value="active">Aktif (haftada 6-7 gün egzersiz)</SelectItem>
-                                  <SelectItem value="veryActive">Çok Aktif (günde çift antrenman)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={editForm.control}
-                          name="weight"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Kilo (kg)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={editForm.control}
-                          name="height"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Boy (cm)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={editForm.control}
-                          name="waistCircumference"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bel Çevresi (cm)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={editForm.control}
-                          name="hipCircumference"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Kalça Çevresi (cm)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <FormField
-                        control={editForm.control}
-                        name="bodyFatPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editForm.control}
-                        name="notes"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Notlar</FormLabel>
-                            <FormControl>
-                              <Textarea {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <DialogFooter>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => setOpenEditMeasurementDialog(false)} 
-                          className="rounded-xl"
-                        >
-                          İptal
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          className="rounded-xl"
-                          disabled={updateMeasurementMutation.isPending}
-                        >
-                          {updateMeasurementMutation.isPending && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          )}
-                          Güncelle
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedMeasurement && Object.entries(selectedMeasurement)
+                      .filter(([key, value]) => 
+                        key.startsWith('vitamin') || 
+                        ['thiamin', 'riboflavin', 'niacin', 'vitaminB6', 'folate', 'vitaminB12',
+                         'calcium', 'iron', 'magnesium', 'phosphorus', 'zinc', 'potassium',
+                         'sodium', 'copper', 'manganese', 'selenium', 'chromium', 'molybdenum',
+                         'iodine'].includes(key)
+                      )
+                      .map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
+                          <span className="font-medium">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</span>
+                          <span className="text-blue-600">{value || '-'}</span>
+                        </div>
+                      ))}
+                  </div>
                 </DialogContent>
               </Dialog>
             </TabsContent>
 
-            <TabsContent value="notes">
-              <Card className="bg-white shadow-lg rounded-2xl border border-slate-200 mb-8">
-                <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
-                  <CardTitle className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                    <Edit className="h-6 w-6 text-amber-600" />
-                    Diyetisyen Notları
-                  </CardTitle>
-                  <CardDescription className="text-sm text-slate-500 mt-1">Bu notlar sadece sizin görebileceğiniz özel notlardır. Danışana gösterilmez.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Textarea 
-                      placeholder="Yeni not ekle..."
-                      className="min-h-[100px] border-slate-300 rounded-lg focus:border-amber-400 focus:ring-amber-200 text-base"
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                    />
-                    <Button 
-                      className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold"
-                      onClick={handleAddNote}
-                      disabled={!newNote.trim() || addNoteMutation.isPending}
-                    >
-                      {addNoteMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Ekleniyor...
-                        </>
-                      ) : (
-                        "Not Ekle"
-                      )}
-                    </Button>
-                    <div className="mt-8">
-                      <h3 className="text-lg font-semibold mb-4 text-slate-700">Notlar</h3>
-                      <div className="space-y-3">
-                        {safeNotes.length > 0 ? (
-                          safeNotes.map((note: any) => (
-                            <div
-                              key={note.id}
-                              className="group flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm hover:shadow-md transition-all duration-200 relative"
-                            >
-                              <div className="flex flex-col w-full">
-                                <span className="text-slate-900 text-base font-medium tracking-tight break-words">{note.content}</span>
-                                {note.created_at && (
-                                  <span className="text-xs text-slate-400 mt-2 self-end select-none">{new Date(note.created_at).toLocaleString("tr-TR")}</span>
-                                )}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="ml-2 rounded-full hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2"
-                                onClick={() => deleteNoteMutation.mutate(note.id)}
-                                aria-label="Notu Sil"
-                              >
-                                <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500 transition-colors" />
-                              </Button>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="flex flex-col items-center justify-center py-10 text-slate-300 border border-dashed border-slate-200 rounded-lg bg-slate-50">
-                            <Edit className="w-10 h-10 mb-2" />
-                            <span className="text-base font-medium">Henüz hiç not eklenmemiş</span>
-                            <span className="text-xs mt-1 text-slate-400">Yukarıdan ilk notunuzu ekleyin</span>
-                          </div>
-                        )}
+            <TabsContent value="health-info">
+              <div className="space-y-8">
+                {/* Sağlık Bilgileri Kartı */}
+                <Card className="bg-gradient-to-br from-blue-50 via-white to-purple-50 shadow-xl rounded-2xl border-none p-8 transition-all duration-300 hover:shadow-2xl">
+                  <CardHeader className="flex flex-row items-center gap-3 mb-6">
+                    <div className="bg-blue-200 p-3 rounded-full shadow-md">
+                      <Info className="h-6 w-6 text-blue-700" />
+                    </div>
+                    <CardTitle className="text-2xl font-bold text-blue-800 tracking-tight">Sağlık Bilgileri</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      {/* Kronik Hastalıklar */}
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold flex items-center gap-2 text-blue-700">
+                          🩺 Kronik Hastalıklar
+                        </Label>
+                        <ReactSelect
+                          isMulti
+                          options={medicalOptions}
+                          onChange={(selected) => {
+                            setMedicalState(selected.map((s: any) => s.value));
+                            setHasChanges(true);
+                          }}
+                          placeholder="Kronik hastalıkları seçin"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base) => ({ ...base, borderRadius: 12, borderColor: '#3b82f6', minHeight: 44 }),
+                            multiValue: (base) => ({ ...base, background: '#dbeafe', color: '#1e40af', borderRadius: 8 }),
+                            multiValueLabel: (base) => ({ ...base, color: '#1e40af' }),
+                            option: (base, state) => ({ ...base, background: state.isSelected ? '#3b82f6' : undefined, color: state.isSelected ? 'white' : undefined })
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {medicalState.map((val) => {
+                            const opt = medicalOptions.find(o => o.value === val);
+                            return opt ? <span key={val} className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium shadow hover:scale-105 transition-transform duration-200">{opt.label}</span> : null;
+                          })}
+                        </div>
+                      </div>
+                      {/* Alerjiler */}
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold flex items-center gap-2 text-pink-700">
+                          🌸 Alerjiler
+                        </Label>
+                        <ReactSelect
+                          isMulti
+                          options={allergyOptions}
+                          onChange={(selected) => {
+                            setAllergyState(selected.map((s: any) => s.value));
+                            setHasChanges(true);
+                          }}
+                          placeholder="Alerjileri seçin"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base) => ({ ...base, borderRadius: 12, borderColor: '#ec4899', minHeight: 44 }),
+                            multiValue: (base) => ({ ...base, background: '#fce7f3', color: '#be185d', borderRadius: 8 }),
+                            multiValueLabel: (base) => ({ ...base, color: '#be185d' }),
+                            option: (base, state) => ({ ...base, background: state.isSelected ? '#ec4899' : undefined, color: state.isSelected ? 'white' : undefined })
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {allergyState.map((val) => {
+                            const opt = allergyOptions.find(o => o.value === val);
+                            return opt ? <span key={val} className="inline-flex items-center px-3 py-1 rounded-full bg-pink-100 text-pink-800 text-sm font-medium shadow hover:scale-105 transition-transform duration-200">{opt.label}</span> : null;
+                          })}
+                        </div>
+                      </div>
+                      {/* Kullandığı İlaçlar */}
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold flex items-center gap-2 text-green-700">
+                          💊 Kullandığı İlaçlar
+                        </Label>
+                        <ReactSelect
+                          isMulti
+                          options={medicationOptions}
+                          onChange={(selected) => {
+                            setMedicationState(selected.map((s: any) => s.value));
+                            setHasChanges(true);
+                          }}
+                          placeholder="İlaçları seçin"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base) => ({ ...base, borderRadius: 12, borderColor: '#22c55e', minHeight: 44 }),
+                            multiValue: (base) => ({ ...base, background: '#bbf7d0', color: '#166534', borderRadius: 8 }),
+                            multiValueLabel: (base) => ({ ...base, color: '#166534' }),
+                            option: (base, state) => ({ ...base, background: state.isSelected ? '#22c55e' : undefined, color: state.isSelected ? 'white' : undefined })
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {medicationState.map((val) => {
+                            const opt = medicationOptions.find(o => o.value === val);
+                            return opt ? <span key={val} className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium shadow hover:scale-105 transition-transform duration-200">{opt.label}</span> : null;
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    <div className="mt-8 flex justify-end">
+                      <button
+                        className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white font-bold shadow-lg hover:scale-105 hover:from-blue-600 hover:to-pink-600 transition-all duration-300 disabled:opacity-60"
+                        onClick={handleSaveHealthInfo}
+                        disabled={saving || !hasChanges}
+                        type="button"
+                      >
+                        {saving ? "Kaydediliyor..." : "Kaydet"}
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <TabsContent value="clientNotes">
-              <Card className="bg-white shadow-lg rounded-2xl border border-slate-200 mb-8">
-                <CardHeader className="pb-4 bg-white border-b border-green-200">
-                  <CardTitle className="text-2xl font-bold flex items-center gap-3">
-                    <MessageSquare className="h-6 w-6 text-green-600" />
-                    Danışana Görünecek Notlar
-                  </CardTitle>
-                  <CardDescription className="text-sm mt-1">Bu notlar danışan portalında görünecektir. Danışanlarınız için talimatlarınızı buraya yazabilirsiniz.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Textarea 
-                      placeholder="Yeni not ekle..."
-                      className="min-h-[100px] border-green-300 rounded-lg focus:border-green-400 focus:ring-green-200 text-base"
-                      value={clientPublicNotes || ""}
-                      onChange={(e) => setClientPublicNotes(e.target.value)}
-                    />
-                    <Button 
-                      className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold"
-                      onClick={async () => {
-                        if (!clientPublicNotes?.trim()) return;
-                        const now = new Date();
-                        const noteObj = { content: clientPublicNotes, created_at: now.toISOString() };
-                        let newNotes = [];
-                        if (Array.isArray(client?.client_visible_notes)) {
-                          if (typeof client.client_visible_notes[0] === 'string') {
-                            newNotes = [...client.client_visible_notes.map((n: any) => ({ content: n })), noteObj];
-                          } else {
-                            newNotes = [...client.client_visible_notes, noteObj];
-                          }
-                        } else {
-                          newNotes = [noteObj];
-                        }
-                        await apiRequest(`/api/clients/${id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ client_visible_notes: newNotes })
-                        });
-                        queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                        setClientPublicNotes("");
-                        toast({
-                          title: "Not eklendi",
-                          description: "Danışana görünecek not başarıyla eklendi.",
-                        });
-                      }}
-                      disabled={!clientPublicNotes?.trim()}
-                    >
-                      Not Ekle
-                    </Button>
-                    <div className="mt-8">
-                      <h3 className="text-lg font-semibold mb-4">Notlar</h3>
-                      <div className="space-y-3">
-                        {Array.isArray(client?.client_visible_notes) && client.client_visible_notes.length > 0 ? (
-                          (client.client_visible_notes || []).map((note: any, idx: number) => {
-                            const noteContent = typeof note === 'string' ? note : note.content;
-                            const noteDate = typeof note === 'object' && note.created_at ? note.created_at : null;
-                            return (
-                              <div
-                                key={idx}
-                                className="group flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm hover:shadow-md transition-all duration-200 relative"
-                              >
-                                <div className="flex flex-col w-full">
-                                  <span className="text-base font-medium tracking-tight break-words">{noteContent}</span>
-                                  {noteDate && (
-                                    <span className="text-xs mt-2 self-end select-none">{new Date(noteDate).toLocaleString("tr-TR")}</span>
-                                  )}
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="ml-2 rounded-full hover:bg-green-50 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2"
-                                  onClick={async () => {
-                                    let notesArr: any[] = Array.isArray(client?.client_visible_notes) ? client.client_visible_notes : [];
-                                    const newNotes = notesArr.filter((_: any, i: number) => i !== idx);
-                                    await apiRequest(`/api/clients/${id}`, {
-                                      method: "PATCH",
-                                      body: JSON.stringify({ client_visible_notes: newNotes })
-                                    });
-                                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                                    toast({
-                                      title: "Not silindi",
-                                      description: "Not başarıyla silindi.",
-                                    });
-                                  }}
-                                  aria-label="Notu Sil"
-                                >
-                                  <Trash2 className="h-4 w-4 text-green-400 hover:text-red-500 transition-colors" />
-                                </Button>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="flex flex-col items-center justify-center py-10 text-green-300 border border-dashed border-slate-200 rounded-lg bg-slate-50">
-                            <MessageSquare className="w-10 h-10 mb-2" />
-                            <span className="text-base font-medium">Henüz hiç not eklenmemiş</span>
-                            <span className="text-xs mt-1 text-green-400">Yukarıdan ilk notunuzu ekleyin</span>
-                          </div>
-                        )}
+                {/* Diyet Tercihleri Kartı */}
+                <Card className="bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-xl rounded-2xl border-none p-8 transition-all duration-300 hover:shadow-2xl">
+                  <CardHeader className="flex flex-row items-center gap-3 mb-6">
+                    <div className="bg-purple-200 p-3 rounded-full shadow-md">
+                      <Activity className="h-6 w-6 text-purple-700" />
+                    </div>
+                    <CardTitle className="text-2xl font-bold text-purple-800 tracking-tight">Diyet Tercihleri</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold flex items-center gap-2 text-purple-700">
+                          🥗 Diyet Tercihleri
+                        </Label>
+                        <ReactSelect
+                          isMulti
+                          options={dietOptions}
+                          onChange={(selected) => {
+                            setDietPreferencesState(selected.map((s: any) => s.value));
+                            setHasDietChanges(true);
+                          }}
+                          placeholder="Diyet tercihlerini seçin"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base) => ({ ...base, borderRadius: 12, borderColor: '#a21caf', minHeight: 44 }),
+                            multiValue: (base) => ({ ...base, background: '#ede9fe', color: '#6d28d9', borderRadius: 8 }),
+                            multiValueLabel: (base) => ({ ...base, color: '#6d28d9' }),
+                            option: (base, state) => ({ ...base, background: state.isSelected ? '#a21caf' : undefined, color: state.isSelected ? 'white' : undefined })
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {dietPreferencesState.map((val) => {
+                            const opt = dietOptions.find(o => o.value === val);
+                            return opt ? <span key={val} className="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-sm font-medium shadow hover:scale-105 transition-transform duration-200">{opt.label}</span> : null;
+                          })}
+                        </div>
+                      </div>
+                      <div className="mt-8 flex justify-end w-full">
+                        <button
+                          className="px-6 py-2 rounded-xl bg-gradient-to-r from-purple-500 via-blue-500 to-pink-500 text-white font-bold shadow-lg hover:scale-105 hover:from-purple-600 hover:to-pink-600 transition-all duration-300 disabled:opacity-60"
+                          onClick={handleSaveDietPreferences}
+                          disabled={saving || !hasDietChanges}
+                          type="button"
+                        >
+                          {saving ? "Kaydediliyor..." : "Kaydet"}
+                        </button>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="analytics">
@@ -2280,274 +2455,9 @@ function ClientDetail() {
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-                {/* Sağlık Bilgileri Kartı */}
-                <Card className="bg-white shadow-md rounded-xl border-none hover:shadow-lg transition-all duration-300 overflow-hidden group transform hover:-translate-y-1 md:col-span-2">
-                  <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b group-hover:from-red-50 group-hover:to-white transition-all duration-300">
-                    <CardTitle className="text-xl font-medium flex items-center">
-                      <div className="bg-red-100 p-2 rounded-full mr-3 group-hover:bg-red-200 transition-colors duration-300">
-                        <AlertTriangle className="h-5 w-5 text-red-600" />
-                      </div>
-                      Sağlık Bilgileri
-                    </CardTitle>
-                    <CardDescription>Danışanın sağlık durumu, hastalıkları ve alerjileri</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-                      <div className="flex flex-col space-y-5">
-                        <div className="bg-slate-50 p-4 rounded-lg group-hover:bg-red-50/50 transition-colors duration-300">
-                          <h3 className="font-medium text-sm mb-2 text-slate-500">Kronik Hastalıklar</h3>
-                          <div className="space-y-2">
-                            {client.medicalConditions ? (
-                              client.medicalConditions.split(',').map((condition: string, index: number) => (
-                                <Badge key={index} variant="outline" className="bg-white mr-2 py-1.5">
-                                  {condition.trim()}
-                                </Badge>
-                              ))
-                            ) : (
-                              <div className="text-sm text-muted-foreground italic">Bilgi girilmemiş</div>
-                            )}
-                            
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 mt-2 text-xs px-2 rounded-md hover:bg-red-100"
-                              onClick={async () => {
-                                const conditions = prompt("Kronik hastalıkları virgülle ayırarak girin:", client.medicalConditions || "");
-                                if (conditions !== null) {
-                                  try {
-                                    await apiRequest(`/api/clients/${id}`, {
-                                      method: "PATCH",
-                                      body: JSON.stringify({ medicalConditions: conditions })
-                                    });
-                                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                                    toast({
-                                      title: "Sağlık bilgileri güncellendi",
-                                      description: "Kronik hastalık bilgileri kaydedildi.",
-                                    });
-                                  } catch (error: any) {
-                                    toast({
-                                      title: "Hata",
-                                      description: error.message || "Bilgiler kaydedilemedi",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              <Edit className="h-3 w-3 mr-1" />
-                              Düzenle
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-slate-50 p-4 rounded-lg group-hover:bg-red-50/50 transition-colors duration-300">
-                          <h3 className="font-medium text-sm mb-2 text-slate-500">Alerjiler</h3>
-                          <div className="space-y-2">
-                            {client.allergies ? (
-                              client.allergies.split(',').map((allergy: string, index: number) => (
-                                <Badge key={index} variant="outline" className="bg-white mr-2 py-1.5">
-                                  {allergy.trim()}
-                                </Badge>
-                              ))
-                            ) : (
-                              <div className="text-sm text-muted-foreground italic">Bilgi girilmemiş</div>
-                            )}
-                            
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 mt-2 text-xs px-2 rounded-md hover:bg-red-100"
-                              onClick={async () => {
-                                const allergies = prompt("Alerjileri virgülle ayırarak girin:", client.allergies || "");
-                                if (allergies !== null) {
-                                  try {
-                                    await apiRequest(`/api/clients/${id}`, {
-                                      method: "PATCH",
-                                      body: JSON.stringify({ allergies: allergies })
-                                    });
-                                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                                    toast({
-                                      title: "Sağlık bilgileri güncellendi",
-                                      description: "Alerji bilgileri kaydedildi.",
-                                    });
-                                  } catch (error: any) {
-                                    toast({
-                                      title: "Hata",
-                                      description: error.message || "Bilgiler kaydedilemedi",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              <Edit className="h-3 w-3 mr-1" />
-                              Düzenle
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col space-y-5">
-                        <div className="bg-slate-50 p-4 rounded-lg group-hover:bg-red-50/50 transition-colors duration-300">
-                          <h3 className="font-medium text-sm mb-2 text-slate-500">İlaçlar</h3>
-                          <div className="space-y-2">
-                            {client.medications ? (
-                              client.medications.split(',').map((medication: string, index: number) => (
-                                <Badge key={index} variant="outline" className="bg-white mr-2 py-1.5">
-                                  {medication.trim()}
-                                </Badge>
-                              ))
-                            ) : (
-                              <div className="text-sm text-muted-foreground italic">Bilgi girilmemiş</div>
-                            )}
-                            
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 mt-2 text-xs px-2 rounded-md hover:bg-red-100"
-                              onClick={async () => {
-                                const medications = prompt("Kullandığı ilaçları virgülle ayırarak girin:", client.medications || "");
-                                if (medications !== null) {
-                                  try {
-                                    await apiRequest(`/api/clients/${id}`, {
-                                      method: "PATCH",
-                                      body: JSON.stringify({ medications: medications })
-                                    });
-                                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                                    toast({
-                                      title: "Sağlık bilgileri güncellendi",
-                                      description: "İlaç bilgileri kaydedildi.",
-                                    });
-                                  } catch (error: any) {
-                                    toast({
-                                      title: "Hata",
-                                      description: error.message || "Bilgiler kaydedilemedi",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              <Edit className="h-3 w-3 mr-1" />
-                              Düzenle
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-slate-50 p-4 rounded-lg group-hover:bg-red-50/50 transition-colors duration-300">
-                          <h3 className="font-medium text-sm mb-2 text-slate-500">Diğer Notlar</h3>
-                          <div className="text-sm">
-                            {client.healthNotes ? (
-                              <p>{client.healthNotes}</p>
-                            ) : (
-                              <p className="text-muted-foreground italic">Bilgi girilmemiş</p>
-                            )}
-                            
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 mt-2 text-xs px-2 rounded-md hover:bg-red-100"
-                              onClick={async () => {
-                                const notes = prompt("Sağlık ile ilgili ek notlar:", client.healthNotes || "");
-                                if (notes !== null) {
-                                  try {
-                                    await apiRequest(`/api/clients/${id}`, {
-                                      method: "PATCH",
-                                      body: JSON.stringify({ healthNotes: notes })
-                                    });
-                                    queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
-                                    toast({
-                                      title: "Sağlık bilgileri güncellendi",
-                                      description: "Sağlık notları kaydedildi.",
-                                    });
-                                  } catch (error: any) {
-                                    toast({
-                                      title: "Hata",
-                                      description: error.message || "Bilgiler kaydedilemedi",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              <Edit className="h-3 w-3 mr-1" />
-                              Düzenle
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {lastMeasurement && (
-                      <div className="bg-red-50/30 p-4 rounded-lg border border-red-100 mt-5">
-                        <h3 className="font-medium mb-2 flex items-center">
-                          <Info className="h-4 w-4 mr-2 text-red-500" />
-                          Sağlık Uyarıları
-                        </h3>
-                        <ul className="space-y-2 text-sm">
-                          {parseFloat(lastMeasurement.bmi) >= 30 && (
-                            <li className="flex items-start">
-                              <AlertTriangle className="h-4 w-4 mr-2 text-red-500 mt-0.5 flex-shrink-0" />
-                              <span>
-                                <strong>Obezite:</strong> Vücut kitle indeksi {lastMeasurement.bmi} ile obezite sınıfında.
-                                Kilo yönetimi için özel bir beslenme planı gerekebilir.
-                              </span>
-                            </li>
-                          )}
-                          {parseFloat(lastMeasurement.bmi) <= 18.5 && (
-                            <li className="flex items-start">
-                              <AlertTriangle className="h-4 w-4 mr-2 text-amber-500 mt-0.5 flex-shrink-0" />
-                              <span>
-                                <strong>Düşük Kilo:</strong> Vücut kitle indeksi {lastMeasurement.bmi} ile normalin altında.
-                                Sağlıklı kilo alımı için beslenme desteği değerlendirilmeli.
-                              </span>
-                            </li>
-                          )}
-                          {whr && whrStatus && whrStatus.status !== "Sağlıklı" && (
-                            <li className="flex items-start">
-                              <AlertTriangle className="h-4 w-4 mr-2 text-amber-500 mt-0.5 flex-shrink-0" />
-                              <span>
-                                <strong>Bel-Kalça Oranı:</strong> {whr} değeri ile {whrStatus.status} durumunda.
-                                Kardiyo egzersizleri ve karın bölgesi yağlanmasına yönelik diyet önerilir.
-                              </span>
-                            </li>
-                          )}
-                          {!lastMeasurement.bodyFatPercentage && (
-                            <li className="flex items-start">
-                              <Info className="h-4 w-4 mr-2 text-blue-500 mt-0.5 flex-shrink-0" />
-                              <span>
-                                Vücut yağ oranı ölçülmemiş. Daha detaylı bir sağlık analizi için vücut kompozisyon 
-                                ölçümü yapılması önerilir.
-                              </span>
-                            </li>
-                          )}
-                          {!client.medicalConditions && !client.allergies && (
-                            <li className="flex items-start">
-                              <Info className="h-4 w-4 mr-2 text-blue-500 mt-0.5 flex-shrink-0" />
-                              <span>
-                                Danışanın sağlık bilgileri (kronik hastalıklar, alerjiler) girilmemiş.
-                                Beslenme planı oluşturulurken bu bilgilerin eklenmesi önerilir.
-                              </span>
-                            </li>
-                          )}
-                          {!lastMeasurement.waistCircumference && (
-                            <li className="flex items-start">
-                              <Info className="h-4 w-4 mr-2 text-blue-500 mt-0.5 flex-shrink-0" />
-                              <span>
-                                Bel çevresi ölçülmemiş. Abdominal obezite riskini değerlendirmek için 
-                                bu ölçümün yapılması önerilir.
-                              </span>
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-                
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-8 mb-10">
                 {/* Risk Değerlendirme Kartı */}
-                <Card className="bg-white shadow-md rounded-xl border-none hover:shadow-lg transition-all duration-300 overflow-hidden group transform hover:-translate-y-1 md:col-span-1">
+                <Card className="bg-white shadow-md rounded-xl border-none hover:shadow-lg transition-all duration-300 overflow-hidden group transform hover:-translate-y-1">
                   <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b group-hover:from-amber-50 group-hover:to-white transition-all duration-300">
                     <CardTitle className="text-xl font-medium flex items-center">
                       <div className="bg-amber-100 p-2 rounded-full mr-3 group-hover:bg-amber-200 transition-colors duration-300">
@@ -2633,8 +2543,8 @@ function ClientDetail() {
                             {parseFloat(lastMeasurement.bmi) >= 30 && "Obezite riski yüksek. "}
                             {parseFloat(lastMeasurement.bmi) >= 25 && parseFloat(lastMeasurement.bmi) < 30 && "Fazla kilo, metabolik hastalık riski taşıyor. "}
                             {whr && parseFloat(whr) > (client.gender === "male" ? 0.9 : 0.8) && "Bel-kalça oranı yüksek, kardiyo egzersizleri önerilir. "}
-                            {client.medicalConditions && "Kronik hastalıklar için özel beslenme planı gerekli."}
-                            {!client.medicalConditions && !whr && parseFloat(lastMeasurement.bmi) < 25 && "Şu anda belirgin sağlık riski görünmüyor."}
+                            {client.medical_conditions && "Kronik hastalıklar için özel beslenme planı gerekli."}
+                            {!client.medical_conditions && !whr && parseFloat(lastMeasurement.bmi) < 25 && "Şu anda belirgin sağlık riski görünmüyor."}
                           </AlertDescription>
                         </Alert>
                       </div>
@@ -2646,6 +2556,181 @@ function ClientDetail() {
                                         </CardContent>
                   </Card>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="notes">
+                <Card className="bg-white shadow-lg rounded-2xl border border-slate-200 mb-8">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+                    <CardTitle className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                      <Edit className="h-6 w-6 text-amber-600" />
+                      Diyetisyen Notları
+                    </CardTitle>
+                    <CardDescription className="text-sm text-slate-500 mt-1">Bu notlar sadece sizin görebileceğiniz özel notlardır. Danışana gösterilmez.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <Textarea 
+                        placeholder="Yeni not ekle..."
+                        className="min-h-[100px] border-slate-300 rounded-lg focus:border-amber-400 focus:ring-amber-200 text-base"
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                      />
+                      <Button 
+                        className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                        onClick={handleAddNote}
+                        disabled={!newNote.trim() || addNoteMutation.isPending}
+                      >
+                        {addNoteMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Ekleniyor...
+                          </>
+                        ) : (
+                          "Not Ekle"
+                        )}
+                      </Button>
+                      <div className="mt-8">
+                        <h3 className="text-lg font-semibold mb-4 text-slate-700">Notlar</h3>
+                        <div className="space-y-3">
+                          {safeNotes.length > 0 ? (
+                            safeNotes.map((note: any) => (
+                              <div
+                                key={note.id}
+                                className="group flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm hover:shadow-md transition-all duration-200 relative"
+                              >
+                                <div className="flex flex-col w-full">
+                                  <span className="text-slate-900 text-base font-medium tracking-tight break-words">{note.content}</span>
+                                  {note.created_at && (
+                                    <span className="text-xs text-slate-400 mt-2 self-end select-none">{new Date(note.created_at).toLocaleString("tr-TR")}</span>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="ml-2 rounded-full hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2"
+                                  onClick={() => deleteNoteMutation.mutate(note.id)}
+                                  aria-label="Notu Sil"
+                                >
+                                  <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500 transition-colors" />
+                                </Button>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-slate-300 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+                              <Edit className="w-10 h-10 mb-2" />
+                              <span className="text-base font-medium">Henüz hiç not eklenmemiş</span>
+                              <span className="text-xs mt-1 text-slate-400">Yukarıdan ilk notunuzu ekleyin</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="clientNotes">
+                <Card className="bg-white shadow-lg rounded-2xl border border-slate-200 mb-8">
+                  <CardHeader className="pb-4 bg-white border-b border-green-200">
+                    <CardTitle className="text-2xl font-bold flex items-center gap-3">
+                      <MessageSquare className="h-6 w-6 text-green-600" />
+                      Danışana Görünecek Notlar
+                    </CardTitle>
+                    <CardDescription className="text-sm mt-1">Bu notlar danışan portalında görünecektir. Danışanlarınız için talimatlarınızı buraya yazabilirsiniz.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <Textarea 
+                        placeholder="Yeni not ekle..."
+                        className="min-h-[100px] border-green-300 rounded-lg focus:border-green-400 focus:ring-green-200 text-base"
+                        value={clientPublicNotes || ""}
+                        onChange={(e) => setClientPublicNotes(e.target.value)}
+                      />
+                      <Button 
+                        className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold"
+                        onClick={async () => {
+                          if (!clientPublicNotes?.trim()) return;
+                          const now = new Date();
+                          const noteObj = { content: clientPublicNotes, created_at: now.toISOString() };
+                          let newNotes = [];
+                          if (Array.isArray(client?.client_visible_notes)) {
+                            if (typeof client.client_visible_notes[0] === 'string') {
+                              newNotes = [...client.client_visible_notes.map((n: any) => ({ content: n })), noteObj];
+                            } else {
+                              newNotes = [...client.client_visible_notes, noteObj];
+                            }
+                          } else {
+                            newNotes = [noteObj];
+                          }
+                          await apiRequest(`/api/clients/${id}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ client_visible_notes: newNotes })
+                          });
+                          queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                          setClientPublicNotes("");
+                          toast({
+                            title: "Not eklendi",
+                            description: "Danışana görünecek not başarıyla eklendi.",
+                          });
+                        }}
+                        disabled={!clientPublicNotes?.trim()}
+                      >
+                        Not Ekle
+                      </Button>
+                      <div className="mt-8">
+                        <h3 className="text-lg font-semibold mb-4">Notlar</h3>
+                        <div className="space-y-3">
+                          {Array.isArray(client?.client_visible_notes) && client.client_visible_notes.length > 0 ? (
+                            (client.client_visible_notes || []).map((note: any, idx: number) => {
+                              const noteContent = typeof note === 'string' ? note : note.content;
+                              const noteDate = typeof note === 'object' && note.created_at ? note.created_at : null;
+                              return (
+                                <div
+                                  key={idx}
+                                  className="group flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm hover:shadow-md transition-all duration-200 relative"
+                                >
+                                  <div className="flex flex-col w-full">
+                                    <span className="text-base font-medium tracking-tight break-words">{noteContent}</span>
+                                    {noteDate && (
+                                      <span className="text-xs mt-2 self-end select-none">{new Date(noteDate).toLocaleString("tr-TR")}</span>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="ml-2 rounded-full hover:bg-green-50 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2"
+                                    onClick={async () => {
+                                      let notesArr: any[] = Array.isArray(client?.client_visible_notes) ? client.client_visible_notes : [];
+                                      const newNotes = notesArr.filter((_: any, i: number) => i !== idx);
+                                      await apiRequest(`/api/clients/${id}`, {
+                                        method: "PATCH",
+                                        body: JSON.stringify({ client_visible_notes: newNotes })
+                                      });
+                                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${id}`] });
+                                      toast({
+                                        title: "Not silindi",
+                                        description: "Not başarıyla silindi.",
+                                      });
+                                    }}
+                                    aria-label="Notu Sil"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-green-400 hover:text-red-500 transition-colors" />
+                                  </Button>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-green-300 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+                              <MessageSquare className="w-10 h-10 mb-2" />
+                              <span className="text-base font-medium">Henüz hiç not eklenmemiş</span>
+                              <span className="text-xs mt-1 text-green-400">Yukarıdan ilk notunuzu ekleyin</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="appointments">
