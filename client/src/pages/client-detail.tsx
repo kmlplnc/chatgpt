@@ -186,6 +186,11 @@ interface Measurement {
   chromium?: string;
   molybdenum?: string;
   iodine?: string;
+  chestCircumference?: string;
+  armCircumference?: string;
+  thighCircumference?: string;
+  calfCircumference?: string;
+  neckCircumference?: string;
 }
 
 // Ölçüm şeması
@@ -199,8 +204,8 @@ const measurementSchema = z.object({
   armCircumference: z.string().optional(),
   thighCircumference: z.string().optional(),
   calfCircumference: z.string().optional(),
+  neckCircumference: z.string().optional(),
   bodyFatPercentage: z.string().optional(),
-  activityLevel: z.string().min(1, "Aktivite seviyesi seçilmelidir"),
   notes: z.string().optional(),
   time: z.string().optional(),
   // Mikrobesinler
@@ -1222,11 +1227,9 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
   }
 
   const onSubmit = (data: MeasurementFormData) => {
-    if (!client) return;
     const bmi = calculateBmiFromString(data.weight, data.height);
-    const age = calculateAge(client.birth_date) || 0;
-    const bmr = calculateBmrFromString(data.weight, data.height, age, client.gender || "female");
-    const tdee = calculateTdeeFromBmr(bmr, data.activityLevel);
+    const bmr = calculateBmrFromString(data.weight, data.height, calculateAge(client?.birth_date), client?.gender || 'male');
+    const tdee = calculateTdeeFromBmr(bmr, 'sedentary'); // Varsayılan olarak hareketsiz kabul ediyoruz
 
     const measurementData = {
       date: data.date,
@@ -1234,40 +1237,36 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
       height: data.height,
       waistCircumference: data.waistCircumference,
       hipCircumference: data.hipCircumference,
+      chestCircumference: data.chestCircumference,
+      armCircumference: data.armCircumference,
+      thighCircumference: data.thighCircumference,
+      calfCircumference: data.calfCircumference,
+      neckCircumference: data.neckCircumference,
       bodyFatPercentage: data.bodyFatPercentage,
-      activityLevel: data.activityLevel,
       notes: data.notes,
       bmi,
       basalMetabolicRate: bmr,
       totalDailyEnergyExpenditure: tdee,
-      // Mikrobesinler
-      vitaminA: data.vitaminA,
-      vitaminC: data.vitaminC,
-      vitaminD: data.vitaminD,
-      vitaminE: data.vitaminE,
-      vitaminK: data.vitaminK,
-      thiamin: data.thiamin,
-      riboflavin: data.riboflavin,
-      niacin: data.niacin,
-      vitaminB6: data.vitaminB6,
-      folate: data.folate,
-      vitaminB12: data.vitaminB12,
-      calcium: data.calcium,
-      iron: data.iron,
-      magnesium: data.magnesium,
-      phosphorus: data.phosphorus,
-      zinc: data.zinc,
-      potassium: data.potassium,
-      sodium: data.sodium,
-      copper: data.copper,
-      manganese: data.manganese,
-      selenium: data.selenium,
-      chromium: data.chromium,
-      molybdenum: data.molybdenum,
-      iodine: data.iodine,
     };
 
-    createMeasurementMutation.mutate(measurementData);
+    createMeasurement(id, measurementData)
+      .then(() => {
+        toast({
+          title: "Başarılı",
+          description: "Ölçüm başarıyla kaydedildi.",
+        });
+        setIsMeasurementDialogOpen(false);
+        // Refresh measurements list
+        getMeasurements(id).then(setMeasurements);
+      })
+      .catch((error) => {
+        console.error("Error saving measurement:", error);
+        toast({
+          title: "Hata",
+          description: "Ölçüm kaydedilirken bir hata oluştu",
+          variant: "destructive",
+        });
+      });
   };
 
   const handleAddOrEditAppointment = async (data: any) => {
@@ -1902,42 +1901,48 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
                     <Table>
                       <TableHeader className="bg-slate-50">
                         <TableRow>
-                          <TableHead className="text-center">Tarih</TableHead>
-                          <TableHead className="text-center">Kilo (kg)</TableHead>
-                          <TableHead className="text-center">Boy (cm)</TableHead>
-                          <TableHead className="text-center">VKİ</TableHead>
-                          <TableHead className="text-center">Vücut Yağ (%)</TableHead>
-                          <TableHead className="text-center">Bel (cm)</TableHead>
-                          <TableHead className="text-center">Kalça (cm)</TableHead>
-                          <TableHead className="text-center">Aktivite</TableHead>
-                          <TableHead className="text-center">Mikro Besinler</TableHead>
-                          <TableHead className="text-center">İşlemler</TableHead>
+                          <TableHead className="text-center w-20">Tarih</TableHead>
+                          <TableHead className="text-center w-16">Kilo</TableHead>
+                          <TableHead className="text-center w-16">Boy</TableHead>
+                          <TableHead className="text-center w-14">VKİ</TableHead>
+                          <TableHead className="text-center w-16">Yağ %</TableHead>
+                          <TableHead className="text-center w-16">Bel</TableHead>
+                          <TableHead className="text-center w-16">Kalça</TableHead>
+                          <TableHead className="text-center w-16">Göğüs</TableHead>
+                          <TableHead className="text-center w-16">Kol</TableHead>
+                          <TableHead className="text-center w-16">Bacak</TableHead>
+                          <TableHead className="text-center w-16">Baldır</TableHead>
+                          <TableHead className="text-center w-16">Boyun</TableHead>
+                          <TableHead className="text-center w-14">Mikro</TableHead>
+                          <TableHead className="text-center w-14">Sil</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {measurements.map((measurement) => (
-                          <TableRow key={measurement.id}>
-                            <TableCell className="text-center">{formatDate(measurement.date)}</TableCell>
-                            <TableCell className="text-center">{measurement.weight}</TableCell>
-                            <TableCell className="text-center">{measurement.height}</TableCell>
-                            <TableCell className="text-center">
+                          <TableRow key={measurement.id} className="text-xs">
+                            <TableCell className="text-center px-1 py-2">{formatDate(measurement.date)}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.weight}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.height}</TableCell>
+                            <TableCell className="text-center px-1 py-2">
                               <span className={getBMIColor(parseFloat(measurement.bmi))}>
                                 {measurement.bmi}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center px-1 py-2">
                               {measurement.bodyFatPercentage ? (
                                 <span className={getBodyFatColor(parseFloat(measurement.bodyFatPercentage), client.gender)}>
                                   {measurement.bodyFatPercentage}
                                 </span>
                               ) : "-"}
                             </TableCell>
-                            <TableCell className="text-center">{measurement.waistCircumference || "-"}</TableCell>
-                            <TableCell className="text-center">{measurement.hipCircumference || "-"}</TableCell>
-                            <TableCell className="text-center">
-                              {activityLevelDescriptions[measurement.activityLevel] || "-"}
-                            </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center px-1 py-2">{measurement.waistCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.hipCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.chestCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.armCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.thighCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.calfCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">{measurement.neckCircumference || "-"}</TableCell>
+                            <TableCell className="text-center px-1 py-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1950,31 +1955,18 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
                                 <Info className="h-4 w-4" />
                               </Button>
                             </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex justify-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 hover:bg-slate-100"
-                                  onClick={() => {
-                                    setSelectedMeasurement(measurement);
-                                    setShowEditDialog(true);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 hover:bg-red-100 text-red-600"
-                                  onClick={() => {
-                                    setSelectedMeasurement(measurement);
-                                    setShowDeleteDialog(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                            <TableCell className="text-center px-1 py-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 hover:bg-red-100 text-red-600"
+                                onClick={() => {
+                                  setSelectedMeasurement(measurement);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1983,14 +1975,21 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <p>Henüz ölçüm kaydı bulunmuyor.</p>
-                      <Button 
-                        variant="outline"
-                        className="mt-4 rounded-xl hover:bg-blue-100 transition-all"
-                        onClick={() => setIsMeasurementDialogOpen(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        İlk Ölçümü Ekle
-                      </Button>
+                      {measurements.length > 0 ? (
+                        <Button
+                          onClick={() => setIsMeasurementDialogOpen(true)}
+                          className="w-full"
+                        >
+                          Yeni Ölçüm Ekle
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => setIsMeasurementDialogOpen(true)}
+                          className="w-full"
+                        >
+                          İlk Ölçümü Ekle
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
