@@ -1,8 +1,19 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeWebSocket } from "./websocket";
+
+// Load environment variables from .env file
+config({ path: resolve(process.cwd(), '.env') });
+
+// Log environment variables for debugging
+console.log('Environment variables loaded:', {
+  NODE_ENV: process.env.NODE_ENV,
+  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? 'Set' : 'Not Set',
+  DATABASE_URL: process.env.DATABASE_URL ? 'Set' : 'Not Set'
+});
 
 const app = express();
 app.use(express.json());

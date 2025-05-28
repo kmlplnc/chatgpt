@@ -36,6 +36,7 @@ export const clients = pgTable("clients", {
   medications: text("medications"),
   notes: text("notes"),
   client_visible_notes: jsonb("client_visible_notes"),
+  diet_preferences: text("diet_preferences"),
   status: text("status").default("active").notNull(),
   start_date: date("start_date").defaultNow().notNull(),
   end_date: date("end_date"),
@@ -51,7 +52,7 @@ export const measurements = pgTable("measurements", {
   date: date("date").defaultNow().notNull(),
   weight: numeric("weight", { precision: 5, scale: 2 }).notNull(), // kg
   height: numeric("height", { precision: 5, scale: 2 }).notNull(), // cm
-  bmi: numeric("bmi", { precision: 5, scale: 2 }).notNull(),
+  bmi: numeric("bmi", { precision: 5, scale: 2 }),
   bodyFatPercentage: numeric("body_fat_percentage", { precision: 5, scale: 2 }),
   waistCircumference: numeric("waist_circumference", { precision: 5, scale: 2 }), // cm
   hipCircumference: numeric("hip_circumference", { precision: 5, scale: 2 }), // cm
@@ -59,10 +60,37 @@ export const measurements = pgTable("measurements", {
   armCircumference: numeric("arm_circumference", { precision: 5, scale: 2 }), // cm
   thighCircumference: numeric("thigh_circumference", { precision: 5, scale: 2 }), // cm
   calfCircumference: numeric("calf_circumference", { precision: 5, scale: 2 }), // cm
-  basalMetabolicRate: integer("basal_metabolic_rate"), // BMR (kcal)
-  totalDailyEnergyExpenditure: integer("total_daily_energy_expenditure"), // TDEE (kcal)
+  basalMetabolicRate: numeric("basal_metabolic_rate", { precision: 7, scale: 2 }), // BMR (kcal)
+  totalDailyEnergyExpenditure: numeric("total_daily_energy_expenditure", { precision: 7, scale: 2 }), // TDEE (kcal)
   activityLevel: text("activity_level"), // "sedentary", "light", "moderate", "active", "very_active"
   notes: text("notes"),
+  // Micro-nutrients
+  vitaminA: numeric("vitamin_a", { precision: 5, scale: 2 }), // mcg
+  vitaminC: numeric("vitamin_c", { precision: 5, scale: 2 }), // mg
+  vitaminD: numeric("vitamin_d", { precision: 5, scale: 2 }), // mcg
+  vitaminE: numeric("vitamin_e", { precision: 5, scale: 2 }), // mg
+  vitaminK: numeric("vitamin_k", { precision: 5, scale: 2 }), // mcg
+  thiamin: numeric("thiamin", { precision: 5, scale: 2 }), // mg
+  riboflavin: numeric("riboflavin", { precision: 5, scale: 2 }), // mg
+  niacin: numeric("niacin", { precision: 5, scale: 2 }), // mg
+  vitaminB6: numeric("vitamin_b6", { precision: 5, scale: 2 }), // mg
+  folate: numeric("folate", { precision: 5, scale: 2 }), // mcg
+  vitaminB12: numeric("vitamin_b12", { precision: 5, scale: 2 }), // mcg
+  biotin: numeric("biotin", { precision: 5, scale: 2 }), // mcg
+  pantothenicAcid: numeric("pantothenic_acid", { precision: 5, scale: 2 }), // mg
+  calcium: numeric("calcium", { precision: 5, scale: 2 }), // mg
+  iron: numeric("iron", { precision: 5, scale: 2 }), // mg
+  magnesium: numeric("magnesium", { precision: 5, scale: 2 }), // mg
+  phosphorus: numeric("phosphorus", { precision: 5, scale: 2 }), // mg
+  zinc: numeric("zinc", { precision: 5, scale: 2 }), // mg
+  potassium: numeric("potassium", { precision: 5, scale: 2 }), // mg
+  sodium: numeric("sodium", { precision: 5, scale: 2 }), // mg
+  copper: numeric("copper", { precision: 5, scale: 2 }), // mcg
+  manganese: numeric("manganese", { precision: 5, scale: 2 }), // mg
+  selenium: numeric("selenium", { precision: 5, scale: 2 }), // mcg
+  chromium: numeric("chromium", { precision: 5, scale: 2 }), // mcg
+  molybdenum: numeric("molybdenum", { precision: 5, scale: 2 }), // mcg
+  iodine: numeric("iodine", { precision: 5, scale: 2 }), // mcg
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -132,8 +160,8 @@ export const dietRequirementSchema = z.object({
     "mediterranean",
     "custom",
   ]),
-  allergies: z.string().optional(),
-  healthConditions: z.string().optional(),
+  allergies: z.array(z.string()).optional(),
+  healthConditions: z.array(z.string()).optional(),
   calorieGoal: z.number().optional(),
   proteinPercentage: z.number(),
   carbsPercentage: z.number(),
@@ -206,6 +234,7 @@ export const insertClientSchema = createInsertSchema(clients, {
   height: z.number().min(100).max(250),
   gender: z.enum(["male", "female"]),
   status: z.enum(["active", "inactive"]),
+  diet_preferences: z.string().optional(),
 }).omit({
   id: true,
   created_at: true,
@@ -218,6 +247,7 @@ export const updateClientSchema = createSelectSchema(clients, {
   height: z.string().or(z.number()).transform(val => String(val)),
   gender: z.enum(["male", "female"]),
   status: z.enum(["active", "inactive"]),
+  diet_preferences: z.string().optional(),
 }).omit({
   id: true,
   created_at: true,

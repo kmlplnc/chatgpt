@@ -35,19 +35,30 @@ interface DietPlanContent {
 // Google Gemini API modelini kullanacak servis
 class GeminiService {
   private genAI: GoogleGenerativeAI;
-  private model: string = "gemini-1.5-pro"; // En güncel Gemini modeli
+  private model: string = "gemini-pro"; // Model adını güncelledik
 
   constructor() {
+    console.log('Environment variables:', {
+      NODE_ENV: process.env.NODE_ENV,
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? 'Set (length: ' + process.env.GOOGLE_API_KEY.length + ')' : 'Not Set'
+    });
+    
     if (!process.env.GOOGLE_API_KEY) {
       throw new Error("GOOGLE_API_KEY çevre değişkeni ayarlanmamış");
     }
+    
+    // API anahtarının formatını kontrol et
+    if (!process.env.GOOGLE_API_KEY.startsWith('AIza')) {
+      console.warn('API Key formatı beklenmeyen bir formatta. API Key "AIza" ile başlamalıdır.');
+    }
+    
     this.genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
   }
 
   // Diyet planı oluşturma
   async generateDietPlan(requirements: DietRequirement) {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = this.genAI.getGenerativeModel({ model: this.model });
       
       const prompt = `Create a personalized diet plan based on the following requirements:
         Name: ${requirements.name}
@@ -79,6 +90,10 @@ class GeminiService {
       };
     } catch (error) {
       console.error("Error generating diet plan:", error);
+      
+      if (error instanceof Error && error.message.includes("API key not valid")) {
+        throw new Error("Google API anahtarı geçersiz. Lütfen geçerli bir API anahtarı ekleyin.");
+      }
       
       return {
         success: false,
@@ -129,17 +144,19 @@ class GeminiService {
           rawText: text
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Gemini öğün analizi hatası:", error);
       
       // API anahtarı hatası için daha kullanıcı dostu bir mesaj
-      if (error.message?.includes("API key not valid") || 
-          error.message?.includes("API_KEY_INVALID") ||
-          error.message?.includes("anahtarı geçersiz")) {
+      if (error instanceof Error && (
+        error.message?.includes("API key not valid") || 
+        error.message?.includes("API_KEY_INVALID") ||
+        error.message?.includes("anahtarı geçersiz")
+      )) {
         throw new Error("Google Gemini API anahtarı geçersiz. Sistem yöneticinize başvurun ve yeni bir API anahtarı talep edin.");
       }
       
-      throw new Error(`Öğün analizi yapılamadı: ${error.message}`);
+      throw new Error(`Öğün analizi yapılamadı: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
   }
 
@@ -175,17 +192,19 @@ class GeminiService {
           summary: text
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Gemini diyet tavsiyeleri üretme hatası:", error);
       
       // API anahtarı hatası için daha kullanıcı dostu bir mesaj
-      if (error.message?.includes("API key not valid") || 
-          error.message?.includes("API_KEY_INVALID") ||
-          error.message?.includes("anahtarı geçersiz")) {
+      if (error instanceof Error && (
+        error.message?.includes("API key not valid") || 
+        error.message?.includes("API_KEY_INVALID") ||
+        error.message?.includes("anahtarı geçersiz")
+      )) {
         throw new Error("Google Gemini API anahtarı geçersiz. Sistem yöneticinize başvurun ve yeni bir API anahtarı talep edin.");
       }
       
-      throw new Error(`Diyet tavsiyeleri oluşturulamadı: ${error.message}`);
+      throw new Error(`Diyet tavsiyeleri oluşturulamadı: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
   }
 
@@ -265,7 +284,7 @@ class GeminiService {
     
     // Özel durum etiketleri varsa ekleme
     if (requirements.healthConditions) {
-      const conditions = requirements.healthConditions.toLowerCase();
+      const conditions = requirements.healthConditions.join(' ').toLowerCase();
       if (conditions.includes("diyabet")) tags.push("diyabet-dostu");
       if (conditions.includes("kalp") || conditions.includes("kardiyovasküler")) tags.push("kalp-sağlığı");
       if (conditions.includes("tansiyon") || conditions.includes("hipertansiyon")) tags.push("düşük-sodyum");

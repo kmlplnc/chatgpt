@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
@@ -96,12 +96,21 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({
   measurements,
   client,
 }) => {
-  const sortedMeasurements = [...measurements].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const getLatestMeasurement = useCallback(() => {
+    if (!measurements || measurements.length === 0) return null;
+    
+    // Sort measurements by date in descending order (newest first)
+    const sortedMeasurements = [...measurements].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+    
+    return sortedMeasurements[0];
+  }, [measurements]);
 
-  const latestMeasurement = sortedMeasurements[0];
-  const firstMeasurement = sortedMeasurements[sortedMeasurements.length - 1];
+  const latestMeasurement = getLatestMeasurement();
+  const firstMeasurement = measurements[measurements.length - 1];
 
   // Calculate age
   const calculateAge = (birthDate: string) => {
@@ -215,7 +224,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sortedMeasurements}>
+              <LineChart data={measurements}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
@@ -249,7 +258,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({
             </CardHeader>
             <CardContent className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sortedMeasurements}>
+                <LineChart data={measurements}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
@@ -284,7 +293,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({
             </CardHeader>
             <CardContent className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sortedMeasurements}>
+                <LineChart data={measurements}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
@@ -294,7 +303,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({
                   <Tooltip
                     labelFormatter={(value) => format(new Date(value), "dd MMMM yyyy", { locale: tr })}
                     formatter={(value: any, name: any) => {
-                      const measurement = sortedMeasurements.find(m => m.date === value);
+                      const measurement = measurements.find(m => m.date === value);
                       if (measurement) {
                         const whr = (parseFloat(measurement.waistCircumference) / parseFloat(measurement.hipCircumference)).toFixed(2);
                         return [whr, "Bel-Kalça Oranı"];
@@ -326,7 +335,7 @@ export const HealthMetrics: React.FC<HealthMetricsProps> = ({
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sortedMeasurements}>
+              <LineChart data={measurements}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"

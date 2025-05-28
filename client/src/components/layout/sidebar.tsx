@@ -89,7 +89,7 @@ const NAV_GROUPS = [
     items: [
       { name: "Besin Veritabanı", href: "/food-database" },
       { name: "Sağlık Hesaplayıcı", href: "/health-calculator" },
-      { name: "Vitamin & Mineral Bilgi", href: "/vitaminler" },
+      { name: "Vitamin & Mineral Bilgi", href: "/vitamins-minerals" },
     ],
   },
   {

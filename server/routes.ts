@@ -28,6 +28,8 @@ import { hashPassword } from "./utils/password-utils";
 import userRouter from './routes/user';
 import express from 'express';
 import * as dotenv from 'dotenv';
+import { generateDietPlan } from './src/routes/diet-plans';
+import geminiRouter from './routes/gemini';
 
 dotenv.config();
 
@@ -99,6 +101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add user routes
   app.use('/api/user', userRouter);
+  
+  // Add Gemini routes
+  app.use('/api/gemini', geminiRouter);
   
   // Error handler middleware
   const handleError = (err: any, res: Response) => {
@@ -418,56 +423,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // AI Diet Plan Generation with Google Gemini
-  app.post("/api/generate/diet-plan", async (req, res) => {
-    try {
-      // Kullanıcı yetkisi kontrol et
-      if (!req.session.user) {
-        return res.status(401).json({ message: "Oturum açmanız gerekiyor" });
-      }
-      
-      // Subscription kontrolü (Free kullanıcılar bu özelliği kullanamaz)
-      const user = req.session.user as any; // Tipe uygunluk için cast
-      if (user.subscriptionStatus === "free") {
-        return res.status(403).json({ 
-          message: "Bu özellik abonelik gerektirir. Lütfen abonelik planınızı yükseltin."
-        });
-      }
-      
-      // Diyet gereksinimleri doğrulama
-      const validationResult = dietRequirementSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const validationError = fromZodError(validationResult.error);
-        return res.status(400).json({ message: validationError.message });
-      }
-      
-      // Google Gemini ile diyet planı oluştur
-      const dietPlan = await geminiService.generateDietPlan(validationResult.data);
-      
-      // Veritabanına kaydet
-      const savedPlan = await storage.createDietPlan({
-        userId: req.session.user.id,
-        name: `${validationResult.data.name} için Diyet Planı`,
-        description: dietPlan.description,
-        content: dietPlan.content,
-        calorieGoal: validationResult.data.calorieGoal || 2000,
-        proteinPercentage: validationResult.data.proteinPercentage,
-        carbsPercentage: validationResult.data.carbsPercentage,
-        fatPercentage: validationResult.data.fatPercentage,
-        meals: validationResult.data.meals,
-        includeDessert: validationResult.data.includeDessert,
-        includeSnacks: validationResult.data.includeSnacks,
-        status: "active",
-        durationDays: dietPlan.durationDays || 7,
-        tags: Array.isArray(dietPlan.tags) ? dietPlan.tags.join(',') : "",
-        dietType: validationResult.data.dietType,
-      });
-      
-      res.status(201).json(savedPlan);
-    } catch (err) {
-      handleError(err, res);
-    }
-  });
+  // AI Diet Plan Generation with Google Gemini (geçici olarak devre dışı)
+  // app.post("/api/generate/diet-plan", async (req, res) => {
+  //   try {
+  //     // Kullanıcı yetkisi kontrol et
+  //     if (!req.session.user) {
+  //       return res.status(401).json({ message: "Oturum açmanız gerekiyor" });
+  //     }
+  //     // Subscription kontrolü (Free kullanıcılar bu özelliği kullanamaz)
+  //     const user = req.session.user as any; // Tipe uygunluk için cast
+  //     if (user.subscriptionStatus === "free") {
+  //       return res.status(403).json({ 
+  //         message: "Bu özellik abonelik gerektirir. Lütfen abonelik planınızı yükseltin."
+  //       });
+  //     }
+  //     // Diyet gereksinimleri doğrulama
+  //     const validationResult = dietRequirementSchema.safeParse(req.body);
+  //     if (!validationResult.success) {
+  //       const validationError = fromZodError(validationResult.error);
+  //       return res.status(400).json({ message: validationError.message });
+  //     }
+  //     // Google Gemini ile diyet planı oluştur
+  //     const dietPlan = await geminiService.generateDietPlan(validationResult.data);
+  //     // Veritabanına kaydet
+  //     const savedPlan = await storage.createDietPlan({
+  //       userId: req.session.user.id,
+  //       name: `${validationResult.data.name} için Diyet Planı`,
+  //       description: dietPlan.description,
+  //       content: dietPlan.content,
+  //       calorieGoal: validationResult.data.calorieGoal || 2000,
+  //       proteinPercentage: validationResult.data.proteinPercentage,
+  //       carbsPercentage: validationResult.data.carbsPercentage,
+  //       fatPercentage: validationResult.data.fatPercentage,
+  //       meals: validationResult.data.meals,
+  //       includeDessert: validationResult.data.includeDessert,
+  //       includeSnacks: validationResult.data.includeSnacks,
+  //       status: "active",
+  //       durationDays: dietPlan.durationDays || 7,
+  //       tags: Array.isArray(dietPlan.tags) ? dietPlan.tags.join(',') : "",
+  //       dietType: validationResult.data.dietType,
+  //     });
+  //     res.status(201).json(savedPlan);
+  //   } catch (err) {
+  //     handleError(err, res);
+  //   }
+  // });
+
+  // Gemini AI ile diyet planı oluşturma (auth olmadan!)
+  app.post('/api/generate/diet-plan', generateDietPlan);
 
   // Admin routes
   app.get("/api/admin/users", requireAuth, async (req, res) => {

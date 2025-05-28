@@ -80,76 +80,73 @@ const healthFormSchema = z.object({
   dietType: z.enum(["balanced", "low_carb", "high_protein", "keto"]),
   proteinPercentage: z.number().min(0).max(100),
   carbsPercentage: z.number().min(0).max(100),
-  fatPercentage: z.number().min(0).max(100)
+  fatPercentage: z.number().min(0).max(100),
+  // Çevre ölçümleri
+  waistCircumference: z.string().optional(),
+  hipCircumference: z.string().optional(),
+  chestCircumference: z.string().optional(),
+  armCircumference: z.string().optional(),
+  thighCircumference: z.string().optional(),
+  calfCircumference: z.string().optional(),
+  neckCircumference: z.string().optional(),
+  bodyFatPercentage: z.string().optional(),
 });
 
 type HealthFormValues = z.infer<typeof healthFormSchema>;
 
-// Vitamin ve mineral günlük gereksinim tablosu
-interface NutrientRequirement {
-  name: string;
-  amount: string;
-  unit: string;
-  group: string;
-  description?: string;
-}
-
-const nutrientRequirements: { [key: string]: NutrientRequirement[] } = {
+// Mikrobesin gereksinimleri
+const nutrientRequirements = {
   male: [
-    { name: "Vitamin A", amount: "900", unit: "mcg", group: "vitamin", description: "Görme, bağışıklık sistemi ve hücre büyümesi için önemlidir" },
-    { name: "Vitamin C", amount: "90", unit: "mg", group: "vitamin", description: "Bağışıklık sistemi ve doku onarımı için gereklidir" },
-    { name: "Vitamin D", amount: "15", unit: "mcg", group: "vitamin", description: "Kemik sağlığı ve kalsiyum emilimi için önemlidir" },
-    { name: "Vitamin E", amount: "15", unit: "mg", group: "vitamin", description: "Antioksidan özelliği vardır" },
-    { name: "Vitamin K", amount: "120", unit: "mcg", group: "vitamin", description: "Kan pıhtılaşması için gereklidir" },
-    { name: "Tiamin (B1)", amount: "1.2", unit: "mg", group: "vitamin", description: "Enerji metabolizması için gereklidir" },
-    { name: "Riboflavin (B2)", amount: "1.3", unit: "mg", group: "vitamin", description: "Enerji üretimi ve hücre fonksiyonu için önemlidir" },
-    { name: "Niasin (B3)", amount: "16", unit: "mg", group: "vitamin", description: "Sinir sistemi sağlığı için gereklidir" },
-    { name: "B6 Vitamini", amount: "1.3", unit: "mg", group: "vitamin", description: "Protein metabolizması için önemlidir" },
-    { name: "Folat (B9)", amount: "400", unit: "mcg", group: "vitamin", description: "DNA sentezi ve hücre bölünmesi için gereklidir" },
-    { name: "B12 Vitamini", amount: "2.4", unit: "mcg", group: "vitamin", description: "Sinir sistemi sağlığı ve kan hücresi oluşumu için önemlidir" },
-    { name: "Biotin", amount: "30", unit: "mcg", group: "vitamin", description: "Enerji metabolizması için gereklidir" },
-    { name: "Pantotenik Asit", amount: "5", unit: "mg", group: "vitamin", description: "Enerji metabolizması için önemlidir" },
-    { name: "Kalsiyum", amount: "1000", unit: "mg", group: "mineral", description: "Kemik ve diş sağlığı için gereklidir" },
-    { name: "Demir", amount: "8", unit: "mg", group: "mineral", description: "Oksijen taşınması için önemlidir" },
-    { name: "Magnezyum", amount: "400", unit: "mg", group: "mineral", description: "Kas ve sinir fonksiyonu için gereklidir" },
-    { name: "Fosfor", amount: "700", unit: "mg", group: "mineral", description: "Kemik sağlığı için önemlidir" },
-    { name: "Çinko", amount: "11", unit: "mg", group: "mineral", description: "Bağışıklık sistemi ve yara iyileşmesi için gereklidir" },
-    { name: "Potasyum", amount: "3400", unit: "mg", group: "mineral", description: "Kalp ve kas fonksiyonu için önemlidir" },
-    { name: "Sodyum", amount: "2300", unit: "mg", group: "mineral", description: "Sıvı dengesi için gereklidir" },
-    { name: "Bakır", amount: "900", unit: "mcg", group: "mineral", description: "Demir metabolizması için önemlidir" },
-    { name: "Manganez", amount: "2.3", unit: "mg", group: "mineral", description: "Kemik gelişimi için gereklidir" },
-    { name: "Selenyum", amount: "55", unit: "mcg", group: "mineral", description: "Antioksidan fonksiyonlar için önemlidir" },
-    { name: "Krom", amount: "35", unit: "mcg", group: "mineral", description: "Glikoz metabolizması için gereklidir" },
-    { name: "Molibden", amount: "45", unit: "mcg", group: "mineral", description: "Enzim aktivitesi için önemlidir" },
-    { name: "İyot", amount: "150", unit: "mcg", group: "mineral", description: "Tiroid fonksiyonu için gereklidir" },
+    { name: "Vitamin A", amount: "900", unit: "mcg", group: "vitamin" },
+    { name: "Vitamin C", amount: "90", unit: "mg", group: "vitamin" },
+    { name: "Vitamin D", amount: "15", unit: "mcg", group: "vitamin" },
+    { name: "Vitamin E", amount: "15", unit: "mg", group: "vitamin" },
+    { name: "Vitamin K", amount: "120", unit: "mcg", group: "vitamin" },
+    { name: "Tiamin (B1)", amount: "1.2", unit: "mg", group: "vitamin" },
+    { name: "Riboflavin (B2)", amount: "1.3", unit: "mg", group: "vitamin" },
+    { name: "Niasin (B3)", amount: "16", unit: "mg", group: "vitamin" },
+    { name: "B6 Vitamini", amount: "1.7", unit: "mg", group: "vitamin" },
+    { name: "Folat (B9)", amount: "400", unit: "mcg", group: "vitamin" },
+    { name: "B12 Vitamini", amount: "2.4", unit: "mcg", group: "vitamin" },
+    { name: "Kalsiyum", amount: "1000", unit: "mg", group: "mineral" },
+    { name: "Demir", amount: "8", unit: "mg", group: "mineral" },
+    { name: "Magnezyum", amount: "400", unit: "mg", group: "mineral" },
+    { name: "Fosfor", amount: "700", unit: "mg", group: "mineral" },
+    { name: "Çinko", amount: "11", unit: "mg", group: "mineral" },
+    { name: "Potasyum", amount: "3500", unit: "mg", group: "mineral" },
+    { name: "Sodyum", amount: "2300", unit: "mg", group: "mineral" },
+    { name: "Bakır", amount: "900", unit: "mcg", group: "mineral" },
+    { name: "Manganez", amount: "2.3", unit: "mg", group: "mineral" },
+    { name: "Selenyum", amount: "55", unit: "mcg", group: "mineral" },
+    { name: "Krom", amount: "35", unit: "mcg", group: "mineral" },
+    { name: "Molibden", amount: "45", unit: "mcg", group: "mineral" },
+    { name: "İyot", amount: "150", unit: "mcg", group: "mineral" }
   ],
   female: [
-    { name: "Vitamin A", amount: "700", unit: "mcg", group: "vitamin", description: "Görme, bağışıklık sistemi ve hücre büyümesi için önemlidir" },
-    { name: "Vitamin C", amount: "75", unit: "mg", group: "vitamin", description: "Bağışıklık sistemi ve doku onarımı için gereklidir" },
-    { name: "Vitamin D", amount: "15", unit: "mcg", group: "vitamin", description: "Kemik sağlığı ve kalsiyum emilimi için önemlidir" },
-    { name: "Vitamin E", amount: "15", unit: "mg", group: "vitamin", description: "Antioksidan özelliği vardır" },
-    { name: "Vitamin K", amount: "90", unit: "mcg", group: "vitamin", description: "Kan pıhtılaşması için gereklidir" },
-    { name: "Tiamin (B1)", amount: "1.1", unit: "mg", group: "vitamin", description: "Enerji metabolizması için gereklidir" },
-    { name: "Riboflavin (B2)", amount: "1.1", unit: "mg", group: "vitamin", description: "Enerji üretimi ve hücre fonksiyonu için önemlidir" },
-    { name: "Niasin (B3)", amount: "14", unit: "mg", group: "vitamin", description: "Sinir sistemi sağlığı için gereklidir" },
-    { name: "B6 Vitamini", amount: "1.3", unit: "mg", group: "vitamin", description: "Protein metabolizması için önemlidir" },
-    { name: "Folat (B9)", amount: "400", unit: "mcg", group: "vitamin", description: "DNA sentezi ve hücre bölünmesi için gereklidir" },
-    { name: "B12 Vitamini", amount: "2.4", unit: "mcg", group: "vitamin", description: "Sinir sistemi sağlığı ve kan hücresi oluşumu için önemlidir" },
-    { name: "Biotin", amount: "30", unit: "mcg", group: "vitamin", description: "Enerji metabolizması için gereklidir" },
-    { name: "Pantotenik Asit", amount: "5", unit: "mg", group: "vitamin", description: "Enerji metabolizması için önemlidir" },
-    { name: "Kalsiyum", amount: "1000", unit: "mg", group: "mineral", description: "Kemik ve diş sağlığı için gereklidir" },
-    { name: "Demir", amount: "18", unit: "mg", group: "mineral", description: "Oksijen taşınması için önemlidir" },
-    { name: "Magnezyum", amount: "310", unit: "mg", group: "mineral", description: "Kas ve sinir fonksiyonu için gereklidir" },
-    { name: "Fosfor", amount: "700", unit: "mg", group: "mineral", description: "Kemik sağlığı için önemlidir" },
-    { name: "Çinko", amount: "8", unit: "mg", group: "mineral", description: "Bağışıklık sistemi ve yara iyileşmesi için gereklidir" },
-    { name: "Potasyum", amount: "2600", unit: "mg", group: "mineral", description: "Kalp ve kas fonksiyonu için önemlidir" },
-    { name: "Sodyum", amount: "2300", unit: "mg", group: "mineral", description: "Sıvı dengesi için gereklidir" },
-    { name: "Bakır", amount: "900", unit: "mcg", group: "mineral", description: "Demir metabolizması için önemlidir" },
-    { name: "Manganez", amount: "1.8", unit: "mg", group: "mineral", description: "Kemik gelişimi için gereklidir" },
-    { name: "Selenyum", amount: "55", unit: "mcg", group: "mineral", description: "Antioksidan fonksiyonlar için önemlidir" },
-    { name: "Krom", amount: "25", unit: "mcg", group: "mineral", description: "Glikoz metabolizması için gereklidir" },
-    { name: "Molibden", amount: "45", unit: "mcg", group: "mineral", description: "Enzim aktivitesi için önemlidir" },
-    { name: "İyot", amount: "150", unit: "mcg", group: "mineral", description: "Tiroid fonksiyonu için gereklidir" },
+    { name: "Vitamin A", amount: "700", unit: "mcg", group: "vitamin" },
+    { name: "Vitamin C", amount: "75", unit: "mg", group: "vitamin" },
+    { name: "Vitamin D", amount: "15", unit: "mcg", group: "vitamin" },
+    { name: "Vitamin E", amount: "15", unit: "mg", group: "vitamin" },
+    { name: "Vitamin K", amount: "90", unit: "mcg", group: "vitamin" },
+    { name: "Tiamin (B1)", amount: "1.1", unit: "mg", group: "vitamin" },
+    { name: "Riboflavin (B2)", amount: "1.1", unit: "mg", group: "vitamin" },
+    { name: "Niasin (B3)", amount: "14", unit: "mg", group: "vitamin" },
+    { name: "B6 Vitamini", amount: "1.5", unit: "mg", group: "vitamin" },
+    { name: "Folat (B9)", amount: "400", unit: "mcg", group: "vitamin" },
+    { name: "B12 Vitamini", amount: "2.4", unit: "mcg", group: "vitamin" },
+    { name: "Kalsiyum", amount: "1000", unit: "mg", group: "mineral" },
+    { name: "Demir", amount: "18", unit: "mg", group: "mineral" },
+    { name: "Magnezyum", amount: "310", unit: "mg", group: "mineral" },
+    { name: "Fosfor", amount: "700", unit: "mg", group: "mineral" },
+    { name: "Çinko", amount: "8", unit: "mg", group: "mineral" },
+    { name: "Potasyum", amount: "2600", unit: "mg", group: "mineral" },
+    { name: "Sodyum", amount: "2300", unit: "mg", group: "mineral" },
+    { name: "Bakır", amount: "900", unit: "mcg", group: "mineral" },
+    { name: "Manganez", amount: "1.8", unit: "mg", group: "mineral" },
+    { name: "Selenyum", amount: "55", unit: "mcg", group: "mineral" },
+    { name: "Krom", amount: "25", unit: "mcg", group: "mineral" },
+    { name: "Molibden", amount: "45", unit: "mcg", group: "mineral" },
+    { name: "İyot", amount: "150", unit: "mcg", group: "mineral" }
   ]
 };
 
@@ -381,6 +378,10 @@ function redistributeMacros({changed, value, protein, carbs, fat}: {changed: 'pr
 const disabledInputClass = (activeClient: any) => activeClient ? "bg-slate-100 text-gray-900" : "";
 
 export default function HealthCalculator() {
+  const [location, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const clientId = searchParams.get("clientId");
+
   const form = useForm<HealthFormValues>({
     resolver: zodResolver(healthFormSchema),
     defaultValues: {
@@ -418,7 +419,6 @@ export default function HealthCalculator() {
   const [activeTab, setActiveTab] = React.useState("bmh-calculator");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
 
   // Fetch clients on component mount
   React.useEffect(() => {
@@ -568,26 +568,139 @@ export default function HealthCalculator() {
         activity_level: String(data.activityLevel),
         basal_metabolic_rate: String(calculationResult.bmh),
         total_daily_energy_expenditure: String(calculationResult.tdee),
-        bmi: String(calculationResult.bmi)
+        bmi: String(calculationResult.bmi),
+        // Çevre ölçümleri
+        waistCircumference: data.waistCircumference,
+        hipCircumference: data.hipCircumference,
+        chestCircumference: data.chestCircumference,
+        armCircumference: data.armCircumference,
+        thighCircumference: data.thighCircumference,
+        calfCircumference: data.calfCircumference,
+        neckCircumference: data.neckCircumference,
+        bodyFatPercentage: data.bodyFatPercentage,
+        // Mikrobesinler
+        vitaminA: nutrientRequirements[data.gender].find(n => n.name === "Vitamin A")?.amount,
+        vitaminC: nutrientRequirements[data.gender].find(n => n.name === "Vitamin C")?.amount,
+        vitaminD: nutrientRequirements[data.gender].find(n => n.name === "Vitamin D")?.amount,
+        vitaminE: nutrientRequirements[data.gender].find(n => n.name === "Vitamin E")?.amount,
+        vitaminK: nutrientRequirements[data.gender].find(n => n.name === "Vitamin K")?.amount,
+        thiamin: nutrientRequirements[data.gender].find(n => n.name === "Tiamin (B1)")?.amount,
+        riboflavin: nutrientRequirements[data.gender].find(n => n.name === "Riboflavin (B2)")?.amount,
+        niacin: nutrientRequirements[data.gender].find(n => n.name === "Niasin (B3)")?.amount,
+        vitaminB6: nutrientRequirements[data.gender].find(n => n.name === "B6 Vitamini")?.amount,
+        folate: nutrientRequirements[data.gender].find(n => n.name === "Folat (B9)")?.amount,
+        vitaminB12: nutrientRequirements[data.gender].find(n => n.name === "B12 Vitamini")?.amount,
+        calcium: nutrientRequirements[data.gender].find(n => n.name === "Kalsiyum")?.amount,
+        iron: nutrientRequirements[data.gender].find(n => n.name === "Demir")?.amount,
+        magnesium: nutrientRequirements[data.gender].find(n => n.name === "Magnezyum")?.amount,
+        phosphorus: nutrientRequirements[data.gender].find(n => n.name === "Fosfor")?.amount,
+        zinc: nutrientRequirements[data.gender].find(n => n.name === "Çinko")?.amount,
+        potassium: nutrientRequirements[data.gender].find(n => n.name === "Potasyum")?.amount,
+        sodium: nutrientRequirements[data.gender].find(n => n.name === "Sodyum")?.amount,
+        copper: nutrientRequirements[data.gender].find(n => n.name === "Bakır")?.amount,
+        manganese: nutrientRequirements[data.gender].find(n => n.name === "Manganez")?.amount,
+        selenium: nutrientRequirements[data.gender].find(n => n.name === "Selenyum")?.amount,
+        chromium: nutrientRequirements[data.gender].find(n => n.name === "Krom")?.amount,
+        molybdenum: nutrientRequirements[data.gender].find(n => n.name === "Molibden")?.amount,
+        iodine: nutrientRequirements[data.gender].find(n => n.name === "İyot")?.amount,
       };
-      console.log('Gönderilen ölçüm verisi:', measurement);
-      await addMeasurement(Number(activeClient.id), measurement);
-      
+
+      const response = await fetch(`/api/clients/${activeClient.id}/measurements`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(measurement),
+      });
+
+      if (!response.ok) {
+        throw new Error("Ölçüm kaydedilemedi");
+      }
+
       toast({
         title: "Başarılı",
-        description: "Ölçüm danışan profiline kaydedildi.",
+        description: "Ölçümler başarıyla kaydedildi",
       });
-      
-      // Refresh client list
-      const updatedClients = await getClients();
-      setClientList(updatedClients);
 
       // Danışan detay sayfasına yönlendir
-      navigate(`/clients/${activeClient.id}`);
+      setLocation(`/clients/${activeClient.id}`);
     } catch (error) {
+      console.error("Error saving measurements:", error);
       toast({
         title: "Hata",
-        description: "Ölçüm kaydedilirken bir hata oluştu",
+        description: "Ölçümler kaydedilirken bir hata oluştu",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveMeasurements = async () => {
+    try {
+      const response = await fetch("/api/measurements", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientId: clientId,
+          date: new Date().toISOString(),
+          weight: weight,
+          height: height,
+          waistCircumference: waistCircumference,
+          hipCircumference: hipCircumference,
+          bodyFatPercentage: bodyFatPercentage,
+          activityLevel: activityLevel,
+          bmi: bmi,
+          basalMetabolicRate: bmr,
+          totalDailyEnergyExpenditure: tdee,
+          // Micro-nutrients
+          vitaminA: nutrientRequirements.vitaminA[gender],
+          vitaminC: nutrientRequirements.vitaminC[gender],
+          vitaminD: nutrientRequirements.vitaminD[gender],
+          vitaminE: nutrientRequirements.vitaminE[gender],
+          vitaminK: nutrientRequirements.vitaminK[gender],
+          thiamin: nutrientRequirements.thiamin[gender],
+          riboflavin: nutrientRequirements.riboflavin[gender],
+          niacin: nutrientRequirements.niacin[gender],
+          vitaminB6: nutrientRequirements.vitaminB6[gender],
+          folate: nutrientRequirements.folate[gender],
+          vitaminB12: nutrientRequirements.vitaminB12[gender],
+          biotin: nutrientRequirements.biotin[gender],
+          pantothenicAcid: nutrientRequirements.pantothenicAcid[gender],
+          calcium: nutrientRequirements.calcium[gender],
+          iron: nutrientRequirements.iron[gender],
+          magnesium: nutrientRequirements.magnesium[gender],
+          phosphorus: nutrientRequirements.phosphorus[gender],
+          zinc: nutrientRequirements.zinc[gender],
+          potassium: nutrientRequirements.potassium[gender],
+          sodium: nutrientRequirements.sodium[gender],
+          copper: nutrientRequirements.copper[gender],
+          manganese: nutrientRequirements.manganese[gender],
+          selenium: nutrientRequirements.selenium[gender],
+          chromium: nutrientRequirements.chromium[gender],
+          molybdenum: nutrientRequirements.molybdenum[gender],
+          iodine: nutrientRequirements.iodine[gender],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Ölçümler kaydedilemedi");
+      }
+
+      toast({
+        title: "Başarılı",
+        description: "Ölçümler başarıyla kaydedildi",
+      });
+
+      // Müşteri detay sayfasına geri dön
+      if (clientId) {
+        setLocation(`/clients/${clientId}`);
+      }
+    } catch (error) {
+      console.error("Error saving measurements:", error);
+      toast({
+        title: "Hata",
+        description: "Ölçümler kaydedilirken bir hata oluştu",
         variant: "destructive",
       });
     }
@@ -850,6 +963,124 @@ export default function HealthCalculator() {
                           </FormItem>
                         )}
                       />
+                    </div>
+
+                    {/* Çevre Ölçümleri */}
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-4">Çevre Ölçümleri</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={form.control}
+                          name="waistCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bel Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="hipCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Kalça Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="chestCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Göğüs Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="armCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Kol Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="thighCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bacak Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="calfCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Baldır Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="neckCircumference"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Boyun Çevresi (cm)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="bodyFatPercentage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Vücut Yağ Oranı (%)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1136,7 +1367,6 @@ export default function HealthCalculator() {
                               <div key={index} className="p-4 rounded-lg border bg-card">
                                 <h4 className="font-medium">{vitamin.name}</h4>
                                 <p className="text-2xl font-bold text-primary">{vitamin.amount} {vitamin.unit}</p>
-                                <p className="text-sm text-muted-foreground">{vitamin.description}</p>
                               </div>
                             ))}
                         </div>
@@ -1152,7 +1382,6 @@ export default function HealthCalculator() {
                               <div key={index} className="p-4 rounded-lg border bg-card">
                                 <h4 className="font-medium">{mineral.name}</h4>
                                 <p className="text-2xl font-bold text-primary">{mineral.amount} {mineral.unit}</p>
-                                <p className="text-sm text-muted-foreground">{mineral.description}</p>
                               </div>
                             ))}
                         </div>

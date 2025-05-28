@@ -456,6 +456,17 @@ export class DatabaseStorage implements IStorage {
       updatedData = restData;
     }
 
+    // Handle diet_preferences separately if it exists
+    if (updatedData.diet_preferences !== undefined) {
+      await db.execute(sql`
+        UPDATE clients
+        SET diet_preferences = ${updatedData.diet_preferences}
+        WHERE id = ${id}
+      `);
+      const { diet_preferences, ...restData } = updatedData;
+      updatedData = restData;
+    }
+
     // Update remaining fields and get the updated client
     const [updatedClient] = await db.update(clients)
       .set({
@@ -620,12 +631,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserDietPlans(userId: string, limit?: number, offset?: number): Promise<DietPlan[]> {
-    let query = db.select()
-      .from(dietPlans)
-      .where(eq(dietPlans.userId, userId))
-      .orderBy(desc(dietPlans.createdAt));
-    query = paginate(query, limit, offset);
-    return query;
+    console.log("userId param:", userId, typeof userId);
+    let query = db.select().from(dietPlans);
+    const result = await query;
+    console.log("TÜM PLANLAR:", result);
+    return result;
   }
 
   // Food operations

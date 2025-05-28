@@ -25,6 +25,7 @@ import ClientPortalMessages from "@/pages/client-portal/messages";
 import { AuthProvider } from "@/hooks/use-auth";
 import SettingsPage from "@/pages/settings";
 import { ErrorBoundary } from '@/components/error-boundary';
+import VitaminsMineralsPage from "@/pages/vitamins-minerals";
 
 function Router() {
   const [location] = useLocation();
@@ -73,6 +74,7 @@ function Router() {
         <Route path="/subscription/checkout" component={CheckoutPage} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/vitamins-minerals" component={VitaminsMineralsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

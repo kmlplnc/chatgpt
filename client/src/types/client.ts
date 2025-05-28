@@ -14,6 +14,7 @@ export interface Client {
   medications: string | null;
   notes: string | null;
   client_visible_notes: string | null;
+  diet_preferences?: string | null;
   status: "active" | "inactive";
   start_date: string;
   end_date: string | null;
@@ -41,6 +42,33 @@ export interface Measurement {
   totalDailyEnergyExpenditure: number;
   activityLevel: "sedentary" | "light" | "moderate" | "active" | "veryActive";
   notes?: string;
+  // Micro-nutrients
+  vitaminA?: number;
+  vitaminC?: number;
+  vitaminD?: number;
+  vitaminE?: number;
+  vitaminK?: number;
+  thiamin?: number;
+  riboflavin?: number;
+  niacin?: number;
+  vitaminB6?: number;
+  folate?: number;
+  vitaminB12?: number;
+  biotin?: number;
+  pantothenicAcid?: number;
+  calcium?: number;
+  iron?: number;
+  magnesium?: number;
+  phosphorus?: number;
+  zinc?: number;
+  potassium?: number;
+  sodium?: number;
+  copper?: number;
+  manganese?: number;
+  selenium?: number;
+  chromium?: number;
+  molybdenum?: number;
+  iodine?: number;
   createdAt: string;
   updatedAt: string;
 }

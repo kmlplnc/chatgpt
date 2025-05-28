@@ -140,3 +140,11 @@ CREATE INDEX IF NOT EXISTS idx_client_goals_client_id ON client_goals(client_id)
 CREATE INDEX IF NOT EXISTS idx_medications_client_id ON medications_supplements(client_id);
 CREATE INDEX IF NOT EXISTS idx_payments_client_id ON payments(client_id);
 CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
+
+-- Update user_id column in diet_plans to UUID type
+ALTER TABLE diet_plans
+  ALTER COLUMN user_id TYPE UUID USING user_id::uuid;
+
+-- Add foreign key constraint to users(id)
+ALTER TABLE diet_plans
+  ADD CONSTRAINT fk_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
