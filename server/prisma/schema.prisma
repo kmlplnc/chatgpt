@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     Int      @id @default(autoincrement())
+  username               String   @unique
+  email                  String   @unique
+  password               String
+  name                   String?
+  role                   String   @default("user")
+  subscriptionStatus     String?  @default("free")
+  subscriptionPlan       String?
+  subscriptionStartDate  DateTime?
+  subscriptionEndDate    DateTime?
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+  clients                Client[]
+  sessions               Session[]
+}
+
+model Client {
+  id                 Int           @id @default(autoincrement())
+  first_name         String
+  last_name          String
+  email              String        @unique
+  phone              String?
+  birth_date         DateTime?
+  gender             String
+  height             Float?
+  weight             Float?
+  allergies          String[]      @default([])
+  medical_conditions String[]      @default([])
+  medications        String[]      @default([])
+  diet_preferences   String[]      @default([])
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+  user_id            Int
+  user               User          @relation(fields: [user_id], references: [id])
+  diet_plans         DietPlan[]
+  measurements       Measurement[]
+  appointments       Appointment[]
+  sessions           ClientSession[]
+  health_history     HealthHistory[]
+}
+
+model Measurement {
+  id                          Int      @id @default(autoincrement())
+  client_id                   Int
+  date                        DateTime @default(now())
+  height                      Float?
+  weight                      Float?
+  bmi                         Float?
+  bodyFatPercentage           Float?
+  waistCircumference          Float?
+  hipCircumference            Float?
+  chestCircumference          Float?
+  armCircumference            Float?
+  thighCircumference          Float?
+  calfCircumference           Float?
+  basalMetabolicRate          Float?
+  totalDailyEnergyExpenditure Float?
+  activityLevel               String?
+  vitaminA                    Float?
+  vitaminC                    Float?
+  vitaminD                    Float?
+  vitaminE                    Float?
+  vitaminK                    Float?
+  thiamin                     Float?
+  riboflavin                  Float?
+  niacin                      Float?
+  vitaminB6                   Float?
+  folate                      Float?
+  vitaminB12                  Float?
+  biotin                      Float?
+  pantothenicAcid             Float?
+  calcium                     Float?
+  iron                        Float?
+  magnesium                   Float?
+  phosphorus                  Float?
+  zinc                        Float?
+  potassium                   Float?
+  sodium                      Float?
+  copper                      Float?
+  manganese                   Float?
+  selenium                    Float?
+  chromium                    Float?
+  molybdenum                  Float?
+  iodine                      Float?
+  created_at                  DateTime @default(now())
+  updated_at                  DateTime @updatedAt
+  client                      Client   @relation(fields: [client_id], references: [id])
+}
+
+model DietPlan {
+  id                 Int      @id @default(autoincrement())
+  client_id          Int
+  name               String
+  description        String?
+  calorie_goal       Float?
+  protein_percentage Float?
+  carbs_percentage   Float?
+  fat_percentage     Float?
+  meals              Int      @default(3)
+  plan_data          Json
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  client             Client   @relation(fields: [client_id], references: [id])
+}
+
+model Appointment {
+  id          Int       @id @default(autoincrement())
+  client_id   Int
+  date        DateTime
+  notes       String?
+  status      String    @default("scheduled")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  client      Client    @relation(fields: [client_id], references: [id])
+}
+
+model ClientSession {
+  id          Int       @id @default(autoincrement())
+  client_id   Int
+  date        DateTime  @default(now())
+  notes       String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  client      Client    @relation(fields: [client_id], references: [id])
+}
+
+model HealthHistory {
+  id          Int       @id @default(autoincrement())
+  client_id   Int
+  date        DateTime  @default(now())
+  condition   String
+  notes       String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  client      Client    @relation(fields: [client_id], references: [id])
+}
+
+model Session {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token      String   @unique
+  expires    DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+model Food {
+  id          Int      @id @default(autoincrement())
+  name        String
+  calories    Float
+  protein     Float
+  carbs       Float
+  fat         Float
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}

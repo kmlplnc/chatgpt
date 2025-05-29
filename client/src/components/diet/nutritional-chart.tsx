@@ -1,243 +1,368 @@
 import React from "react";
 import { 
-  MacronutrientChart, 
-  NutrientBarChart, 
-  CalorieBreakdownChart 
-} from "@/components/ui/chart";
-import { 
   Card, 
   CardContent, 
-  CardDescription, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Food, FoodNutrient } from "@shared/schema";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle2, AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { 
+  NUTRIENT_REQUIREMENTS, 
+  DIET_TYPES,
+  HEALTH_CONDITIONS,
+  calculateNutrientPercentage,
+  getNutrientStatus,
+  sumNutrients,
+  checkAbsorptionFactors
+} from "@/lib/nutrition-data";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NutritionalChartProps {
-  food?: Food;
-  nutrients?: FoodNutrient[];
   dietPlan?: {
     calorieGoal: number;
     proteinPercentage: number;
     carbsPercentage: number;
     fatPercentage: number;
-    meals: { name: string; calories: number }[];
+    meals: { 
+      name: string; 
+      calories: number;
+      nutrients?: { [key: string]: number };
+    }[];
+    dietType?: string;
+    healthConditions?: string[];
   };
 }
 
-export default function NutritionalChart({ 
-  food, 
-  nutrients = [], 
-  dietPlan 
-}: NutritionalChartProps) {
-  // Extract macronutrients
-  const protein = nutrients.find(n => n.name === "Protein")?.amount || 0;
-  const carbs = nutrients.find(n => n.name === "Carbohydrates")?.amount || 0;
-  const fat = nutrients.find(n => n.name === "Total Fat")?.amount || 0;
-  
-  // Calculate calories
-  const calories = (protein * 4) + (carbs * 4) + (fat * 9);
-  
-  // Calculate macronutrient percentages
-  const totalMacros = protein + carbs + fat;
-  const proteinPercentage = totalMacros ? Math.round((protein / totalMacros) * 100) : 0;
-  const carbsPercentage = totalMacros ? Math.round((carbs / totalMacros) * 100) : 0;
-  const fatPercentage = totalMacros ? Math.round((fat / totalMacros) * 100) : 0;
-  
-  // For Diet Plan view
-  const macroPercentages = dietPlan 
-    ? {
-        protein: dietPlan.proteinPercentage,
-        carbs: dietPlan.carbsPercentage,
-        fat: dietPlan.fatPercentage
-      }
-    : {
-        protein: proteinPercentage,
-        carbs: carbsPercentage,
-        fat: fatPercentage
-      };
-  
-  // Helper function to format nutrient values and avoid NaN/undefined
-  const formatNutrientValue = (value: number | null | undefined): number => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return 0;
-    }
-    return value;
-  };
+export default function NutritionalChart({ dietPlan }: NutritionalChartProps) {
+  if (!dietPlan) return null;
 
-  // Create vitamin data for chart
-  const vitamins = nutrients
-    .filter(n => n.name.includes("Vitamin"))
-    .map(n => {
-      const value = formatNutrientValue(n.amount);
+  // Tüm öğünlerin besin değerlerini topla
+  const totalNutrients = sumNutrients(
+    dietPlan.meals
+      .filter(meal => meal.nutrients)
+      .map(meal => meal.nutrients || {})
+  );
+
+  // Diyet tipini bul
+  const dietType = DIET_TYPES.find(dt => dt.id === dietPlan.dietType);
+
+  // Sağlık durumlarını bul
+  const healthConditions = dietPlan.healthConditions
+    ?.map(id => HEALTH_CONDITIONS.find(hc => hc.id === id))
+    .filter(Boolean);
+
+  // Vitaminleri ve mineralleri grupla
+  const vitamins = Object.entries(NUTRIENT_REQUIREMENTS)
+    .filter(([key]) => key.startsWith('B') || key === 'A' || key === 'C' || key === 'D' || key === 'E' || key === 'K' || key === 'Folate')
+    .map(([key, requirement]) => {
+      const value = totalNutrients[key] || 0;
+      const status = getNutrientStatus(value, requirement, dietPlan.dietType, dietPlan.healthConditions);
+      const absorptionFactors = checkAbsorptionFactors(key, totalNutrients);
       return {
-        name: n.name.replace("Vitamin ", ""),
-        value: value,
-        unit: n.unit || "mg",
-        percentage: formatNutrientValue(n.percentDailyValue)
+        key,
+        ...requirement,
+        value,
+        percentage: calculateNutrientPercentage(value, requirement),
+        status,
+        absorptionFactors
       };
-    })
-    .filter(n => n.value > 0)
-    .sort((a, b) => b.percentage - a.percentage)
-    .slice(0, 8);
-  
-  // Create mineral data for chart
-  const minerals = nutrients
-    .filter(n => 
-      ["Calcium", "Iron", "Magnesium", "Phosphorus", "Potassium", "Sodium", "Zinc"].includes(n.name)
-    )
-    .map(n => {
-      const value = formatNutrientValue(n.amount);
+    });
+
+  const minerals = Object.entries(NUTRIENT_REQUIREMENTS)
+    .filter(([key]) => !key.startsWith('B') && key !== 'A' && key !== 'C' && key !== 'D' && key !== 'E' && key !== 'K' && key !== 'Folate')
+    .map(([key, requirement]) => {
+      const value = totalNutrients[key] || 0;
+      const status = getNutrientStatus(value, requirement, dietPlan.dietType, dietPlan.healthConditions);
+      const absorptionFactors = checkAbsorptionFactors(key, totalNutrients);
       return {
-        name: n.name,
-        value: value,
-        unit: n.unit || "mg",
-        percentage: formatNutrientValue(n.percentDailyValue)
+        key,
+        ...requirement,
+        value,
+        percentage: calculateNutrientPercentage(value, requirement),
+        status,
+        absorptionFactors
       };
-    })
-    .filter(n => n.value > 0)
-    .sort((a, b) => b.percentage - a.percentage)
-    .slice(0, 8);
-  
+    });
+
+  // Kritik besinleri kontrol et
+  const criticalNutrients = [...vitamins, ...minerals]
+    .filter(nutrient => nutrient.status.status === 'critical');
+
   return (
-    <Card>
+    <Card className="bg-white shadow-md rounded-xl">
       <CardHeader>
-        <CardTitle>Nutritional Information</CardTitle>
-        {food && (
-          <CardDescription>
-            {food.description}, {food.brandName || "Generic"}
-          </CardDescription>
-        )}
-        {dietPlan && (
-          <CardDescription>
-            Daily target: {dietPlan.calorieGoal} calories
-          </CardDescription>
-        )}
+        <CardTitle className="text-xl font-semibold text-gray-800">Günlük Besin Değerleri</CardTitle>
       </CardHeader>
       <CardContent>
+        {criticalNutrients.length > 0 && (
+          <Alert className="mb-4 bg-red-50 border-red-200">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <div className="font-medium mb-1">Dikkat Edilmesi Gereken Besinler:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {criticalNutrients.map(nutrient => (
+                  <li key={nutrient.key}>
+                    <div className="font-medium">{nutrient.name}</div>
+                    <div className="text-sm">{nutrient.status.message}</div>
+                    {nutrient.status.recommendations && (
+                      <ul className="list-disc list-inside ml-4 text-sm">
+                        {nutrient.status.recommendations.map((rec, index) => (
+                          <li key={index}>{rec}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {healthConditions && healthConditions.length > 0 && (
+          <Alert className="mb-4 bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              <div className="font-medium mb-1">Sağlık Durumu Önerileri:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {healthConditions.map(condition => (
+                  <li key={condition.id}>
+                    <div className="font-medium">{condition.name}</div>
+                    <ul className="list-disc list-inside ml-4 text-sm">
+                      {condition.recommendations.map((rec, index) => (
+                        <li key={index}>{rec}</li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs defaultValue="macros" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-2">
-            <TabsTrigger value="macros" className="text-xs md:text-sm">Macros</TabsTrigger>
-            <TabsTrigger value="vitamins" className="text-xs md:text-sm">Vitamins</TabsTrigger>
-            <TabsTrigger value="minerals" className="text-xs md:text-sm">Minerals</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="macros">Makrolar</TabsTrigger>
+            <TabsTrigger value="vitamins">Vitaminler</TabsTrigger>
+            <TabsTrigger value="minerals">Mineraller</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="macros" className="space-y-4">
-            <div className="flex flex-col items-center justify-center py-4">
-              <MacronutrientChart 
-                protein={macroPercentages.protein} 
-                carbs={macroPercentages.carbs} 
-                fat={macroPercentages.fat} 
-                size={240}
-              />
-              
-              {!dietPlan && food && (
-                <div className="text-center mt-4">
-                  <p className="text-sm text-muted-foreground">Per serving</p>
-                  <p className="text-2xl font-bold">{Math.round(calories)} kcal</p>
-                  <div className="flex justify-center gap-6 mt-4 text-sm">
-                    <div className="text-center">
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white bg-[#4CAF50] mx-auto shadow-md">
-                        {macroPercentages.protein}%
-                      </div>
-                      <p className="font-medium mt-2">Protein</p>
-                      <p>{Math.round(protein)}g</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white bg-[#2196F3] mx-auto shadow-md">
-                        {macroPercentages.carbs}%
-                      </div>
-                      <p className="font-medium mt-2">Carbs</p>
-                      <p>{Math.round(carbs)}g</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white bg-[#FF9800] mx-auto shadow-md">
-                        {macroPercentages.fat}%
-                      </div>
-                      <p className="font-medium mt-2">Fat</p>
-                      <p>{Math.round(fat)}g</p>
-                    </div>
-                  </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Protein</span>
+                  <span className="text-sm font-semibold text-green-600">
+                    {Math.round((dietPlan.calorieGoal * (dietPlan.proteinPercentage / 100)) / 4)}g
+                  </span>
                 </div>
-              )}
-              
-              {dietPlan && dietPlan.meals && (
-                <div className="w-full mt-4">
-                  <h3 className="text-sm font-medium mb-2">Daily Calorie Distribution</h3>
-                  <CalorieBreakdownChart 
-                    meals={dietPlan.meals} 
-                    dailyGoal={dietPlan.calorieGoal} 
-                    height={220} 
-                    width={400} 
-                  />
-                  <ul className="mt-4 space-y-1 text-sm">
-                    {dietPlan.meals.map((meal, i) => (
-                      <li key={i} className="flex justify-between">
-                        <span>{meal.name}</span>
-                        <span className="font-medium">{meal.calories} kcal</span>
-                      </li>
-                    ))}
-                  </ul>
+                <Progress value={dietPlan.proteinPercentage} className="h-2 bg-green-100" />
+                <span className="text-xs text-gray-500">{dietPlan.proteinPercentage}%</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Karbonhidrat</span>
+                  <span className="text-sm font-semibold text-blue-600">
+                    {Math.round((dietPlan.calorieGoal * (dietPlan.carbsPercentage / 100)) / 4)}g
+                  </span>
                 </div>
-              )}
+                <Progress value={dietPlan.carbsPercentage} className="h-2 bg-blue-100" />
+                <span className="text-xs text-gray-500">{dietPlan.carbsPercentage}%</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Yağ</span>
+                  <span className="text-sm font-semibold text-orange-600">
+                    {Math.round((dietPlan.calorieGoal * (dietPlan.fatPercentage / 100)) / 9)}g
+                  </span>
+                </div>
+                <Progress value={dietPlan.fatPercentage} className="h-2 bg-orange-100" />
+                <span className="text-xs text-gray-500">{dietPlan.fatPercentage}%</span>
+              </div>
             </div>
           </TabsContent>
-          
-          <TabsContent value="vitamins">
-            {vitamins.length > 0 ? (
-              <div className="p-2">
-                <NutrientBarChart 
-                  data={vitamins} 
-                  title="Vitamin Content" 
-                  height={300} 
-                  width={500} 
-                />
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                  {vitamins.map((vitamin, i) => (
-                    <div key={i} className="flex justify-between">
-                      <span>{vitamin.name}</span>
-                      <span>
-                        {vitamin.value.toFixed(1)} {vitamin.unit} 
-                        {vitamin.percentage ? ` (${vitamin.percentage}% DV)` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 text-center text-muted-foreground">
-                No vitamin data available
-              </div>
-            )}
+
+          <TabsContent value="vitamins" className="space-y-4">
+            <div className="space-y-3">
+              {vitamins.map((vitamin) => (
+                <TooltipProvider key={vitamin.key}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-600">{vitamin.name}</span>
+                          <span className="text-sm font-semibold">
+                            {vitamin.value.toFixed(1)}{vitamin.unit}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={vitamin.percentage} 
+                          className={`h-2 ${
+                            vitamin.status.status === 'critical' 
+                              ? 'bg-red-100' 
+                              : vitamin.status.status === 'warning'
+                              ? 'bg-yellow-100'
+                              : 'bg-green-100'
+                          }`} 
+                        />
+                        {vitamin.status.status !== 'success' && (
+                          <div className="flex items-center gap-1">
+                            {vitamin.status.status === 'critical' ? (
+                              <AlertTriangle className="h-4 w-4 text-red-600" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-yellow-600" />
+                            )}
+                            <span className={`text-xs ${
+                              vitamin.status.status === 'critical' ? 'text-red-600' : 'text-yellow-600'
+                            }`}>
+                              {vitamin.status.message}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="p-3 space-y-2">
+                      <div className="font-medium">{vitamin.name}</div>
+                      <div className="text-sm space-y-1">
+                        <p>Günlük Değer: {vitamin.dailyValue}{vitamin.unit}</p>
+                        <p>Mevcut Değer: {vitamin.value.toFixed(1)}{vitamin.unit}</p>
+                        <p>Hedef: %{vitamin.percentage.toFixed(0)}</p>
+                        {vitamin.status.recommendations && (
+                          <div className="mt-2">
+                            <p className="font-medium">Öneriler:</p>
+                            <ul className="list-disc list-inside">
+                              {vitamin.status.recommendations.map((rec, index) => (
+                                <li key={index} className="text-xs">{rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {vitamin.absorptionFactors && (
+                          <div className="mt-2">
+                            <p className="font-medium">Emilim Faktörleri:</p>
+                            {vitamin.absorptionFactors.increases.length > 0 && (
+                              <div>
+                                <p className="text-xs text-green-600">Artıranlar:</p>
+                                <ul className="list-disc list-inside">
+                                  {vitamin.absorptionFactors.increases.map((factor, index) => (
+                                    <li key={index} className="text-xs">{factor}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {vitamin.absorptionFactors.decreases.length > 0 && (
+                              <div>
+                                <p className="text-xs text-red-600">Azaltanlar:</p>
+                                <ul className="list-disc list-inside">
+                                  {vitamin.absorptionFactors.decreases.map((factor, index) => (
+                                    <li key={index} className="text-xs">{factor}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
+            </div>
           </TabsContent>
-          
-          <TabsContent value="minerals">
-            {minerals.length > 0 ? (
-              <div className="p-2">
-                <NutrientBarChart 
-                  data={minerals} 
-                  title="Mineral Content" 
-                  height={300} 
-                  width={500} 
-                />
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                  {minerals.map((mineral, i) => (
-                    <div key={i} className="flex justify-between">
-                      <span>{mineral.name}</span>
-                      <span>
-                        {mineral.value.toFixed(1)} {mineral.unit} 
-                        {mineral.percentage ? ` (${mineral.percentage}% DV)` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 text-center text-muted-foreground">
-                No mineral data available
-              </div>
-            )}
+
+          <TabsContent value="minerals" className="space-y-4">
+            <div className="space-y-3">
+              {minerals.map((mineral) => (
+                <TooltipProvider key={mineral.key}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-600">{mineral.name}</span>
+                          <span className="text-sm font-semibold">
+                            {mineral.value.toFixed(1)}{mineral.unit}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={mineral.percentage} 
+                          className={`h-2 ${
+                            mineral.status.status === 'critical' 
+                              ? 'bg-red-100' 
+                              : mineral.status.status === 'warning'
+                              ? 'bg-yellow-100'
+                              : 'bg-green-100'
+                          }`} 
+                        />
+                        {mineral.status.status !== 'success' && (
+                          <div className="flex items-center gap-1">
+                            {mineral.status.status === 'critical' ? (
+                              <AlertTriangle className="h-4 w-4 text-red-600" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-yellow-600" />
+                            )}
+                            <span className={`text-xs ${
+                              mineral.status.status === 'critical' ? 'text-red-600' : 'text-yellow-600'
+                            }`}>
+                              {mineral.status.message}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="p-3 space-y-2">
+                      <div className="font-medium">{mineral.name}</div>
+                      <div className="text-sm space-y-1">
+                        <p>Günlük Değer: {mineral.dailyValue}{mineral.unit}</p>
+                        <p>Mevcut Değer: {mineral.value.toFixed(1)}{mineral.unit}</p>
+                        <p>Hedef: %{mineral.percentage.toFixed(0)}</p>
+                        {mineral.status.recommendations && (
+                          <div className="mt-2">
+                            <p className="font-medium">Öneriler:</p>
+                            <ul className="list-disc list-inside">
+                              {mineral.status.recommendations.map((rec, index) => (
+                                <li key={index} className="text-xs">{rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {mineral.absorptionFactors && (
+                          <div className="mt-2">
+                            <p className="font-medium">Emilim Faktörleri:</p>
+                            {mineral.absorptionFactors.increases.length > 0 && (
+                              <div>
+                                <p className="text-xs text-green-600">Artıranlar:</p>
+                                <ul className="list-disc list-inside">
+                                  {mineral.absorptionFactors.increases.map((factor, index) => (
+                                    <li key={index} className="text-xs">{factor}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {mineral.absorptionFactors.decreases.length > 0 && (
+                              <div>
+                                <p className="text-xs text-red-600">Azaltanlar:</p>
+                                <ul className="list-disc list-inside">
+                                  {mineral.absorptionFactors.decreases.map((factor, index) => (
+                                    <li key={index} className="text-xs">{factor}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

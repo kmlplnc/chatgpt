@@ -57,9 +57,35 @@ const formSchema = z.object({
   proteinPercentage: z.coerce.number().min(0).max(100),
   carbsPercentage: z.coerce.number().min(0).max(100),
   fatPercentage: z.coerce.number().min(0).max(100),
-  meals: z.coerce.number().min(2).max(6),
-  includeSnacks: z.boolean().default(false),
-  includeDessert: z.boolean().default(false),
+  mainMeals: z.coerce.number().min(1).max(6),
+  snackCount: z.coerce.number().min(0).max(3),
+  dislikedFoods: z.array(z.string()).default([]),
+  healthyFoodRatio: z.coerce.number().min(0).max(100),
+  // Mikro besin gereksinimleri
+  vitaminA: z.coerce.number().optional(),
+  vitaminC: z.coerce.number().optional(),
+  vitaminD: z.coerce.number().optional(),
+  vitaminE: z.coerce.number().optional(),
+  vitaminK: z.coerce.number().optional(),
+  thiamin: z.coerce.number().optional(),
+  riboflavin: z.coerce.number().optional(),
+  niacin: z.coerce.number().optional(),
+  vitaminB6: z.coerce.number().optional(),
+  folate: z.coerce.number().optional(),
+  vitaminB12: z.coerce.number().optional(),
+  calcium: z.coerce.number().optional(),
+  iron: z.coerce.number().optional(),
+  magnesium: z.coerce.number().optional(),
+  phosphorus: z.coerce.number().optional(),
+  zinc: z.coerce.number().optional(),
+  potassium: z.coerce.number().optional(),
+  sodium: z.coerce.number().optional(),
+  copper: z.coerce.number().optional(),
+  manganese: z.coerce.number().optional(),
+  selenium: z.coerce.number().optional(),
+  chromium: z.coerce.number().optional(),
+  molybdenum: z.coerce.number().optional(),
+  iodine: z.coerce.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -207,6 +233,122 @@ interface ExtraDietForm {
   dailyWater: string;
 }
 
+// Veri dönüştürme yardımcı fonksiyonları
+const parseArray = (value: any): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value.split(',').map((item: string) => item.trim());
+    }
+  }
+  return [];
+};
+
+const parseNumber = (value: any, fallback: number = 0): number => {
+  if (value === null || value === undefined || value === '') return fallback;
+  const num = Number(value);
+  return isNaN(num) ? fallback : num;
+};
+
+const parseGender = (value: any): 'male' | 'female' => {
+  const gender = String(value).toLowerCase();
+  return gender === 'female' ? 'female' : 'male';
+};
+
+const parseActivityLevel = (value: any): 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' => {
+  const level = String(value).toLowerCase();
+  const validLevels = ['sedentary', 'light', 'moderate', 'active', 'very_active'] as const;
+  return validLevels.includes(level as any) ? level as any : 'moderate';
+};
+
+const parseDietType = (value: any): 'balanced' | 'low_carb' | 'high_protein' | 'vegetarian' | 'vegan' | 'keto' | 'paleo' | 'mediterranean' | 'custom' => {
+  const type = String(value).toLowerCase();
+  const validTypes = ['balanced', 'low_carb', 'high_protein', 'vegetarian', 'vegan', 'keto', 'paleo', 'mediterranean', 'custom'] as const;
+  return validTypes.includes(type as any) ? type as any : 'balanced';
+};
+
+const calculateAge = (birthDate: string | null | undefined): number => {
+  if (!birthDate) return 30; // Default age
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// Ana veri hazırlama fonksiyonu
+const preparePayloadFromClientData = (client: any, measurement: any) => {
+  // Temel bilgiler
+  const name = client?.first_name && client?.last_name 
+    ? `${client.first_name} ${client.last_name}`
+    : 'İsimsiz Danışan';
+
+  const age = calculateAge(client?.birth_date);
+  const gender = parseGender(client?.gender);
+  const height = parseNumber(measurement?.height, 170);
+  const weight = parseNumber(measurement?.weight, 70);
+  const activityLevel = parseActivityLevel(measurement?.activityLevel);
+  const dietType = parseDietType(parseArray(client?.diet_preferences)[0]);
+
+  // Sağlık bilgileri
+  const healthConditions = parseArray(client?.medical_conditions);
+  const allergies = parseArray(client?.allergies);
+  const medications = parseArray(client?.medications);
+  const dietPreferences = parseArray(client?.diet_preferences);
+
+  // Ölçüm bilgileri
+  const bmi = parseNumber(measurement?.bmi, 22);
+  const bodyFatPercentage = parseNumber(measurement?.bodyFatPercentage, 20);
+  const measurements = {
+    waist: parseNumber(measurement?.waistCircumference, 80),
+    hip: parseNumber(measurement?.hipCircumference, 90),
+    chest: parseNumber(measurement?.chestCircumference, 95),
+    arm: parseNumber(measurement?.armCircumference, 30),
+    thigh: parseNumber(measurement?.thighCircumference, 50),
+    calf: parseNumber(measurement?.calfCircumference, 35),
+  };
+
+  // Metabolik bilgiler
+  const bmr = parseNumber(measurement?.basalMetabolicRate, 1500);
+  const tdee = parseNumber(measurement?.totalDailyEnergyExpenditure, 2000);
+
+  // Zod'un beklediği formatta payload oluştur
+  return {
+    // Zorunlu alanlar
+    name,
+    age,
+    gender,
+    height,
+    weight,
+    activityLevel,
+    dietType,
+    proteinPercentage: 30,
+    carbsPercentage: 40,
+    fatPercentage: 30,
+    meals: 3,
+
+    // Ek bilgiler
+    healthConditions,
+    allergies,
+    medications,
+    dietPreferences,
+    calorieGoal: tdee,
+    bmi,
+    bodyFatPercentage,
+    measurements,
+    metabolicInfo: {
+      bmr,
+      tdee,
+    },
+  };
+};
+
 export default function CreateAIDietPlan() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -216,6 +358,8 @@ export default function CreateAIDietPlan() {
   const [extraClientInfo, setExtraClientInfo] = useState<any>(null);
   const [extraMeasurementInfo, setExtraMeasurementInfo] = useState<any>(null);
   const [showExtraForm, setShowExtraForm] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const [extraForm, setExtraForm] = useState<ExtraDietForm>({
     mealCount: 3,
     sleepTime: "23:00",
@@ -245,9 +389,10 @@ export default function CreateAIDietPlan() {
       proteinPercentage: 30,
       carbsPercentage: 40,
       fatPercentage: 30,
-      meals: 3,
-      includeSnacks: false,
-      includeDessert: false,
+      mainMeals: 3,
+      snackCount: 0,
+      dislikedFoods: [],
+      healthyFoodRatio: 50,
     },
   });
 
@@ -264,6 +409,13 @@ export default function CreateAIDietPlan() {
     enabled: !!selectedClientId,
   });
 
+  // Debug için useEffect ekle
+  useEffect(() => {
+    console.log("Clients:", clients);
+    console.log("Measurements:", measurements);
+    console.log("Selected Client ID:", selectedClientId);
+  }, [clients, measurements, selectedClientId]);
+
   // Danışan seçme formu
   const clientSelectForm = useForm<ClientSelectFormData>({
     resolver: zodResolver(clientSelectSchema),
@@ -272,12 +424,113 @@ export default function CreateAIDietPlan() {
     },
   });
 
+  // Danışan seçildiğinde
+  const onClientSelect = async (data: ClientSelectFormData) => {
+    try {
+      console.log("Client select data:", data);
+      setSelectedClientId(data.clientId);
+      
+      // Danışan bilgilerini getir
+      const client = clients.find(c => c.id.toString() === data.clientId);
+      console.log("Found client:", client);
+
+      if (!client) {
+        toast({
+          title: "Hata",
+          description: "Danışan bulunamadı",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Son ölçümü bul
+      const latestMeasurement = measurements.length > 0 
+        ? [...measurements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+        : null;
+
+      console.log("Latest measurement:", latestMeasurement);
+
+      if (!latestMeasurement) {
+        toast({
+          title: "Hata",
+          description: "Danışanın ölçüm bilgileri bulunamadı",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Sağlık bilgilerini array olarak parse et
+      const parseMaybeArray = (val: any) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') {
+          try { return JSON.parse(val); } catch { return [val]; }
+        }
+        return [];
+      };
+
+      // Form alanlarını güncelle
+      const clientInfo: Partial<FormValues> = {
+        name: `${client.first_name} ${client.last_name}`,
+        height: Number(latestMeasurement.height),
+        weight: Number(latestMeasurement.weight),
+        gender: client.gender.toLowerCase() as "male" | "female",
+        age: client.birth_date 
+          ? Math.floor((new Date().getTime() - new Date(client.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) 
+          : 30,
+        activityLevel: (latestMeasurement.activityLevel || "moderate") as FormValues["activityLevel"],
+        allergies: parseMaybeArray(client.allergies),
+        healthConditions: parseMaybeArray(client.medical_conditions),
+      };
+
+      setSelectedClientData(clientInfo);
+      
+      // Ekstra danışan bilgileri
+      setExtraClientInfo({
+        medications: parseMaybeArray(client.medications),
+        dietPreferences: parseMaybeArray(client.diet_preferences),
+      });
+
+      // Son ölçüm bilgileri
+      setExtraMeasurementInfo({
+        bmi: latestMeasurement.bmi,
+        bodyFatPercentage: latestMeasurement.bodyFatPercentage,
+        waistCircumference: latestMeasurement.waistCircumference,
+        hipCircumference: latestMeasurement.hipCircumference,
+        chestCircumference: latestMeasurement.chestCircumference,
+        armCircumference: latestMeasurement.armCircumference,
+        thighCircumference: latestMeasurement.thighCircumference,
+        calfCircumference: latestMeasurement.calfCircumference,
+        basalMetabolicRate: latestMeasurement.basalMetabolicRate,
+        totalDailyEnergyExpenditure: latestMeasurement.totalDailyEnergyExpenditure,
+        activityLevel: latestMeasurement.activityLevel,
+      });
+
+      toast({
+        title: "Başarılı",
+        description: "Danışan bilgileri yüklendi",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Danışan bilgileri yüklenirken hata:", error);
+      toast({
+        title: "Hata",
+        description: "Danışan bilgileri yüklenirken bir hata oluştu",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Form değerlerini sıfırla
   const resetForm = () => {
     form.reset();
     clientSelectForm.reset({
       clientId: "",
     });
+    setSelectedClientId(null);
+    setSelectedClientData(null);
+    setExtraClientInfo(null);
+    setExtraMeasurementInfo(null);
   };
 
   // API'den gelen client objesini logla
@@ -334,14 +587,9 @@ export default function CreateAIDietPlan() {
           armCircumference: latestMeasurement.armCircumference,
           thighCircumference: latestMeasurement.thighCircumference,
           calfCircumference: latestMeasurement.calfCircumference,
-          neck_circumference: latestMeasurement.neckCircumference,
           basalMetabolicRate: latestMeasurement.basalMetabolicRate,
           totalDailyEnergyExpenditure: latestMeasurement.totalDailyEnergyExpenditure,
-          microNutrients: Object.entries(latestMeasurement)
-            .filter(([key, value]) => key.startsWith('vitamin') || [
-              'calcium','iron','magnesium','phosphorus','zinc','potassium','sodium','copper','manganese','selenium','chromium','molybdenum','iodine'
-            ].includes(key))
-            .map(([key, value]) => ({ key, value: typeof value === 'object' && value instanceof Date ? value.toISOString() : value || '-' }))
+          activityLevel: latestMeasurement.activityLevel,
         });
       }
     }
@@ -404,8 +652,9 @@ export default function CreateAIDietPlan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/diet-plans"] });
       toast({
-        title: "Diyet planı oluşturuldu",
+        title: "Başarılı",
         description: "Yapay zeka diyet planı başarıyla oluşturuldu",
+        variant: "default"
       });
       navigate("/diet-plans");
     },
@@ -414,78 +663,88 @@ export default function CreateAIDietPlan() {
       toast({
         title: "Hata",
         description: errorMessage,
-        variant: "destructive",
+        variant: "destructive"
       });
     },
   });
 
-  // Form gönderme
-  const onSubmit = async (data: FormValues) => {
-    console.log("onSubmit çalıştı", { data, selectedClientData, extraForm, extraClientInfo, extraMeasurementInfo });
-    const mergedData = {
-      // Temel bilgiler
-      name: selectedClientData?.name || data.name || "",
-      age: Number(selectedClientData?.age || data.age || 0),
-      gender: selectedClientData?.gender || data.gender || "male",
-      height: Number(selectedClientData?.height || data.height || 0),
-      weight: Number(selectedClientData?.weight || data.weight || 0),
-      activityLevel: selectedClientData?.activityLevel || data.activityLevel || "moderate",
-      dietType: data.dietType || "balanced",
-      // Sağlık ve diyet
-      allergies: selectedClientData?.allergies || data.allergies || [],
-      healthConditions: selectedClientData?.healthConditions || data.healthConditions || [],
-      medications: extraClientInfo?.medications || [],
-      dietPreferences: extraClientInfo?.dietPreferences || [],
-      // Makro dağılımı
-      proteinPercentage: Number(data.proteinPercentage ?? 30),
-      carbsPercentage: Number(data.carbsPercentage ?? 40),
-      fatPercentage: Number(data.fatPercentage ?? 30),
-      calorieGoal: Number(data.calorieGoal ?? 0),
-      // Ekstra form
-      meals: Number(extraForm.mealCount || 3),
-      sleepTime: extraForm.sleepTime || "23:00",
-      wakeTime: extraForm.wakeTime || "07:00",
-      exerciseType: extraForm.exerciseType || "",
-      exerciseFrequency: extraForm.exerciseFrequency || "",
-      foodLikes: extraForm.foodLikes || "",
-      foodDislikes: extraForm.foodDislikes || "",
-      dailyWater: Number(extraForm.dailyWater || "2"),
-      includeSnacks: data.includeSnacks ?? false,
-      includeDessert: data.includeDessert ?? false,
-      weightGoal: extraForm.weightGoal || "koruma",
-      // Son ölçümden gelenler
-      bmi: extraMeasurementInfo?.bmi ? Number(extraMeasurementInfo.bmi) : null,
-      bodyFatPercentage: extraMeasurementInfo?.bodyFatPercentage ? Number(extraMeasurementInfo.bodyFatPercentage) : null,
-      basalMetabolicRate: extraMeasurementInfo?.basalMetabolicRate ? Number(extraMeasurementInfo.basalMetabolicRate) : null,
-      totalDailyEnergyExpenditure: extraMeasurementInfo?.totalDailyEnergyExpenditure ? Number(extraMeasurementInfo.totalDailyEnergyExpenditure) : null,
-      waistCircumference: extraMeasurementInfo?.waistCircumference ? Number(extraMeasurementInfo.waistCircumference) : null,
-      hipCircumference: extraMeasurementInfo?.hipCircumference ? Number(extraMeasurementInfo.hipCircumference) : null,
-      chestCircumference: extraMeasurementInfo?.chestCircumference ? Number(extraMeasurementInfo.chestCircumference) : null,
-      armCircumference: extraMeasurementInfo?.armCircumference ? Number(extraMeasurementInfo.armCircumference) : null,
-      thighCircumference: extraMeasurementInfo?.thighCircumference ? Number(extraMeasurementInfo.thighCircumference) : null,
-      calfCircumference: extraMeasurementInfo?.calfCircumference ? Number(extraMeasurementInfo.calfCircumference) : null,
-      neckCircumference: extraMeasurementInfo?.neck_circumference ? Number(extraMeasurementInfo.neck_circumference) : null,
-      // Mikro besinler - düzgün formatta
-      microNutrients: extraMeasurementInfo?.microNutrients?.map((item: any) => ({
-        name: item.key,
-        value: typeof item.value === 'string' ? Number(item.value) || 0 : Number(item.value) || 0
-      })) || []
-    };
-    console.log("API'ye gönderilen veri:", mergedData);
-    try {
-      const result = await createDietPlanMutation.mutateAsync(mergedData);
-      if (result && result.dietPlan) {
-        setGeneratedDietPlan(result.dietPlan);
-      }
-    } catch (error) {
-      // hata zaten toast ile gösteriliyor
+  // Form submit handler'ını güncelle
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedClientId) {
+      toast({
+        title: "Hata",
+        description: "Lütfen önce bir danışan seçin",
+        variant: "destructive"
+      });
+      return;
     }
-  };
 
-  // Danışan seçildiğinde
-  const onClientSelect = (data: ClientSelectFormData) => {
-    console.log('onClientSelect called with:', data);
-    setSelectedClientId(data.clientId);
+    try {
+      setIsGenerating(true);
+      setGenerationProgress(10);
+
+      // Client ve measurement verilerini al
+      const client = clients.find(c => c.id.toString() === selectedClientId);
+      const latestMeasurement = measurements.length > 0 
+        ? [...measurements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+        : null;
+
+      if (!client || !latestMeasurement) {
+        throw new Error("Danışan veya ölçüm bilgileri bulunamadı");
+      }
+
+      // Payload'ı hazırla
+      const payload = preparePayloadFromClientData(client, latestMeasurement);
+      console.log('Sending payload to API:', payload);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/generate/diet-plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      setGenerationProgress(60);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error occurred' }));
+        throw new Error(errorData.message || 'Diyet planı oluşturulurken bir hata oluştu');
+      }
+
+      const responseData = await response.json();
+      console.log('Diyet planı başarıyla oluşturuldu:', responseData);
+      setGeneratedDietPlan(responseData.plan);
+      setIsGenerating(false);
+      setGenerationProgress(100);
+
+      toast({
+        title: "Başarılı",
+        description: "Diyet planı başarıyla oluşturuldu",
+        variant: "default"
+      });
+
+      navigate("/diet-plans");
+    } catch (error) {
+      console.error('Fetch error:', error);
+      if (error instanceof Error) {
+        toast({
+          title: "Hata",
+          description: error.message || 'Backend sunucusuna bağlanılamadı. Lütfen backend\'in çalıştığından emin olun.',
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Hata",
+          description: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
+          variant: "destructive"
+        });
+      }
+      setIsGenerating(false);
+    }
   };
 
   useEffect(() => {
@@ -494,6 +753,64 @@ export default function CreateAIDietPlan() {
 
   // showExtraForm state'ini logla
   useEffect(() => { console.log('showExtraForm:', showExtraForm); }, [showExtraForm]);
+
+  // Danışan seçildiğinde mikro besin gereksinimlerini de ekle
+  useEffect(() => {
+    if (Array.isArray(measurements) && measurements.length > 0 && selectedClientId) {
+      const latestMeasurement = measurements[measurements.length - 1];
+      
+      // Mevcut ölçüm bilgilerini güncelle
+      setExtraMeasurementInfo({
+        bmi: latestMeasurement.bmi,
+        bodyFatPercentage: latestMeasurement.bodyFatPercentage,
+        waistCircumference: latestMeasurement.waistCircumference,
+        hipCircumference: latestMeasurement.hipCircumference,
+        chestCircumference: latestMeasurement.chestCircumference,
+        armCircumference: latestMeasurement.armCircumference,
+        thighCircumference: latestMeasurement.thighCircumference,
+        calfCircumference: latestMeasurement.calfCircumference,
+        basalMetabolicRate: latestMeasurement.basalMetabolicRate,
+        totalDailyEnergyExpenditure: latestMeasurement.totalDailyEnergyExpenditure,
+        activityLevel: latestMeasurement.activityLevel,
+        // Mikro besin değerlerini ekle
+        vitaminA: latestMeasurement.vitaminA,
+        vitaminC: latestMeasurement.vitaminC,
+        vitaminD: latestMeasurement.vitaminD,
+        vitaminE: latestMeasurement.vitaminE,
+        vitaminK: latestMeasurement.vitaminK,
+        thiamin: latestMeasurement.thiamin,
+        riboflavin: latestMeasurement.riboflavin,
+        niacin: latestMeasurement.niacin,
+        vitaminB6: latestMeasurement.vitaminB6,
+        folate: latestMeasurement.folate,
+        vitaminB12: latestMeasurement.vitaminB12,
+        biotin: latestMeasurement.biotin,
+        pantothenicAcid: latestMeasurement.pantothenicAcid,
+        calcium: latestMeasurement.calcium,
+        iron: latestMeasurement.iron,
+        magnesium: latestMeasurement.magnesium,
+        phosphorus: latestMeasurement.phosphorus,
+        zinc: latestMeasurement.zinc,
+        potassium: latestMeasurement.potassium,
+        sodium: latestMeasurement.sodium,
+        copper: latestMeasurement.copper,
+        manganese: latestMeasurement.manganese,
+        selenium: latestMeasurement.selenium,
+        chromium: latestMeasurement.chromium,
+        molybdenum: latestMeasurement.molybdenum,
+        iodine: latestMeasurement.iodine
+      });
+
+      // Debug için log ekle
+      console.log('Latest measurement:', latestMeasurement);
+      console.log('Extra measurement info:', {
+        vitaminA: latestMeasurement.vitaminA,
+        vitaminC: latestMeasurement.vitaminC,
+        vitaminD: latestMeasurement.vitaminD,
+        // ... diğer mikro besinler
+      });
+    }
+  }, [measurements, selectedClientId]);
 
   return (
     <ProtectedFeature featureName="AI Diet Plan Creation">
@@ -590,234 +907,355 @@ export default function CreateAIDietPlan() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {/* Kişisel Bilgiler */}
-                    <h4 className="font-semibold text-base mb-2 mt-2 text-blue-700 flex items-center gap-2">👤 Kişisel Bilgiler</h4>
-                    <table className="w-full mb-4 bg-blue-50 rounded-lg overflow-hidden">
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="py-2 px-3 font-medium">🧑‍🎓 İsim</td>
-                          <td className="py-2 px-3">{selectedClientData.name}</td>
-                          <td className="py-2 px-3 font-medium">🎂 Yaş</td>
-                          <td className="py-2 px-3">{selectedClientData.age} yaşında</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 px-3 font-medium">⚥ Cinsiyet</td>
-                          <td className="py-2 px-3">{selectedClientData.gender === "female" ? "Kadın" : "Erkek"}</td>
-                          <td className="py-2 px-3 font-medium">📏 Boy</td>
-                          <td className="py-2 px-3">{selectedClientData.height} cm</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 px-3 font-medium">⚖️ Kilo</td>
-                          <td className="py-2 px-3">{selectedClientData.weight} kg</td>
-                          <td className="py-2 px-3 font-medium">🏃‍♂️ Aktivite</td>
-                          <td className="py-2 px-3">{getActivityLevelLabel(selectedClientData.activityLevel || '')}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Son Ölçüm */}
-                    {extraMeasurementInfo && (
-                      <>
-                        <h4 className="font-semibold text-base mb-2 mt-6 text-green-700 flex items-center gap-2">📅 Son Ölçüm</h4>
-                        <table className="w-full mb-4 bg-green-50 rounded-lg overflow-hidden">
+                    <Form {...form}>
+                      <form onSubmit={handleFormSubmit} className="space-y-4">
+                        {/* Kişisel Bilgiler */}
+                        <h4 className="font-semibold text-base mb-2 mt-2 text-blue-700 flex items-center gap-2">👤 Kişisel Bilgiler</h4>
+                        <table className="w-full mb-4 bg-blue-50 rounded-lg overflow-hidden">
                           <tbody>
                             <tr className="border-b">
-                              <td className="py-2 px-3 font-medium">🧮 VKİ (BMI)</td>
-                              <td className="py-2 px-3">{extraMeasurementInfo.bmi}</td>
-                              <td className="py-2 px-3 font-medium">🧈 Vücut Yağ Oranı</td>
-                              <td className="py-2 px-3">{extraMeasurementInfo.bodyFatPercentage ? `%${extraMeasurementInfo.bodyFatPercentage}` : '-'}</td>
+                              <td className="py-2 px-3 font-medium">🧑‍🎓 İsim</td>
+                              <td className="py-2 px-3">{selectedClientData.name}</td>
+                              <td className="py-2 px-3 font-medium">🎂 Yaş</td>
+                              <td className="py-2 px-3">{selectedClientData.age} yaşında</td>
                             </tr>
                             <tr className="border-b">
-                              <td className="py-2 px-3 font-medium">🔥 BMH (BMR)</td>
-                              <td className="py-2 px-3">{extraMeasurementInfo.basalMetabolicRate ? `${extraMeasurementInfo.basalMetabolicRate} kcal` : '-'}</td>
-                              <td className="py-2 px-3 font-medium">🔥 TDEE</td>
-                              <td className="py-2 px-3">{extraMeasurementInfo.totalDailyEnergyExpenditure ? `${extraMeasurementInfo.totalDailyEnergyExpenditure} kcal` : '-'}</td>
+                              <td className="py-2 px-3 font-medium">⚥ Cinsiyet</td>
+                              <td className="py-2 px-3">{selectedClientData.gender === "female" ? "Kadın" : "Erkek"}</td>
+                              <td className="py-2 px-3 font-medium">📏 Boy</td>
+                              <td className="py-2 px-3">{selectedClientData.height} cm</td>
                             </tr>
-                          </tbody>
-                        </table>
-
-                        {/* Çevre Ölçümleri */}
-                        <h4 className="font-semibold text-base mb-2 mt-6 text-purple-700 flex items-center gap-2">🏷️ Çevre Ölçümleri</h4>
-                        <table className="w-full mb-4 bg-purple-50 rounded-lg overflow-hidden">
-                          <tbody>
                             <tr>
-                              {extraMeasurementInfo.waistCircumference && <><td className="py-2 px-3 font-medium">🦴 Bel</td><td className="py-2 px-3">{extraMeasurementInfo.waistCircumference}</td></>}
-                              {extraMeasurementInfo.hipCircumference && <><td className="py-2 px-3 font-medium">🦵 Kalça</td><td className="py-2 px-3">{extraMeasurementInfo.hipCircumference}</td></>}
-                              {extraMeasurementInfo.chestCircumference && <><td className="py-2 px-3 font-medium">💪 Göğüs</td><td className="py-2 px-3">{extraMeasurementInfo.chestCircumference}</td></>}
-                              {extraMeasurementInfo.armCircumference && <><td className="py-2 px-3 font-medium">💪 Kol</td><td className="py-2 px-3">{extraMeasurementInfo.armCircumference}</td></>}
-                              {extraMeasurementInfo.thighCircumference && <><td className="py-2 px-3 font-medium">🦵 Bacak</td><td className="py-2 px-3">{extraMeasurementInfo.thighCircumference}</td></>}
-                              {extraMeasurementInfo.calfCircumference && <><td className="py-2 px-3 font-medium">🦶 Baldır</td><td className="py-2 px-3">{extraMeasurementInfo.calfCircumference}</td></>}
-                              {extraMeasurementInfo.neck_circumference && <><td className="py-2 px-3 font-medium">🦱 Boyun</td><td className="py-2 px-3">{extraMeasurementInfo.neck_circumference}</td></>}
+                              <td className="py-2 px-3 font-medium">⚖️ Kilo</td>
+                              <td className="py-2 px-3">{selectedClientData.weight} kg</td>
+                              <td className="py-2 px-3 font-medium">🏃‍♂️ Aktivite</td>
+                              <td className="py-2 px-3">{getActivityLevelLabel(selectedClientData.activityLevel || '')}</td>
                             </tr>
                           </tbody>
                         </table>
 
-                        {/* Makro Dağılımı */}
-                        <h4 className="font-semibold text-base mb-2 mt-6 text-orange-700 flex items-center gap-2">🥩🍞🥑 Makro Dağılımı</h4>
-                        <table className="w-full mb-4 bg-orange-50 rounded-lg overflow-hidden">
-                          <tbody>
-                            <tr>
-                              <td className="py-2 px-3 font-medium">🥩 Protein (%)</td>
-                              <td className="py-2 px-3">{form.watch('proteinPercentage') + '%'}</td>
-                              <td className="py-2 px-3 font-medium">🍞 Karbonhidrat (%)</td>
-                              <td className="py-2 px-3">{form.watch('carbsPercentage') + '%'}</td>
-                              <td className="py-2 px-3 font-medium">🥑 Yağ (%)</td>
-                              <td className="py-2 px-3">{form.watch('fatPercentage') + '%'}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-
-                        {/* Mikro Besinler */}
-                        {extraMeasurementInfo.microNutrients && extraMeasurementInfo.microNutrients.filter((item: any) => item.value && item.value !== '-').length > 0 && (
+                        {/* Son Ölçüm */}
+                        {extraMeasurementInfo && (
                           <>
-                            <h4 className="font-semibold text-base mb-2 mt-6 text-pink-700 flex items-center gap-2">💊 Mikro Besinler</h4>
+                            <h4 className="font-semibold text-base mb-2 mt-6 text-green-700 flex items-center gap-2">📅 Son Ölçüm</h4>
+                            <table className="w-full mb-4 bg-green-50 rounded-lg overflow-hidden">
+                              <tbody>
+                                <tr className="border-b">
+                                  <td className="py-2 px-3 font-medium">🧮 VKİ (BMI)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo.bmi}</td>
+                                  <td className="py-2 px-3 font-medium">🧈 Vücut Yağ Oranı</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo.bodyFatPercentage ? `%${extraMeasurementInfo.bodyFatPercentage}` : '-'}</td>
+                                </tr>
+                                <tr className="border-b">
+                                  <td className="py-2 px-3 font-medium">🔥 BMH (BMR)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo.basalMetabolicRate ? `${extraMeasurementInfo.basalMetabolicRate} kcal` : '-'}</td>
+                                  <td className="py-2 px-3 font-medium">🔥 TDEE</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo.totalDailyEnergyExpenditure ? `${extraMeasurementInfo.totalDailyEnergyExpenditure} kcal` : '-'}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            {/* Çevre Ölçümleri */}
+                            <h4 className="font-semibold text-base mb-2 mt-6 text-purple-700 flex items-center gap-2">🏷️ Çevre Ölçümleri</h4>
+                            <table className="w-full mb-4 bg-purple-50 rounded-lg overflow-hidden">
+                              <tbody>
+                                <tr>
+                                  {extraMeasurementInfo.waistCircumference && <><td className="py-2 px-3 font-medium">🦴 Bel</td><td className="py-2 px-3">{extraMeasurementInfo.waistCircumference}</td></>}
+                                  {extraMeasurementInfo.hipCircumference && <><td className="py-2 px-3 font-medium">🦵 Kalça</td><td className="py-2 px-3">{extraMeasurementInfo.hipCircumference}</td></>}
+                                  {extraMeasurementInfo.chestCircumference && <><td className="py-2 px-3 font-medium">💪 Göğüs</td><td className="py-2 px-3">{extraMeasurementInfo.chestCircumference}</td></>}
+                                  {extraMeasurementInfo.armCircumference && <><td className="py-2 px-3 font-medium">💪 Kol</td><td className="py-2 px-3">{extraMeasurementInfo.armCircumference}</td></>}
+                                  {extraMeasurementInfo.thighCircumference && <><td className="py-2 px-3 font-medium">🦵 Bacak</td><td className="py-2 px-3">{extraMeasurementInfo.thighCircumference}</td></>}
+                                  {extraMeasurementInfo.calfCircumference && <><td className="py-2 px-3 font-medium">🦶 Baldır</td><td className="py-2 px-3">{extraMeasurementInfo.calfCircumference}</td></>}
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            {/* Makro Besin Dağılımı */}
+                            <h4 className="font-semibold text-base mb-2 mt-6 text-orange-700 flex items-center gap-2">🥩🍞🥑 Makro Besin Dağılımı</h4>
+                            <table className="w-full mb-4 bg-orange-50 rounded-lg overflow-hidden">
+                              <tbody>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">🥩 Protein (%)</td>
+                                  <td className="py-2 px-3">{form.watch('proteinPercentage')}%</td>
+                                  <td className="py-2 px-3 font-medium">🍞 Karbonhidrat (%)</td>
+                                  <td className="py-2 px-3">{form.watch('carbsPercentage')}%</td>
+                                  <td className="py-2 px-3 font-medium">🥑 Yağ (%)</td>
+                                  <td className="py-2 px-3">{form.watch('fatPercentage')}%</td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            {/* Mikro Besin Gereksinimleri */}
+                            <h4 className="font-semibold text-base mb-2 mt-6 text-pink-700 flex items-center gap-2">💊 Mikro Besin Gereksinimleri</h4>
                             <table className="w-full mb-4 bg-pink-50 rounded-lg overflow-hidden">
                               <tbody>
-                                {chunkArray(extraMeasurementInfo.microNutrients.filter((item: any) => item.value && item.value !== '-'), 3).map((group, rowIdx) => (
-                                  <tr key={rowIdx}>
-                                    {group.map((item: any, colIdx: number) => (
-                                      <React.Fragment key={rowIdx + '-' + item.key}>
-                                        <td className="py-2 px-3 font-medium">🥕 {item.key.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}</td>
-                                        <td className="py-2 px-3">{item.value}</td>
-                                      </React.Fragment>
-                                    ))}
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">A Vitamini (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminA ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">C Vitamini (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminC ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">D Vitamini (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminD ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">E Vitamini (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminE ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">K Vitamini (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminK ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">B1 Vitamini (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.thiamin ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">B2 Vitamini (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.riboflavin ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">B3 Vitamini (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.niacin ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">B6 Vitamini (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminB6 ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">Folat (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.folate ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">B12 Vitamini (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.vitaminB12 ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Biotin (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.biotin ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">Pantotenik Asit (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.pantothenicAcid ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Kalsiyum (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.calcium ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Demir (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.iron ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">Magnezyum (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.magnesium ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Fosfor (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.phosphorus ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Çinko (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.zinc ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">Potasyum (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.potassium ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Sodyum (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.sodium ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Bakır (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.copper ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">Manganez (mg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.manganese ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Selenyum (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.selenium ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">Krom (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.chromium ?? '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-2 px-3 font-medium">Molibden (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.molybdenum ?? '-'}</td>
+                                  <td className="py-2 px-3 font-medium">İyot (mcg)</td>
+                                  <td className="py-2 px-3">{extraMeasurementInfo?.iodine ?? '-'}</td>
+                                  <td className="py-2 px-3"></td>
+                                  <td className="py-2 px-3"></td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            {/* Sağlık Bilgileri */}
+                            <h4 className="font-semibold text-base mb-2 mt-6 text-red-700 flex items-center gap-2">🩺 Sağlık Bilgileri</h4>
+                            <table className="w-full mb-4 bg-red-50 rounded-lg overflow-hidden">
+                              <tbody>
+                                {Array.isArray(selectedClientData.healthConditions) && selectedClientData.healthConditions.length > 0 && (
+                                  <tr>
+                                    <td className="py-2 px-3 font-medium">🩺 Hastalıklar</td>
+                                    <td className="py-2 px-3">{selectedClientData.healthConditions.map((k: string) => getLabel(k, medicalConditionLabels)).join(', ')}</td>
                                   </tr>
-                                ))}
+                                )}
+                                {Array.isArray(selectedClientData.allergies) && selectedClientData.allergies.length > 0 && (
+                                  <tr>
+                                    <td className="py-2 px-3 font-medium">🌸 Alerjiler</td>
+                                    <td className="py-2 px-3">{selectedClientData.allergies.map((k: string) => getLabel(k, allergyLabels)).join(', ')}</td>
+                                  </tr>
+                                )}
+                                {Array.isArray(extraClientInfo.medications) && extraClientInfo.medications.length > 0 && (
+                                  <tr>
+                                    <td className="py-2 px-3 font-medium">💊 İlaçlar</td>
+                                    <td className="py-2 px-3">{extraClientInfo.medications.map((k: string) => getLabel(k, medicationLabels)).join(', ')}</td>
+                                  </tr>
+                                )}
+                                {Array.isArray(extraClientInfo.dietPreferences) && extraClientInfo.dietPreferences.length > 0 && (
+                                  <tr>
+                                    <td className="py-2 px-3 font-medium">🥗 Diyet Tercihleri</td>
+                                    <td className="py-2 px-3">{extraClientInfo.dietPreferences.map((k: string) => getLabel(k, dietPreferenceLabels)).join(', ')}</td>
+                                  </tr>
+                                )}
                               </tbody>
                             </table>
                           </>
                         )}
-                      </>
-                    )}
 
-                    {/* Sağlık Bilgileri */}
-                    {extraClientInfo && (
-                      <>
-                        <h4 className="font-semibold text-base mb-2 mt-6 text-red-700 flex items-center gap-2">🩺 Sağlık Bilgileri</h4>
-                        <table className="w-full mb-4 bg-red-50 rounded-lg overflow-hidden">
-                          <tbody>
-                            {Array.isArray(selectedClientData.healthConditions) && selectedClientData.healthConditions.length > 0 && (
-                              <tr>
-                                <td className="py-2 px-3 font-medium">🩺 Hastalıklar</td>
-                                <td className="py-2 px-3">{selectedClientData.healthConditions.map((k: string) => getLabel(k, medicalConditionLabels)).join(', ')}</td>
-                              </tr>
-                            )}
-                            {Array.isArray(selectedClientData.allergies) && selectedClientData.allergies.length > 0 && (
-                              <tr>
-                                <td className="py-2 px-3 font-medium">🌸 Alerjiler</td>
-                                <td className="py-2 px-3">{selectedClientData.allergies.map((k: string) => getLabel(k, allergyLabels)).join(', ')}</td>
-                              </tr>
-                            )}
-                            {Array.isArray(extraClientInfo.medications) && extraClientInfo.medications.length > 0 && (
-                              <tr>
-                                <td className="py-2 px-3 font-medium">💊 İlaçlar</td>
-                                <td className="py-2 px-3">{extraClientInfo.medications.map((k: string) => getLabel(k, medicationLabels)).join(', ')}</td>
-                              </tr>
-                            )}
-                            {Array.isArray(extraClientInfo.dietPreferences) && extraClientInfo.dietPreferences.length > 0 && (
-                              <tr>
-                                <td className="py-2 px-3 font-medium">🥗 Diyet Tercihleri</td>
-                                <td className="py-2 px-3">{extraClientInfo.dietPreferences.map((k: string) => getLabel(k, dietPreferenceLabels)).join(', ')}</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </>
-                    )}
+                        {/* Diyet Planı Ayarları */}
+                        <div className="space-y-6">
+                          <h3 className="text-lg font-semibold">Diyet Planı Ayarları</h3>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="dietType"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Diyet Tipi</FormLabel>
+                                  <Select
+                                    onValueChange={(value) => {
+                                      field.onChange(value);
+                                      handleDietTypeChange(value as DietType);
+                                    }}
+                                    defaultValue={field.value}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Diyet tipi seçin" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {dietTypes.map((type) => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                          {type.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                    {/* Ek Diyet Planı Bilgileri */}
-                    <h4 className="font-semibold text-base mb-2 mt-6 text-yellow-700 flex items-center gap-2">📝 Ek Diyet Planı Bilgileri</h4>
-                    <form onSubmit={e => { e.preventDefault(); onSubmit({ ...selectedClientData, ...extraForm }); }} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="font-medium">Öğün Sayısı</label>
-                          <select
-                            className="w-full border rounded p-2"
-                            value={extraForm.mealCount}
-                            onChange={e => setExtraForm(f => ({ ...f, mealCount: Number(e.target.value) }))}
-                          >
-                            <option value={1}>1</option>
-                            <option value={2}>2</option>
-                            <option value={3}>3</option>
-                            <option value={4}>4</option>
-                            <option value={5}>5</option>
-                            <option value={6}>6</option>
-                          </select>
+                            <FormField
+                              control={form.control}
+                              name="mainMeals"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Ana Öğün Sayısı</FormLabel>
+                                  <FormControl>
+                                    <Select
+                                      onValueChange={(value) => field.onChange(Number(value))}
+                                      defaultValue={field.value.toString()}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Ana öğün sayısı seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="1">1 Öğün</SelectItem>
+                                        <SelectItem value="2">2 Öğün</SelectItem>
+                                        <SelectItem value="3">3 Öğün</SelectItem>
+                                        <SelectItem value="4">4 Öğün</SelectItem>
+                                        <SelectItem value="5">5 Öğün</SelectItem>
+                                        <SelectItem value="6">6 Öğün</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="snackCount"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Ara Öğün Sayısı</FormLabel>
+                                  <FormControl>
+                                    <Select
+                                      onValueChange={(value) => field.onChange(Number(value))}
+                                      defaultValue={field.value.toString()}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Ara öğün sayısı seçin" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="0">Ara Öğün Yok</SelectItem>
+                                        <SelectItem value="1">1 Ara Öğün</SelectItem>
+                                        <SelectItem value="2">2 Ara Öğün</SelectItem>
+                                        <SelectItem value="3">3 Ara Öğün</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="healthyFoodRatio"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Sağlıklı Besin Oranı (%)</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      min={0} 
+                                      max={100} 
+                                      {...field} 
+                                      onChange={e => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Diyet planındaki sağlıklı besinlerin yüzdesi (Kalan kısım junk food olacak)
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <div className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="dislikedFoods"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Sevilmeyen Yiyecekler</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder="Sevilmeyen yiyecekleri virgülle ayırarak yazın"
+                                      {...field}
+                                      onChange={e => field.onChange(e.target.value.split(',').map(s => s.trim()))}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Diyet planında yer almasını istemediğiniz yiyecekleri yazın
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="font-medium">Uyku Saati</label>
-                          <input
-                            type="time"
-                            className="w-full border rounded p-2"
-                            value={extraForm.sleepTime}
-                            onChange={e => setExtraForm(f => ({ ...f, sleepTime: e.target.value }))}
-                          />
+
+                        <div className="flex justify-end space-x-4">
+                          <Button type="submit" disabled={isGenerating}>
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Oluşturuluyor...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Diyet Planı Oluştur
+                              </>
+                            )}
+                          </Button>
                         </div>
-                        <div>
-                          <label className="font-medium">Uyanma Saati</label>
-                          <input
-                            type="time"
-                            className="w-full border rounded p-2"
-                            value={extraForm.wakeTime}
-                            onChange={e => setExtraForm(f => ({ ...f, wakeTime: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-medium">Egzersiz Türü</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded p-2"
-                            placeholder="Örn: Yürüyüş, Fitness"
-                            value={extraForm.exerciseType}
-                            onChange={e => setExtraForm(f => ({ ...f, exerciseType: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-medium">Egzersiz Sıklığı</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded p-2"
-                            placeholder="Örn: Haftada 3 gün"
-                            value={extraForm.exerciseFrequency}
-                            onChange={e => setExtraForm(f => ({ ...f, exerciseFrequency: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-medium">Sevdiği Yiyecekler</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded p-2"
-                            placeholder="Örn: Tavuk, Yoğurt"
-                            value={extraForm.foodLikes}
-                            onChange={e => setExtraForm(f => ({ ...f, foodLikes: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-medium">Sevmediği Yiyecekler</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded p-2"
-                            placeholder="Örn: Balık, Brokoli"
-                            value={extraForm.foodDislikes}
-                            onChange={e => setExtraForm(f => ({ ...f, foodDislikes: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-medium">Günlük Su Tüketimi (Litre)</label>
-                          <input
-                            type="number"
-                            className="w-full border rounded p-2"
-                            min={0.5}
-                            step={0.1}
-                            value={extraForm.dailyWater}
-                            onChange={e => setExtraForm(f => ({ ...f, dailyWater: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end mt-4 gap-2">
-                        <Button type="submit" className="bg-green-600 text-white">Diyet Planı Oluştur</Button>
-                      </div>
-                    </form>
+                      </form>
+                    </Form>
                   </CardContent>
                   <CardFooter className="flex justify-between">
                     <Button 
@@ -849,7 +1287,7 @@ export default function CreateAIDietPlan() {
                 </CardHeader>
                 <CardContent>
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={handleFormSubmit} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-6">
                           <h3 className="text-lg font-semibold">Kişisel Bilgiler</h3>
@@ -1009,37 +1447,6 @@ export default function CreateAIDietPlan() {
 
                           <FormField
                             control={form.control}
-                            name="dietType"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Diet Type</FormLabel>
-                                <Select 
-                                  onValueChange={(value: DietType) => {
-                                    field.onChange(value);
-                                    handleDietTypeChange(value);
-                                  }} 
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select diet type" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {dietTypes.map((type) => (
-                                      <SelectItem key={type.value} value={type.value}>
-                                        {type.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
                             name="calorieGoal"
                             render={({ field }) => (
                               <FormItem>
@@ -1159,14 +1566,14 @@ export default function CreateAIDietPlan() {
                             <div className="grid grid-cols-2 gap-4">
                               <FormField
                                 control={form.control}
-                                name="meals"
+                                name="mainMeals"
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Günlük Öğün Sayısı</FormLabel>
                                     <FormControl>
                                       <Input 
                                         type="number" 
-                                        min={2} 
+                                        min={1} 
                                         max={6} 
                                         {...field} 
                                         onChange={e => field.onChange(Number(e.target.value))}
@@ -1188,27 +1595,6 @@ export default function CreateAIDietPlan() {
                                       <FormLabel className="text-base">Atıştırmalık Dahil Et</FormLabel>
                                       <FormDescription>
                                         Diyet planına atıştırmalıklar eklensin mi?
-                                      </FormDescription>
-                                    </div>
-                                    <FormControl>
-                                      <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="includeDessert"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-row items-center justify-between space-y-0 rounded-lg border p-4">
-                                    <div className="space-y-1">
-                                      <FormLabel className="text-base">Tatlı Dahil Et</FormLabel>
-                                      <FormDescription>
-                                        Diyet planına tatlılar eklensin mi?
                                       </FormDescription>
                                     </div>
                                     <FormControl>
@@ -1256,6 +1642,31 @@ export default function CreateAIDietPlan() {
       </div>
       {generatedDietPlan && (
         <DietPlanResult initialPlan={generatedDietPlan} />
+      )}
+      {isGenerating && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            <div className="text-center mb-6">
+              <Sparkles className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-pulse" />
+              <h3 className="text-xl font-semibold mb-2">Diyet Planı Oluşturuluyor</h3>
+              <p className="text-gray-600">Yapay zeka diyet planınızı hazırlıyor...</p>
+            </div>
+            
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${generationProgress}%` }}
+              ></div>
+            </div>
+            
+            <div className="text-center text-sm text-gray-500">
+              {generationProgress < 30 && "Danışan bilgileri analiz ediliyor..."}
+              {generationProgress >= 30 && generationProgress < 60 && "Besin değerleri hesaplanıyor..."}
+              {generationProgress >= 60 && generationProgress < 90 && "Öğün planı oluşturuluyor..."}
+              {generationProgress >= 90 && "Son düzenlemeler yapılıyor..."}
+            </div>
+          </div>
+        </div>
       )}
     </ProtectedFeature>
   );

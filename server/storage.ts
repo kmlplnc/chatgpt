@@ -34,9 +34,11 @@ import {
   type InsertNotification,
   clientNotes
 } from "@shared/schema";
-import db from "./db";
+import { PrismaClient } from '@prisma/client';
 import { and, desc, eq, sql, count, inArray, like } from "drizzle-orm";
 import { json } from "drizzle-orm/pg-core";
+
+const prisma = new PrismaClient();
 
 // Helper function for pagination
 function paginate<T>(query: any, limit?: number, offset?: number): any {
@@ -254,8 +256,7 @@ export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | null> {
     try {
-      const result = await db.select().from(users).where(eq(users.id, id));
-      return result[0] || null;
+      return await prisma.user.findUnique({ where: { id: Number(id) } });
     } catch (error) {
       console.error('Error getting user:', error);
       throw error;
@@ -265,13 +266,7 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | null> {
     try {
       console.log('Getting user by username:', username);
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, username));
-      
-      console.log('User found:', user ? { ...user, password: '[REDACTED]' } : null);
-      return user || null;
+      return await prisma.user.findUnique({ where: { username } });
     } catch (error) {
       console.error('Error getting user by username:', error);
       throw error;
@@ -281,18 +276,9 @@ export class DatabaseStorage implements IStorage {
   async createUser(data: CreateUserInput): Promise<User> {
     try {
       console.log('Creating user with data:', { ...data, password: '[REDACTED]' });
-      
-      // Validate required fields
       if (!data.username || !data.email || !data.password) {
-        console.error('Missing required fields:', {
-          hasUsername: !!data.username,
-          hasEmail: !!data.email,
-          hasPassword: !!data.password
-        });
         throw new Error('Missing required fields');
       }
-      
-      // Prepare user data
       const userData = {
         username: data.username,
         email: data.email,
@@ -303,31 +289,12 @@ export class DatabaseStorage implements IStorage {
         subscriptionPlan: data.subscriptionPlan || null,
         subscriptionStartDate: data.subscriptionStartDate || null,
         subscriptionEndDate: data.subscriptionEndDate || null,
-        createdAt: new Date(),
-        updatedAt: new Date()
       };
-      
-      console.log('Prepared user data:', { ...userData, password: '[REDACTED]' });
-      
-      const result = await db.insert(users).values(userData).returning();
-
-      console.log('User created successfully:', { ...result[0], password: '[REDACTED]' });
-
-      if (!result || result.length === 0) {
-        throw new Error('Failed to create user');
-      }
-
-      return result[0];
+      return await prisma.user.create({ data: userData });
     } catch (error) {
       console.error('Error creating user:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-        if (error.message.includes('duplicate key')) {
-          throw new Error('Username or email already exists');
-        }
+      if (error instanceof Error && error.message.includes('Unique constraint')) {
+        throw new Error('Username or email already exists');
       }
       throw error;
     }
@@ -335,13 +302,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateUser(id: string, data: UpdateUserInput): Promise<User | null> {
     try {
-      const result = await db.update(users)
-        .set({
-          ...data
-        })
-        .where(eq(users.id, id))
-        .returning();
-      return result[0] || null;
+      return await prisma.user.update({ where: { id: Number(id) }, data });
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
@@ -350,10 +311,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<boolean> {
     try {
-      const result = await db.delete(users)
-        .where(eq(users.id, id))
-        .returning();
-      return result.length > 0;
+      await prisma.user.delete({ where: { id: Number(id) } });
+      return true;
     } catch (error) {
       console.error('Error deleting user:', error);
       throw error;
@@ -362,7 +321,7 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     try {
-      return await db.select().from(users).orderBy(users.createdAt);
+      return await prisma.user.findMany({ orderBy: { created_at: 'asc' } });
     } catch (error) {
       console.error('Error getting all users:', error);
       throw error;
@@ -371,13 +330,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserSubscription(id: string, data: UpdateSubscriptionInput): Promise<User | null> {
     try {
-      const result = await db.update(users)
-        .set({
-          ...data
-        })
-        .where(eq(users.id, id))
-        .returning();
-      return result[0] || null;
+      return await prisma.user.update({ where: { id: Number(id) }, data });
     } catch (error) {
       console.error('Error updating user subscription:', error);
       throw error;
@@ -386,7 +339,7 @@ export class DatabaseStorage implements IStorage {
 
   // Client operations
   async getClient(id: number): Promise<Client | undefined> {
-    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    const [client] = await prisma.client.findMany({ where: { id } });
     return client;
   }
 
@@ -420,9 +373,9 @@ export class DatabaseStorage implements IStorage {
       created_at: new Date(),
       updated_at: new Date()
     };
-    const [inserted] = await db.insert(clients).values(dbClient).returning({ id: clients.id });
+    const [inserted] = await prisma.client.create({ data: dbClient }).returning({ id: clients.id });
     // Fetch full client row after insert
-    const [newClient] = await db.select().from(clients).where(eq(clients.id, inserted.id));
+    const [newClient] = await prisma.client.findMany({ where: { id: inserted.id } });
     return newClient;
   }
 
@@ -433,11 +386,14 @@ export class DatabaseStorage implements IStorage {
     // Handle height separately if it exists
     if (updatedData.height !== undefined && updatedData.height !== null) {
       // Use raw SQL to ensure proper numeric type handling
-      await db.execute(sql`
-        UPDATE clients 
-        SET height = ${updatedData.height}::numeric(5,2)
-        WHERE id = ${id}
-      `);
+      await prisma.client.update({
+        where: { id },
+        data: {
+          height: {
+            set: updatedData.height
+          }
+        }
+      });
       // Remove height from the update object since we handled it separately
       const { height, ...restData } = updatedData;
       updatedData = restData;
@@ -446,11 +402,14 @@ export class DatabaseStorage implements IStorage {
     // Handle client_visible_notes separately if it exists
     if (updatedData.client_visible_notes !== undefined) {
       // Ensure client_visible_notes is stored as a JSON array
-      await db.execute(sql`
-        UPDATE clients 
-        SET client_visible_notes = ${JSON.stringify(updatedData.client_visible_notes)}::jsonb
-        WHERE id = ${id}
-      `);
+      await prisma.client.update({
+        where: { id },
+        data: {
+          client_visible_notes: {
+            set: updatedData.client_visible_notes
+          }
+        }
+      });
       // Remove client_visible_notes from the update object since we handled it separately
       const { client_visible_notes, ...restData } = updatedData;
       updatedData = restData;
@@ -458,45 +417,43 @@ export class DatabaseStorage implements IStorage {
 
     // Handle diet_preferences separately if it exists
     if (updatedData.diet_preferences !== undefined) {
-      await db.execute(sql`
-        UPDATE clients
-        SET diet_preferences = ${updatedData.diet_preferences}
-        WHERE id = ${id}
-      `);
+      await prisma.client.update({
+        where: { id },
+        data: {
+          diet_preferences: {
+            set: updatedData.diet_preferences
+          }
+        }
+      });
       const { diet_preferences, ...restData } = updatedData;
       updatedData = restData;
     }
 
     // Update remaining fields and get the updated client
-    const [updatedClient] = await db.update(clients)
-      .set({
+    const [updatedClient] = await prisma.client.update({
+      where: { id },
+      data: {
         ...updatedData,
         updated_at: new Date()
-      })
-      .where(eq(clients.id, id))
-      .returning();
+      }
+    }).returning();
 
-    // Get the updated client with all fields to ensure we have the correct height
-    const [finalClient] = await db.select()
-      .from(clients)
-      .where(eq(clients.id, id));
-
-    return finalClient;
+    return updatedClient;
   }
 
   async deleteClient(id: number): Promise<boolean> {
     try {
-      const client = await db.select().from(clients).where(eq(clients.id, id));
-      if (!client || client.length === 0) {
+      const client = await prisma.client.findUnique({ where: { id } });
+      if (!client) {
         return false;
       }
-      await db.transaction(async (tx) => {
-        await tx.delete(measurements).where(eq(measurements.clientId, id));
-        await tx.delete(appointments).where(eq(appointments.clientId, id));
-        await tx.delete(messages).where(eq(messages.clientId, id));
-        await tx.delete(notifications).where(eq(notifications.clientId, id));
-        await tx.delete(clientSessions).where(eq(clientSessions.clientId, id));
-        await tx.delete(clients).where(eq(clients.id, id));
+      await prisma.transaction(async (tx) => {
+        await tx.delete(prisma.measurement).where(eq(prisma.measurement.clientId, id));
+        await tx.delete(prisma.appointment).where(eq(prisma.appointment.clientId, id));
+        await tx.delete(prisma.message).where(eq(prisma.message.clientId, id));
+        await tx.delete(prisma.notification).where(eq(prisma.notification.clientId, id));
+        await tx.delete(prisma.clientSession).where(eq(prisma.clientSession.clientId, id));
+        await tx.delete(prisma.client).where(eq(prisma.client.id, id));
       });
       return true;
     } catch (error) {
@@ -509,10 +466,10 @@ export class DatabaseStorage implements IStorage {
     if (!userId) {
       throw new Error('Invalid userId');
     }
-    let query = db.select()
-      .from(clients)
-      .where(eq(clients.user_id, userId))
-      .orderBy(desc(clients.created_at));
+    let query = prisma.client.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' }
+    });
     query = paginate(query, limit, offset);
     return query;
   }
@@ -522,9 +479,9 @@ export class DatabaseStorage implements IStorage {
       if (userId) {
         return this.getAllClients(userId, limit, offset);
       } else {
-        let query = db.select()
-          .from(clients)
-          .orderBy(desc(clients.created_at));
+        let query = prisma.client.findMany({
+          orderBy: { created_at: 'desc' }
+        });
         query = paginate(query, limit, offset);
         return query;
       }
@@ -536,7 +493,7 @@ export class DatabaseStorage implements IStorage {
 
   // Measurement operations
   async getMeasurement(id: number): Promise<Measurement | undefined> {
-    const [measurement] = await db.select().from(measurements).where(eq(measurements.id, id));
+    const [measurement] = await prisma.measurement.findMany({ where: { id } });
     return measurement;
   }
 
@@ -566,30 +523,30 @@ export class DatabaseStorage implements IStorage {
     };
     console.log("Drizzle insert obj:", insertObj);
 
-    const [newMeasurement] = await db.insert(measurements).values(insertObj).returning();
+    const [newMeasurement] = await prisma.measurement.create({ data: insertObj }).returning();
     return newMeasurement;
   }
 
   async updateMeasurement(id: number, measurement: Partial<Measurement>): Promise<Measurement> {
-    const [updatedMeasurement] = await db.update(measurements)
-      .set({
+    const [updatedMeasurement] = await prisma.measurement.update({
+      where: { id },
+      data: {
         ...measurement,
         updatedAt: new Date()
-      })
-      .where(eq(measurements.id, id))
-      .returning();
+      }
+    }).returning();
     return updatedMeasurement;
   }
 
   async deleteMeasurement(id: number): Promise<void> {
-    await db.delete(measurements).where(eq(measurements.id, id));
+    await prisma.measurement.delete({ where: { id } });
   }
 
   async getClientMeasurements(clientId: number, limit?: number, offset?: number): Promise<Measurement[]> {
-    let query = db.select()
-      .from(measurements)
-      .where(eq(measurements.clientId, clientId))
-      .orderBy(desc(measurements.date));
+    let query = prisma.measurement.findMany({
+      where: { clientId },
+      orderBy: { date: 'desc' }
+    });
     query = paginate(query, limit, offset);
     const rows = await query;
     // Ölçümleri döndürürken hem camelCase hem snake_case alanları ekle
@@ -602,37 +559,39 @@ export class DatabaseStorage implements IStorage {
 
   // Diet plan operations
   async getDietPlan(id: number): Promise<DietPlan | undefined> {
-    const [dietPlan] = await db.select().from(dietPlans).where(eq(dietPlans.id, id));
+    const [dietPlan] = await prisma.dietPlan.findMany({ where: { id } });
     return dietPlan;
   }
 
   async createDietPlan(dietPlan: InsertDietPlan): Promise<DietPlan> {
-    const [newDietPlan] = await db.insert(dietPlans).values({
-      ...dietPlan,
-      createdAt: new Date(),
-      updatedAt: new Date()
+    const [newDietPlan] = await prisma.dietPlan.create({
+      data: {
+        ...dietPlan,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
     }).returning();
     return newDietPlan;
   }
 
   async updateDietPlan(id: number, dietPlan: Partial<DietPlan>): Promise<DietPlan> {
-    const [updatedDietPlan] = await db.update(dietPlans)
-      .set({
+    const [updatedDietPlan] = await prisma.dietPlan.update({
+      where: { id },
+      data: {
         ...dietPlan,
         updatedAt: new Date()
-      })
-      .where(eq(dietPlans.id, id))
-      .returning();
+      }
+    }).returning();
     return updatedDietPlan;
   }
 
   async deleteDietPlan(id: number): Promise<void> {
-    await db.delete(dietPlans).where(eq(dietPlans.id, id));
+    await prisma.dietPlan.delete({ where: { id } });
   }
 
   async getUserDietPlans(userId: string, limit?: number, offset?: number): Promise<DietPlan[]> {
     console.log("userId param:", userId, typeof userId);
-    let query = db.select().from(dietPlans);
+    let query = prisma.dietPlan.findMany();
     const result = await query;
     console.log("TÜM PLANLAR:", result);
     return result;
@@ -640,65 +599,75 @@ export class DatabaseStorage implements IStorage {
 
   // Food operations
   async getFood(fdcId: string): Promise<Food | undefined> {
-    const [food] = await db.select().from(foods).where(eq(foods.fdcId, fdcId));
+    const [food] = await prisma.food.findMany({ where: { fdcId } });
     return food;
   }
 
   async createFood(food: InsertFood): Promise<Food> {
-    const [newFood] = await db.insert(foods).values({
-      ...food,
-      createdAt: new Date()
+    const [newFood] = await prisma.food.create({
+      data: {
+        ...food,
+        createdAt: new Date()
+      }
     }).returning();
     return newFood;
   }
 
   async updateFood(fdcId: string, food: Partial<Food>): Promise<Food> {
-    const [updatedFood] = await db.update(foods)
-      .set(food)
-      .where(eq(foods.fdcId, fdcId))
-      .returning();
+    const [updatedFood] = await prisma.food.update({
+      where: { fdcId },
+      data: food
+    }).returning();
     return updatedFood;
   }
 
   async deleteFood(fdcId: string): Promise<void> {
-    await db.delete(foods).where(eq(foods.fdcId, fdcId));
+    await prisma.food.delete({ where: { fdcId } });
   }
 
   async searchFoods(query: string, limit?: number, offset?: number): Promise<Food[]> {
-    let sqlQuery = db.select()
-      .from(foods)
-      .where(like(foods.description, `%${query}%`))
-      .orderBy(foods.description);
+    let sqlQuery = prisma.food.findMany({
+      where: {
+        description: {
+          contains: query,
+          mode: 'insensitive'
+        }
+      },
+      orderBy: { description: 'asc' }
+    });
     sqlQuery = paginate(sqlQuery, limit, offset);
     return sqlQuery;
   }
 
   // Saved food operations
   async getSavedFood(userId: string): Promise<SavedFood[]> {
-    let query = db.select()
-      .from(savedFoods)
-      .where(eq(savedFoods.userId, userId))
-      .orderBy(desc(savedFoods.createdAt));
+    let query = prisma.savedFood.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
     return query;
   }
 
   async createSavedFood(savedFood: InsertSavedFood): Promise<SavedFood> {
-    const [newSavedFood] = await db.insert(savedFoods).values({
-      ...savedFood,
-      createdAt: new Date()
+    const [newSavedFood] = await prisma.savedFood.create({
+      data: {
+        ...savedFood,
+        createdAt: new Date()
+      }
     }).returning();
     return newSavedFood;
   }
 
   async deleteSavedFood(userId: string, fdcId: string): Promise<boolean> {
     try {
-      await db.delete(savedFoods)
-        .where(
-          and(
-            eq(savedFoods.userId, userId),
-            eq(savedFoods.fdcId, fdcId)
-          )
-        );
+      await prisma.savedFood.delete({
+        where: {
+          userId_fdcId: {
+            userId,
+            fdcId
+          }
+        }
+      });
       return true;
     } catch (error) {
       console.error("Delete saved food error:", error);
@@ -707,49 +676,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async isFoodSaved(userId: string, fdcId: string): Promise<boolean> {
-    const [savedFood] = await db.select()
-      .from(savedFoods)
-      .where(
-        and(
-          eq(savedFoods.userId, userId),
-          eq(savedFoods.fdcId, fdcId)
-        )
-      );
+    const [savedFood] = await prisma.savedFood.findMany({
+      where: {
+        userId,
+        fdcId
+      }
+    });
     return !!savedFood;
   }
 
   async getUserSavedFoods(userId: string, limit?: number, offset?: number): Promise<SavedFood[]> {
-    let query = db.select()
-      .from(savedFoods)
-      .where(eq(savedFoods.userId, userId))
-      .orderBy(desc(savedFoods.createdAt));
+    let query = prisma.savedFood.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
     query = paginate(query, limit, offset);
     return query;
   }
 
   // Client session operations
   async getClientSession(sessionToken: string): Promise<ClientSession | undefined> {
-    const [session] = await db.select()
-      .from(clientSessions)
-      .where(eq(clientSessions.sessionToken, sessionToken));
+    const [session] = await prisma.clientSession.findMany({ where: { sessionToken } });
     return session;
   }
 
   async createClientSession(session: InsertClientSession): Promise<ClientSession> {
-    const [newSession] = await db.insert(clientSessions).values({
-      ...session,
-      createdAt: new Date(),
-      lastActivity: new Date()
+    const [newSession] = await prisma.clientSession.create({
+      data: {
+        ...session,
+        createdAt: new Date(),
+        lastActivity: new Date()
+      }
     }).returning();
     return newSession;
   }
 
   // Client Portal operations
   async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
-    const [client] = await db
-      .select()
-      .from(clients)
-      .where(eq(clients.access_code, accessCode));
+    const [client] = await prisma.client.findMany({ where: { access_code: accessCode } });
     
     return client;
   }
@@ -777,10 +741,10 @@ export class DatabaseStorage implements IStorage {
     } while (!isUnique);
     
     // Add the code to the client record
-    await db
-      .update(clients)
-      .set({ access_code: code })
-      .where(eq(clients.id, clientId));
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { access_code: code }
+    });
     
     return code;
   }
@@ -788,10 +752,10 @@ export class DatabaseStorage implements IStorage {
   // Update client access code
   async updateClientAccessCode(clientId: number, accessCode: string): Promise<boolean> {
     try {
-      await db
-        .update(clients)
-        .set({ access_code: accessCode })
-        .where(eq(clients.id, clientId));
+      await prisma.client.update({
+        where: { id: clientId },
+        data: { access_code: accessCode }
+      });
       
       return true;
     } catch (error) {
@@ -802,10 +766,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateClientSessionActivity(sessionToken: string): Promise<boolean> {
     try {
-      await db
-        .update(clientSessions)
-        .set({ lastActivity: new Date() })
-        .where(eq(clientSessions.sessionToken, sessionToken));
+      await prisma.clientSession.update({
+        where: { sessionToken },
+        data: { lastActivity: new Date() }
+      });
       
       return true;
     } catch (error) {
@@ -816,9 +780,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientSession(sessionToken: string): Promise<boolean> {
     try {
-      await db
-        .delete(clientSessions)
-        .where(eq(clientSessions.sessionToken, sessionToken));
+      await prisma.clientSession.delete({ where: { sessionToken } });
       
       return true;
     } catch (error) {
@@ -828,17 +790,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await db.delete(clientSessions)
-      .where(sql`${clientSessions.expiresAt} < NOW()`);
+    await prisma.clientSession.deleteMany({
+      where: { expiresAt: { lt: new Date() } }
+    });
   }
 
   // Appointment operations
   async getAppointment(id: number): Promise<Appointment | undefined> {
     try {
-      const [appointment] = await db
-        .select()
-        .from(appointments)
-        .where(eq(appointments.id, id));
+      const [appointment] = await prisma.appointment.findMany({ where: { id } });
       return appointment;
     } catch (error) {
       console.error('Error getting appointment:', error);
@@ -849,11 +809,13 @@ export class DatabaseStorage implements IStorage {
   async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
     try {
       const validUserId = safeUUIDConversion(appointment.userId);
-      const [newAppointment] = await db.insert(appointments).values({
-        ...appointment,
-        userId: validUserId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+      const [newAppointment] = await prisma.appointment.create({
+        data: {
+          ...appointment,
+          userId: validUserId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
       }).returning();
       return newAppointment;
     } catch (error) {
@@ -865,14 +827,14 @@ export class DatabaseStorage implements IStorage {
   async updateAppointment(id: number, appointment: Partial<Appointment>): Promise<Appointment> {
     try {
       const validUserId = appointment.userId ? safeUUIDConversion(appointment.userId) : undefined;
-      const [updatedAppointment] = await db.update(appointments)
-        .set({
+      const [updatedAppointment] = await prisma.appointment.update({
+        where: { id },
+        data: {
           ...appointment,
           userId: validUserId,
           updatedAt: new Date()
-        })
-        .where(eq(appointments.id, id))
-        .returning();
+        }
+      }).returning();
       return updatedAppointment;
     } catch (error) {
       console.error('Error updating appointment:', error);
@@ -881,14 +843,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAppointment(id: number): Promise<void> {
-    await db.delete(appointments).where(eq(appointments.id, id));
+    await prisma.appointment.delete({ where: { id } });
   }
 
   async getClientAppointments(clientId: number, limit?: number, offset?: number): Promise<Appointment[]> {
-    let query = db.select()
-      .from(appointments)
-      .where(eq(appointments.clientId, clientId))
-      .orderBy(desc(appointments.date));
+    let query = prisma.appointment.findMany({
+      where: { clientId },
+      orderBy: { date: 'desc' }
+    });
     query = paginate(query, limit, offset);
     return query;
   }
@@ -896,11 +858,10 @@ export class DatabaseStorage implements IStorage {
   async getUserAppointments(userId: string, limit?: number, offset?: number): Promise<Appointment[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = db
-        .select()
-        .from(appointments)
-        .where(eq(appointments.userId, validUserId))
-        .orderBy(desc(appointments.date));
+      const query = prisma.appointment.findMany({
+        where: { userId: validUserId },
+        orderBy: { date: 'desc' }
+      });
       return await paginate(query, limit, offset);
     } catch (error) {
       console.error('Error getting user appointments:', error);
@@ -910,7 +871,7 @@ export class DatabaseStorage implements IStorage {
 
   // Message operations
   async getMessage(id: number): Promise<Message | undefined> {
-    const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    const [message] = await prisma.message.findMany({ where: { id } });
     return message;
   }
 
@@ -921,16 +882,13 @@ export class DatabaseStorage implements IStorage {
   async getMessages(clientId: number, userId: string): Promise<Message[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = db
-        .select()
-        .from(messages)
-        .where(
-          and(
-            eq(messages.clientId, clientId),
-            eq(messages.userId, validUserId)
-          )
-        )
-        .orderBy(desc(messages.createdAt));
+      const query = prisma.message.findMany({
+        where: {
+          clientId,
+          userId: validUserId
+        },
+        orderBy: { createdAt: 'desc' }
+      });
       return query;
     } catch (error) {
       console.error('Error getting messages:', error);
@@ -939,30 +897,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const [newMessage] = await db.insert(messages).values({
-      ...message,
-      createdAt: new Date()
+    const [newMessage] = await prisma.message.create({
+      data: {
+        ...message,
+        createdAt: new Date()
+      }
     }).returning();
     return newMessage;
   }
 
   async updateMessage(id: number, message: Partial<Message>): Promise<Message> {
-    const [updatedMessage] = await db.update(messages)
-      .set(message)
-      .where(eq(messages.id, id))
-      .returning();
+    const [updatedMessage] = await prisma.message.update({
+      where: { id },
+      data: message
+    }).returning();
     return updatedMessage;
   }
 
   async deleteMessage(id: number): Promise<void> {
-    await db.delete(messages).where(eq(messages.id, id));
+    await prisma.message.delete({ where: { id } });
   }
 
   async getClientMessages(clientId: number, limit?: number, offset?: number): Promise<Message[]> {
-    let query = db.select()
-      .from(messages)
-      .where(eq(messages.clientId, clientId))
-      .orderBy(desc(messages.createdAt));
+    let query = prisma.message.findMany({
+      where: { clientId },
+      orderBy: { createdAt: 'desc' }
+    });
     query = paginate(query, limit, offset);
     return query;
   }
@@ -970,11 +930,10 @@ export class DatabaseStorage implements IStorage {
   async getUserMessages(userId: string, limit?: number, offset?: number): Promise<Message[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = db
-        .select()
-        .from(messages)
-        .where(eq(messages.userId, validUserId))
-        .orderBy(desc(messages.createdAt));
+      const query = prisma.message.findMany({
+        where: { userId: validUserId },
+        orderBy: { createdAt: 'desc' }
+      });
       return await paginate(query, limit, offset);
     } catch (error) {
       console.error('Error getting user messages:', error);
@@ -985,9 +944,10 @@ export class DatabaseStorage implements IStorage {
   // Mesajı okundu olarak işaretle
   async markMessageAsRead(messageId: number): Promise<boolean> {
     try {
-      await db.update(messages)
-        .set({ isRead: true })
-        .where(eq(messages.id, messageId));
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { isRead: true }
+      });
       return true;
     } catch (error) {
       console.error("Message marking error:", error);
@@ -999,15 +959,13 @@ export class DatabaseStorage implements IStorage {
   async markAllClientMessagesAsRead(clientId: number, userId: string): Promise<boolean> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await db
-        .update(messages)
-        .set({ isRead: true })
-        .where(
-          and(
-            eq(messages.clientId, clientId),
-            eq(messages.userId, validUserId)
-          )
-        );
+      await prisma.message.updateMany({
+        where: {
+          clientId,
+          userId: validUserId
+        },
+        data: { isRead: true }
+      });
       return true;
     } catch (error) {
       console.error('Error marking messages as read:', error);
@@ -1019,15 +977,12 @@ export class DatabaseStorage implements IStorage {
   async getUnreadMessages(clientId?: number, userId?: string, forClient?: boolean): Promise<number> {
     try {
       let conditions = [];
-      if (clientId) conditions.push(eq(messages.clientId, clientId));
-      if (userId) conditions.push(eq(messages.userId, safeUUIDConversion(userId)));
-      if (forClient !== undefined) conditions.push(eq(messages.fromClient, !forClient));
-      conditions.push(eq(messages.isRead, false));
-      const [result] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(messages)
-        .where(and(...conditions));
-      return Number(result.count);
+      if (clientId) conditions.push({ clientId });
+      if (userId) conditions.push({ userId: safeUUIDConversion(userId) });
+      if (forClient !== undefined) conditions.push({ fromClient: !forClient });
+      conditions.push({ isRead: false });
+      const [result] = await prisma.message.count({ where: { AND: conditions } });
+      return Number(result);
     } catch (error) {
       console.error("Error getting unread messages:", error);
       return 0;
@@ -1050,11 +1005,11 @@ export class DatabaseStorage implements IStorage {
 
   // Bir danışan için son mesajı getir
   async getLastMessageByClient(clientId: number, userId: string): Promise<Message | undefined> {
-    const [lastMessage] = await db.select()
-      .from(messages)
-      .where(eq(messages.clientId, clientId))
-      .orderBy(desc(messages.createdAt))
-      .limit(1);
+    const [lastMessage] = await prisma.message.findMany({
+      where: { clientId },
+      orderBy: { createdAt: 'desc' },
+      take: 1
+    });
     
     return lastMessage;
   }
@@ -1063,17 +1018,17 @@ export class DatabaseStorage implements IStorage {
   async getLastMessagesForAllClients(userId: string): Promise<any[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      return await db
-        .select({
-          clientId: messages.clientId,
-          lastMessage: messages.content,
-          lastMessageDate: messages.createdAt,
-          isRead: messages.isRead
-        })
-        .from(messages)
-        .where(eq(messages.userId, validUserId))
-        .orderBy(desc(messages.createdAt))
-        .groupBy(messages.clientId, messages.content, messages.createdAt, messages.isRead);
+      return await prisma.message.findMany({
+        select: {
+          clientId: true,
+          content: true,
+          createdAt: true,
+          isRead: true
+        },
+        where: { userId: validUserId },
+        orderBy: { createdAt: 'desc' },
+        groupBy: { clientId, content, createdAt, isRead }
+      });
     } catch (error) {
       console.error('Error getting last messages for all clients:', error);
       throw error;
@@ -1083,9 +1038,10 @@ export class DatabaseStorage implements IStorage {
   // Birden fazla mesajı okundu olarak işaretle
   async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
     try {
-      await db.update(messages)
-        .set({ isRead: true })
-        .where(inArray(messages.id, messageIds));
+      await prisma.message.updateMany({
+        where: { id: { in: messageIds } },
+        data: { isRead: true }
+      });
       return true;
     } catch (error) {
       console.error("Multiple messages marking error:", error);
@@ -1097,14 +1053,12 @@ export class DatabaseStorage implements IStorage {
   async deleteAllMessages(clientId: number, userId: string): Promise<boolean> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await db
-        .delete(messages)
-        .where(
-          and(
-            eq(messages.clientId, clientId),
-            eq(messages.userId, validUserId)
-          )
-        );
+      await prisma.message.deleteMany({
+        where: {
+          clientId,
+          userId: validUserId
+        }
+      });
       return true;
     } catch (error) {
       console.error('Error deleting messages:', error);
@@ -1114,39 +1068,42 @@ export class DatabaseStorage implements IStorage {
 
   // Notification operations
   async getNotification(id: number): Promise<Notification | undefined> {
-    const [notification] = await db.select().from(notifications).where(eq(notifications.id, id));
+    const [notification] = await prisma.notification.findMany({ where: { id } });
     return notification;
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [newNotification] = await db.insert(notifications).values({
-      ...notification,
-      createdAt: new Date()
+    const [newNotification] = await prisma.notification.create({
+      data: {
+        ...notification,
+        createdAt: new Date()
+      }
     }).returning();
     return newNotification;
   }
 
   async updateNotification(id: number, notification: Partial<Notification>): Promise<Notification> {
-    const [updatedNotification] = await db.update(notifications)
-      .set(notification)
-      .where(eq(notifications.id, id))
-      .returning();
+    const [updatedNotification] = await prisma.notification.update({
+      where: { id },
+      data: notification
+    }).returning();
     return updatedNotification;
   }
 
   async deleteNotification(id: number): Promise<void> {
-    await db.delete(notifications).where(eq(notifications.id, id));
+    await prisma.notification.delete({ where: { id } });
   }
 
   async getUserNotifications(userId: string, limit?: number, offset?: number): Promise<Notification[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = db
-        .select()
-        .from(notifications)
-        .where(eq(notifications.userId, validUserId))
-        .orderBy(desc(notifications.createdAt));
-      return await paginate(query, limit, offset);
+      const query = prisma.notification.findMany({
+        where: { userId: validUserId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset
+      });
+      return query;
     } catch (error) {
       console.error('Error getting user notifications:', error);
       throw error;
@@ -1154,35 +1111,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNotificationById(id: number): Promise<Notification | undefined> {
-    const [notification] = await db.select().from(notifications).where(eq(notifications.id, id));
+    const [notification] = await prisma.notification.findMany({ where: { id } });
     return notification;
   }
 
   async getNotificationsByUserId(userId: string, options?: NotificationOptions): Promise<Notification[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const conditions = [eq(notifications.userId, validUserId)];
+      const conditions = [
+        { userId: validUserId },
+        { type: options?.type },
+        { isRead: options?.isRead }
+      ];
 
-      if (options?.type) {
-        conditions.push(eq(notifications.type, options.type));
-      }
-
-      if (options?.isRead !== undefined) {
-        conditions.push(eq(notifications.isRead, options.isRead));
-      }
-
-      const query = db.select()
-        .from(notifications)
-        .where(and(...conditions))
-        .orderBy(desc(notifications.createdAt));
-
-      if (options?.limit) {
-        query.limit(options.limit);
-      }
-
-      if (options?.offset) {
-        query.offset(options.offset);
-      }
+      const query = prisma.notification.findMany({
+        where: { AND: conditions },
+        orderBy: { createdAt: 'desc' },
+        take: options?.limit,
+        skip: options?.offset
+      });
 
       return query;
     } catch (error) {
@@ -1194,13 +1141,13 @@ export class DatabaseStorage implements IStorage {
   async getUnreadNotificationCount(userId: string): Promise<number> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const result = await db.select({ count: count() })
-        .from(notifications)
-        .where(and(
-          eq(notifications.userId, validUserId),
-          eq(notifications.isRead, false)
-        ));
-      return result[0]?.count || 0;
+      const result = await prisma.notification.count({
+        where: {
+          userId: validUserId,
+          isRead: false
+        }
+      });
+      return Number(result);
     } catch (error) {
       console.error('Error getting unread notification count:', error);
       throw error;
@@ -1208,19 +1155,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markNotificationAsRead(id: number): Promise<Notification> {
-    const [updatedNotification] = await db.update(notifications)
-      .set({ isRead: true })
-      .where(eq(notifications.id, id))
-      .returning();
+    const [updatedNotification] = await prisma.notification.update({
+      where: { id },
+      data: { isRead: true }
+    }).returning();
     return updatedNotification;
   }
 
   async markAllNotificationsAsRead(userId: string): Promise<void> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await db.update(notifications)
-        .set({ isRead: true })
-        .where(eq(notifications.userId, validUserId));
+      await prisma.notification.updateMany({
+        where: { userId: validUserId },
+        data: { isRead: true }
+      });
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       throw error;
@@ -1230,8 +1178,7 @@ export class DatabaseStorage implements IStorage {
   async deleteAllNotifications(userId: string): Promise<void> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await db.delete(notifications)
-        .where(eq(notifications.userId, validUserId));
+      await prisma.notification.deleteMany({ where: { userId: validUserId } });
     } catch (error) {
       console.error('Error deleting all notifications:', error);
       throw error;
@@ -1241,11 +1188,11 @@ export class DatabaseStorage implements IStorage {
   // Bir danışanın son ölçümünü getir
   async getLastMeasurement(clientId: number): Promise<Measurement | undefined> {
     try {
-    const [measurement] = await db.select()
-      .from(measurements)
-      .where(eq(measurements.clientId, clientId))
-      .orderBy(desc(measurements.date))
-      .limit(1);
+    const [measurement] = await prisma.measurement.findMany({
+      where: { clientId },
+      orderBy: { date: 'desc' },
+      take: 1
+    });
     return measurement;
     } catch (error) {
       console.error("Error fetching last measurement:", error);
@@ -1256,10 +1203,10 @@ export class DatabaseStorage implements IStorage {
   // Bir danışanın tüm ölçümlerini getir
   async getMeasurements(clientId: number): Promise<Measurement[]> {
     try {
-      return await db.select()
-        .from(measurements)
-        .where(eq(measurements.clientId, clientId))
-        .orderBy(desc(measurements.date));
+      return await prisma.measurement.findMany({
+        where: { clientId },
+        orderBy: { date: 'desc' }
+      });
     } catch (error) {
       console.error("Error fetching measurements:", error);
       return [];
@@ -1270,14 +1217,14 @@ export class DatabaseStorage implements IStorage {
   async getAppointments(clientId?: number): Promise<Appointment[]> {
     try {
       if (clientId) {
-        return await db.select()
-          .from(appointments)
-          .where(eq(appointments.clientId, clientId))
-          .orderBy(desc(appointments.date));
+        return await prisma.appointment.findMany({
+          where: { clientId },
+          orderBy: { date: 'desc' }
+        });
       } else {
-        return await db.select()
-          .from(appointments)
-          .orderBy(desc(appointments.date));
+        return await prisma.appointment.findMany({
+          orderBy: { date: 'desc' }
+        });
       }
     } catch (error) {
       console.error("Error fetching appointments:", error);
@@ -1312,23 +1259,28 @@ export class DatabaseStorage implements IStorage {
 
   // Çoklu notlar: bir danışanın tüm notlarını getir
   async getClientNotes(clientId: number): Promise<any[]> {
-    return await db.select().from(clientNotes).where(eq(clientNotes.client_id, clientId)).orderBy(desc(clientNotes.created_at));
+    return await prisma.clientNote.findMany({
+      where: { client_id: clientId },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   // Çoklu notlar: yeni not ekle
   async addClientNote(clientId: number, userId: string, content: string): Promise<any> {
-    const [note] = await db.insert(clientNotes).values({
-      client_id: clientId,
-      user_id: userId,
-      content,
-      created_at: new Date()
+    const [note] = await prisma.clientNote.create({
+      data: {
+        client_id: clientId,
+        user_id: userId,
+        content,
+        created_at: new Date()
+      }
     }).returning();
     return note;
   }
 
   // Çoklu notlar: not sil
   async deleteClientNote(noteId: number): Promise<void> {
-    await db.delete(clientNotes).where(eq(clientNotes.id, noteId));
+    await prisma.clientNote.delete({ where: { id: noteId } });
   }
 }
 
@@ -1343,10 +1295,10 @@ export async function createNotification(data: Omit<Notification, "id" | "create
       throw new Error('User ID is required');
     }
     const validUserId = safeUUIDConversion(data.userId);
-    const [notification] = await db
-      .insert(notifications)
-      .values({ ...data, userId: validUserId })
-      .returning();
+    const [notification] = await prisma.notification.create({
+      data: { ...data, userId: validUserId },
+      returning: true
+    });
     return notification;
   } catch (error) {
     console.error('Error creating notification:', error);

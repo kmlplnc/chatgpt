@@ -4,6 +4,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeWebSocket } from "./websocket";
+import cors from 'cors';
+import session from 'express-session';
 
 // Load environment variables from .env file
 config({ path: resolve(process.cwd(), '.env') });
@@ -16,6 +18,26 @@ console.log('Environment variables loaded:', {
 });
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Vite's default port
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

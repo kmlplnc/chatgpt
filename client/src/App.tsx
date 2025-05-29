@@ -26,6 +26,9 @@ import { AuthProvider } from "@/hooks/use-auth";
 import SettingsPage from "@/pages/settings";
 import { ErrorBoundary } from '@/components/error-boundary';
 import VitaminsMineralsPage from "@/pages/vitamins-minerals";
+import DietPlanDetail from "@/pages/diet-plans/[id]";
+import CreateDietPlan from "@/pages/create-diet-plan";
+import Profile from "@/pages/profile";
 
 function Router() {
   const [location] = useLocation();
@@ -64,6 +67,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/diet-plans" component={DietPlans} />
         <Route path="/diet-plans/create-ai" component={CreateAIDietPlan} />
+        <Route path="/diet-plans/:id" component={DietPlanDetail} />
         <Route path="/food-database" component={FoodDatabase} />
         <Route path="/food/:id" component={FoodDetail} />
         <Route path="/health-calculator" component={HealthCalculator} />
@@ -75,6 +79,8 @@ function Router() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/settings" component={SettingsPage} />
         <Route path="/vitamins-minerals" component={VitaminsMineralsPage} />
+        <Route path="/create-diet-plan" component={CreateDietPlan} />
+        <Route path="/profile" component={Profile} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -91,14 +97,11 @@ function App() {
               <main>
                 <div className="flex min-h-screen">
                   <div className="flex-1">
-                    <Router>
-                      <Switch>
-                        // ... existing routes ...
-                      </Switch>
-                    </Router>
+                    <Router />
                   </div>
                 </div>
               </main>
+              <Toaster />
             </div>
           </TooltipProvider>
         </AuthProvider>
