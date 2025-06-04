@@ -52,6 +52,14 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     }
     
     console.log("Password verified, setting session");
+    
+    // Generate session token
+    const token = randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    
+    // Create session in database
+    await storage.createSession(user.id, token, expires);
+    
     // Set express-session user
     req.session.user = {
       id: user.id,
@@ -59,6 +67,15 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       email: user.email || '',
       role: user.role || 'user'
     };
+    
+    // Set session cookie
+    res.cookie('session_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      expires: expires
+    });
+    
     // Remove password from response
     const { password: _, ...safeUser } = user;
     console.log("Login successful for user:", username);
@@ -83,9 +100,9 @@ authRouter.post("/register", async (req: Request, res: Response) => {
       username: req.body.username,
       password: hashedPassword,
       email: req.body.email,
-      full_name: req.body.full_name || req.body.username,
+      name: req.body.full_name || req.body.username,
       role: "user",
-      subscription_status: "free"
+      subscriptionStatus: "free"
     };
     
     console.log("Processed user data:", { ...userData, password: '[REDACTED]' });
@@ -143,14 +160,35 @@ authRouter.post("/register", async (req: Request, res: Response) => {
 });
 
 // Çıkış yönlendirmesi
-authRouter.post("/logout", (req: Request, res: Response) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: "Çıkış yaparken bir hata oluştu" });
+authRouter.post("/logout", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies.session_token;
+    if (token) {
+      try {
+        await storage.deleteSession(token);
+      } catch (error) {
+        console.error("Session deletion error:", error);
+        // Session silme hatası olsa bile çıkış işlemine devam et
+      }
     }
-    res.clearCookie("connect.sid");
-    res.status(200).json({ message: "Başarıyla çıkış yapıldı" });
-  });
+    
+    // Session'ı temizle
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Session destroy error:", err);
+        return res.status(500).json({ message: "Çıkış yaparken bir hata oluştu" });
+      }
+      
+      // Çerezleri temizle
+      res.clearCookie("connect.sid");
+      res.clearCookie("session_token");
+      
+      res.status(200).json({ message: "Başarıyla çıkış yapıldı" });
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ message: "Çıkış yaparken bir hata oluştu" });
+  }
 });
 
 // Kullanıcı bilgisi alma
@@ -177,11 +215,17 @@ authRouter.get("/me", async (req: Request, res: Response) => {
 // Session bilgisi alma
 authRouter.get("/session", async (req: Request, res: Response) => {
   try {
-    if (!req.session.user) {
+    const token = req.cookies.session_token;
+    if (!token) {
       return res.status(401).json({ message: "Oturum açılmamış" });
     }
 
-    const user = await storage.getUser(req.session.user.id);
+    const session = await storage.getSession(token);
+    if (!session || session.expires < new Date()) {
+      return res.status(401).json({ message: "Oturum süresi dolmuş" });
+    }
+
+    const user = await storage.getUser(session.user.id.toString());
     if (!user) {
       return res.status(404).json({ message: "Kullanıcı bulunamadı" });
     }
@@ -190,7 +234,7 @@ authRouter.get("/session", async (req: Request, res: Response) => {
     const { password: _, ...userWithoutPassword } = user;
     res.json({
       user: userWithoutPassword,
-      sessionToken: req.session.id
+      sessionToken: token
     });
   } catch (error) {
     console.error("Session endpoint hatası:", error);

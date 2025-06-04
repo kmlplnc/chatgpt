@@ -1,0 +1,22 @@
+-- Drop all tables in the correct order (due to foreign key constraints)
+DROP TABLE IF EXISTS client_group_members;
+DROP TABLE IF EXISTS client_groups;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS medications_supplements;
+DROP TABLE IF EXISTS client_goals;
+DROP TABLE IF EXISTS progress_photos;
+DROP TABLE IF EXISTS food_journals;
+DROP TABLE IF EXISTS food_nutrients;
+DROP TABLE IF EXISTS saved_foods;
+DROP TABLE IF EXISTS foods;
+DROP TABLE IF EXISTS client_notes;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS attachments;
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS appointments;
+DROP TABLE IF EXISTS diet_plans;
+DROP TABLE IF EXISTS measurements;
+DROP TABLE IF EXISTS client_sessions;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS clients;
+DROP TABLE IF EXISTS users; 

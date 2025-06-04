@@ -32,11 +32,13 @@ import {
   notifications,
   type Notification,
   type InsertNotification,
-  clientNotes
+  clientNotes,
+  sessions
 } from "@shared/schema";
 import { PrismaClient } from '@prisma/client';
 import { and, desc, eq, sql, count, inArray, like } from "drizzle-orm";
 import { json } from "drizzle-orm/pg-core";
+import { db } from "@shared/db";
 
 const prisma = new PrismaClient();
 
@@ -110,7 +112,7 @@ export interface IStorage {
   createMeasurement(measurement: InsertMeasurement): Promise<Measurement>;
   updateMeasurement(id: number, measurement: Partial<Measurement>): Promise<Measurement>;
   deleteMeasurement(id: number): Promise<void>;
-  getClientMeasurements(clientId: number, limit?: number, offset?: number): Promise<Measurement[]>;
+  getClientMeasurements(clientId: number): Promise<Measurement[]>;
 
   // Diet plan operations
   getDietPlan(id: number): Promise<DietPlan | undefined>;
@@ -204,6 +206,12 @@ export interface IStorage {
 
   // Çoklu notlar: not sil
   deleteClientNote(noteId: number): Promise<void>;
+
+  // Session operations
+  createSession(userId: string, token: string, expires: Date): Promise<void>;
+  getSession(token: string): Promise<any>;
+  deleteSession(token: string): Promise<void>;
+  deleteExpiredSessions(): Promise<void>;
 }
 
 // Helper type for pagination
@@ -256,41 +264,77 @@ export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | null> {
     try {
-      return await prisma.user.findUnique({ where: { id: Number(id) } });
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      if (!user) return null;
+      return {
+        id: user.id,
+        username: user.username,
+        password: user.password,
+        email: user.email,
+        full_name: user.full_name || null,
+        role: user.role,
+        subscription_status: user.subscription_status || 'free',
+        subscription_plan: user.subscription_plan,
+        subscription_start_date: user.subscription_start_date,
+        subscription_end_date: user.subscription_end_date,
+        created_at: user.created_at
+      };
     } catch (error) {
       console.error('Error getting user:', error);
-      throw error;
+      return null;
     }
   }
 
   async getUserByUsername(username: string): Promise<User | null> {
     try {
-      console.log('Getting user by username:', username);
-      return await prisma.user.findUnique({ where: { username } });
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      if (!user) return null;
+      return {
+        id: user.id,
+        username: user.username,
+        password: user.password,
+        email: user.email,
+        full_name: user.full_name || null,
+        role: user.role,
+        subscription_status: user.subscription_status || 'free',
+        subscription_plan: user.subscription_plan,
+        subscription_start_date: user.subscription_start_date,
+        subscription_end_date: user.subscription_end_date,
+        created_at: user.created_at
+      };
     } catch (error) {
       console.error('Error getting user by username:', error);
-      throw error;
+      return null;
     }
   }
 
   async createUser(data: CreateUserInput): Promise<User> {
     try {
-      console.log('Creating user with data:', { ...data, password: '[REDACTED]' });
-      if (!data.username || !data.email || !data.password) {
-        throw new Error('Missing required fields');
-      }
       const userData = {
         username: data.username,
         email: data.email,
         password: data.password,
-        name: data.name || data.username,
+        full_name: data.name || data.username,
         role: data.role || 'user',
-        subscriptionStatus: data.subscriptionStatus || 'free',
-        subscriptionPlan: data.subscriptionPlan || null,
-        subscriptionStartDate: data.subscriptionStartDate || null,
-        subscriptionEndDate: data.subscriptionEndDate || null,
+        subscription_status: data.subscriptionStatus || 'free',
+        subscription_plan: data.subscriptionPlan || null,
+        subscription_start_date: data.subscriptionStartDate || null,
+        subscription_end_date: data.subscriptionEndDate || null,
       };
-      return await prisma.user.create({ data: userData });
+      const [user] = await db.insert(users).values(userData).returning();
+      return {
+        id: user.id,
+        username: user.username,
+        password: user.password,
+        email: user.email,
+        full_name: user.full_name || null,
+        role: user.role,
+        subscription_status: user.subscription_status || 'free',
+        subscription_plan: user.subscription_plan,
+        subscription_start_date: user.subscription_start_date,
+        subscription_end_date: user.subscription_end_date,
+        created_at: user.created_at
+      };
     } catch (error) {
       console.error('Error creating user:', error);
       if (error instanceof Error && error.message.includes('Unique constraint')) {
@@ -302,7 +346,35 @@ export class DatabaseStorage implements IStorage {
 
   async updateUser(id: string, data: UpdateUserInput): Promise<User | null> {
     try {
-      return await prisma.user.update({ where: { id: Number(id) }, data });
+      const [user] = await db.update(users)
+        .set({
+          username: data.username,
+          email: data.email,
+          password: data.password,
+          full_name: data.name,
+          role: data.role,
+          subscription_status: data.subscriptionStatus,
+          subscription_plan: data.subscriptionPlan,
+          subscription_start_date: data.subscriptionStartDate,
+          subscription_end_date: data.subscriptionEndDate,
+        })
+        .where(eq(users.id, id))
+        .returning();
+
+      if (!user) return null;
+      return {
+        id: user.id,
+        username: user.username,
+        password: user.password,
+        email: user.email,
+        full_name: user.full_name || null,
+        role: user.role,
+        subscription_status: user.subscription_status || 'free',
+        subscription_plan: user.subscription_plan,
+        subscription_start_date: user.subscription_start_date,
+        subscription_end_date: user.subscription_end_date,
+        created_at: user.created_at
+      };
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
@@ -311,8 +383,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<boolean> {
     try {
-      await prisma.user.delete({ where: { id: Number(id) } });
-      return true;
+      const [deletedUser] = await db.delete(users)
+        .where(eq(users.id, id))
+        .returning();
+      return !!deletedUser;
     } catch (error) {
       console.error('Error deleting user:', error);
       throw error;
@@ -321,7 +395,20 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     try {
-      return await prisma.user.findMany({ orderBy: { created_at: 'asc' } });
+      const users = await db.select().from(users).orderBy(users.created_at);
+      return users.map(user => ({
+        id: user.id,
+        username: user.username,
+        password: user.password,
+        email: user.email,
+        full_name: user.full_name || null,
+        role: user.role,
+        subscription_status: user.subscription_status || 'free',
+        subscription_plan: user.subscription_plan,
+        subscription_start_date: user.subscription_start_date,
+        subscription_end_date: user.subscription_end_date,
+        created_at: user.created_at
+      }));
     } catch (error) {
       console.error('Error getting all users:', error);
       throw error;
@@ -330,7 +417,30 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserSubscription(id: string, data: UpdateSubscriptionInput): Promise<User | null> {
     try {
-      return await prisma.user.update({ where: { id: Number(id) }, data });
+      const [user] = await db.update(users)
+        .set({
+          subscription_status: data.subscriptionStatus,
+          subscription_plan: data.subscriptionPlan,
+          subscription_start_date: data.subscriptionStartDate,
+          subscription_end_date: data.subscriptionEndDate,
+        })
+        .where(eq(users.id, id))
+        .returning();
+
+      if (!user) return null;
+      return {
+        id: user.id,
+        username: user.username,
+        password: user.password,
+        email: user.email,
+        full_name: user.full_name || null,
+        role: user.role,
+        subscription_status: user.subscription_status || 'free',
+        subscription_plan: user.subscription_plan,
+        subscription_start_date: user.subscription_start_date,
+        subscription_end_date: user.subscription_end_date,
+        created_at: user.created_at
+      };
     } catch (error) {
       console.error('Error updating user subscription:', error);
       throw error;
@@ -339,44 +449,100 @@ export class DatabaseStorage implements IStorage {
 
   // Client operations
   async getClient(id: number): Promise<Client | undefined> {
-    const [client] = await prisma.client.findMany({ where: { id } });
-    return client;
+    try {
+      const client = await prisma.clients.findUnique({ where: { id } });
+      if (!client) return undefined;
+      return {
+        id: client.id,
+        firstName: client.first_name,
+        lastName: client.last_name,
+        email: client.email,
+        phone: client.phone,
+        birthDate: client.birth_date,
+        gender: client.gender,
+        height: client.height?.toString() || null,
+        weight: client.weight?.toString() || null,
+        occupation: client.occupation,
+        medicalConditions: client.medical_conditions,
+        allergies: client.allergies,
+        medications: client.medications,
+        notes: client.notes,
+        clientVisibleNotes: client.client_visible_notes,
+        status: client.status,
+        startDate: client.start_date,
+        endDate: client.end_date,
+        accessCode: client.access_code,
+        userId: client.user_id.toString(),
+        createdAt: client.created_at,
+        updatedAt: client.updated_at
+      };
+    } catch (error) {
+      console.error('Error getting client:', error);
+      return undefined;
+    }
   }
 
   async createClient(client: Partial<InsertClient>): Promise<Client> {
-    console.log("[STORAGE] createClient parametresi:", client);
-    const firstName = (client as any).firstName ?? "";
-    const lastName = (client as any).lastName ?? "";
+    try {
+      const firstName = (client as any).firstName ?? "";
+      const lastName = (client as any).lastName ?? "";
 
-    const safeFirstName = firstName.trim() !== "" ? firstName : "İsimsiz";
-    const safeLastName = lastName.trim() !== "" ? lastName : "Soyadı";
+      const safeFirstName = firstName.trim() !== "" ? firstName : "İsimsiz";
+      const safeLastName = lastName.trim() !== "" ? lastName : "Soyadı";
 
-    const dbClient = {
-      first_name: safeFirstName,
-      last_name: safeLastName,
-      email: (client as any).email,
-      phone: (client as any).phone,
-      birth_date: (client as any).birthDate,
-      gender: (client as any).gender,
-      height: client.height !== undefined ? sql`${client.height}::numeric(5,2)` : null,
-      occupation: (client as any).occupation,
-      medical_conditions: (client as any).medicalConditions,
-      allergies: (client as any).allergies,
-      medications: (client as any).medications,
-      notes: (client as any).notes,
-      client_visible_notes: (client as any).clientVisibleNotes,
-      status: (client as any).status,
-      start_date: (client as any).startDate,
-      end_date: (client as any).endDate,
-      access_code: (client as any).accessCode,
-      user_id: (client as any).userId,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    const [inserted] = await prisma.client.create({ data: dbClient }).returning({ id: clients.id });
-    // Fetch full client row after insert
-    const [newClient] = await prisma.client.findMany({ where: { id: inserted.id } });
-    return newClient;
+      const dbClient = {
+        first_name: safeFirstName,
+        last_name: safeLastName,
+        email: (client as any).email,
+        phone: (client as any).phone,
+        birth_date: (client as any).birthDate,
+        gender: (client as any).gender,
+        height: client.height ? parseFloat(client.height) : null,
+        weight: client.weight ? parseFloat(client.weight) : null,
+        occupation: (client as any).occupation,
+        medical_conditions: (client as any).medicalConditions || [],
+        allergies: (client as any).allergies || [],
+        medications: (client as any).medications || [],
+        notes: (client as any).notes,
+        client_visible_notes: (client as any).clientVisibleNotes,
+        status: (client as any).status || 'active',
+        start_date: (client as any).startDate,
+        end_date: (client as any).endDate,
+        access_code: (client as any).accessCode,
+        user_id: parseInt((client as any).userId),
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      const newClient = await prisma.clients.create({ data: dbClient });
+      return {
+        id: newClient.id,
+        firstName: newClient.first_name,
+        lastName: newClient.last_name,
+        email: newClient.email,
+        phone: newClient.phone,
+        birthDate: newClient.birth_date,
+        gender: newClient.gender,
+        height: newClient.height?.toString() || null,
+        weight: newClient.weight?.toString() || null,
+        occupation: newClient.occupation,
+        medicalConditions: newClient.medical_conditions,
+        allergies: newClient.allergies,
+        medications: newClient.medications,
+        notes: newClient.notes,
+        clientVisibleNotes: newClient.client_visible_notes,
+        status: newClient.status,
+        startDate: newClient.start_date,
+        endDate: newClient.end_date,
+        accessCode: newClient.access_code,
+        userId: newClient.user_id.toString(),
+        createdAt: newClient.created_at,
+        updatedAt: newClient.updated_at
+      };
+    } catch (error) {
+      console.error('Error creating client:', error);
+      throw error;
+    }
   }
 
   async updateClient(id: number, client: Partial<Client>): Promise<Client> {
@@ -386,7 +552,7 @@ export class DatabaseStorage implements IStorage {
     // Handle height separately if it exists
     if (updatedData.height !== undefined && updatedData.height !== null) {
       // Use raw SQL to ensure proper numeric type handling
-      await prisma.client.update({
+      await prisma.clients.update({
         where: { id },
         data: {
           height: {
@@ -402,7 +568,7 @@ export class DatabaseStorage implements IStorage {
     // Handle client_visible_notes separately if it exists
     if (updatedData.client_visible_notes !== undefined) {
       // Ensure client_visible_notes is stored as a JSON array
-      await prisma.client.update({
+      await prisma.clients.update({
         where: { id },
         data: {
           client_visible_notes: {
@@ -417,7 +583,7 @@ export class DatabaseStorage implements IStorage {
 
     // Handle diet_preferences separately if it exists
     if (updatedData.diet_preferences !== undefined) {
-      await prisma.client.update({
+      await prisma.clients.update({
         where: { id },
         data: {
           diet_preferences: {
@@ -430,7 +596,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Update remaining fields and get the updated client
-    const [updatedClient] = await prisma.client.update({
+    const [updatedClient] = await prisma.clients.update({
       where: { id },
       data: {
         ...updatedData,
@@ -443,18 +609,23 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClient(id: number): Promise<boolean> {
     try {
-      const client = await prisma.client.findUnique({ where: { id } });
+      const client = await prisma.clients.findUnique({ where: { id } });
       if (!client) {
         return false;
       }
-      await prisma.transaction(async (tx) => {
-        await tx.delete(prisma.measurement).where(eq(prisma.measurement.clientId, id));
-        await tx.delete(prisma.appointment).where(eq(prisma.appointment.clientId, id));
-        await tx.delete(prisma.message).where(eq(prisma.message.clientId, id));
-        await tx.delete(prisma.notification).where(eq(prisma.notification.clientId, id));
-        await tx.delete(prisma.clientSession).where(eq(prisma.clientSession.clientId, id));
-        await tx.delete(prisma.client).where(eq(prisma.client.id, id));
+
+      await prisma.$transaction(async (prisma) => {
+        // Delete all related records
+        await prisma.measurement.deleteMany({ where: { client_id: id } });
+        await prisma.appointment.deleteMany({ where: { client_id: id } });
+        await prisma.clientsSession.deleteMany({ where: { client_id: id } });
+        await prisma.healthHistory.deleteMany({ where: { client_id: id } });
+        await prisma.dietPlan.deleteMany({ where: { client_id: id } });
+        
+        // Finally delete the client
+        await prisma.clients.delete({ where: { id } });
       });
+
       return true;
     } catch (error) {
       console.error("Error deleting client:", error);
@@ -466,7 +637,7 @@ export class DatabaseStorage implements IStorage {
     if (!userId) {
       throw new Error('Invalid userId');
     }
-    let query = prisma.client.findMany({
+    let query = prisma.clients.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
@@ -479,7 +650,7 @@ export class DatabaseStorage implements IStorage {
       if (userId) {
         return this.getAllClients(userId, limit, offset);
       } else {
-        let query = prisma.client.findMany({
+        let query = prisma.clients.findMany({
           orderBy: { created_at: 'desc' }
         });
         query = paginate(query, limit, offset);
@@ -493,68 +664,191 @@ export class DatabaseStorage implements IStorage {
 
   // Measurement operations
   async getMeasurement(id: number): Promise<Measurement | undefined> {
-    const [measurement] = await prisma.measurement.findMany({ where: { id } });
-    return measurement;
+    try {
+      const measurement = await prisma.measurement.findUnique({ where: { id } });
+      if (!measurement) return undefined;
+      return {
+        id: measurement.id,
+        date: measurement.date.toISOString(),
+        height: measurement.height?.toString() || "0",
+        weight: measurement.weight?.toString() || "0",
+        bmi: measurement.bmi?.toString() || null,
+        bodyFatPercentage: measurement.bodyFatPercentage?.toString() || null,
+        waistCircumference: measurement.waistCircumference?.toString() || null,
+        hipCircumference: measurement.hipCircumference?.toString() || null,
+        chestCircumference: measurement.chestCircumference?.toString() || null,
+        armCircumference: measurement.armCircumference?.toString() || null,
+        thighCircumference: measurement.thighCircumference?.toString() || null,
+        calfCircumference: measurement.calfCircumference?.toString() || null,
+        basalMetabolicRate: measurement.basalMetabolicRate?.toString() || null,
+        totalDailyEnergyExpenditure: measurement.totalDailyEnergyExpenditure?.toString() || null,
+        activityLevel: measurement.activityLevel,
+        clientId: measurement.client_id,
+        notes: null,
+        createdAt: measurement.created_at,
+        updatedAt: measurement.updated_at
+      };
+    } catch (error) {
+      console.error('Error getting measurement:', error);
+      return undefined;
+    }
   }
 
   async createMeasurement(measurement: InsertMeasurement): Promise<Measurement> {
-    console.log("createMeasurement called");
-    console.log("createMeasurement param:", measurement);
-    // Ensure clientId is set and is a number
-    if (!measurement.clientId) {
-      throw new Error('Client ID is required for measurement');
+    try {
+      if (!measurement.clientId) {
+        throw new Error('Client ID is required for measurement');
+      }
+
+      const clientId = Number(measurement.clientId);
+      if (isNaN(clientId)) {
+        throw new Error('Invalid client ID');
+      }
+
+      const insertObj = {
+        client_id: clientId,
+        date: new Date(measurement.date),
+        height: measurement.height ? parseFloat(measurement.height) : null,
+        weight: measurement.weight ? parseFloat(measurement.weight) : null,
+        bmi: measurement.bmi ? parseFloat(measurement.bmi) : null,
+        bodyFatPercentage: measurement.bodyFatPercentage ? parseFloat(measurement.bodyFatPercentage) : null,
+        waistCircumference: measurement.waistCircumference ? parseFloat(measurement.waistCircumference) : null,
+        hipCircumference: measurement.hipCircumference ? parseFloat(measurement.hipCircumference) : null,
+        chestCircumference: measurement.chestCircumference ? parseFloat(measurement.chestCircumference) : null,
+        armCircumference: measurement.armCircumference ? parseFloat(measurement.armCircumference) : null,
+        thighCircumference: measurement.thighCircumference ? parseFloat(measurement.thighCircumference) : null,
+        calfCircumference: measurement.calfCircumference ? parseFloat(measurement.calfCircumference) : null,
+        basalMetabolicRate: measurement.basalMetabolicRate ? parseFloat(measurement.basalMetabolicRate) : null,
+        totalDailyEnergyExpenditure: measurement.totalDailyEnergyExpenditure ? parseFloat(measurement.totalDailyEnergyExpenditure) : null,
+        activityLevel: measurement.activityLevel,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      const newMeasurement = await prisma.measurement.create({ data: insertObj });
+      return {
+        id: newMeasurement.id,
+        date: newMeasurement.date.toISOString(),
+        height: newMeasurement.height?.toString() || "0",
+        weight: newMeasurement.weight?.toString() || "0",
+        bmi: newMeasurement.bmi?.toString() || null,
+        bodyFatPercentage: newMeasurement.bodyFatPercentage?.toString() || null,
+        waistCircumference: newMeasurement.waistCircumference?.toString() || null,
+        hipCircumference: newMeasurement.hipCircumference?.toString() || null,
+        chestCircumference: newMeasurement.chestCircumference?.toString() || null,
+        armCircumference: newMeasurement.armCircumference?.toString() || null,
+        thighCircumference: newMeasurement.thighCircumference?.toString() || null,
+        calfCircumference: newMeasurement.calfCircumference?.toString() || null,
+        basalMetabolicRate: newMeasurement.basalMetabolicRate?.toString() || null,
+        totalDailyEnergyExpenditure: newMeasurement.totalDailyEnergyExpenditure?.toString() || null,
+        activityLevel: newMeasurement.activityLevel,
+        clientId: newMeasurement.client_id,
+        notes: null,
+        createdAt: newMeasurement.created_at,
+        updatedAt: newMeasurement.updated_at
+      };
+    } catch (error) {
+      console.error('Error creating measurement:', error);
+      throw error;
     }
-
-    const clientId = Number(measurement.clientId);
-    if (isNaN(clientId)) {
-      throw new Error('Invalid client ID');
-    }
-
-    // Remove any client_id property if present
-    const { client_id, basalMetabolicRate, totalDailyEnergyExpenditure, ...rest } = measurement as any;
-
-    const insertObj = {
-      ...rest,
-      basalMetabolicRate: measurement.basalMetabolicRate != null ? Number(measurement.basalMetabolicRate) : null,
-      totalDailyEnergyExpenditure: measurement.totalDailyEnergyExpenditure != null ? Number(measurement.totalDailyEnergyExpenditure) : null,
-      clientId: clientId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    console.log("Drizzle insert obj:", insertObj);
-
-    const [newMeasurement] = await prisma.measurement.create({ data: insertObj }).returning();
-    return newMeasurement;
   }
 
   async updateMeasurement(id: number, measurement: Partial<Measurement>): Promise<Measurement> {
-    const [updatedMeasurement] = await prisma.measurement.update({
-      where: { id },
-      data: {
-        ...measurement,
-        updatedAt: new Date()
-      }
-    }).returning();
-    return updatedMeasurement;
+    try {
+      const updateData: any = {};
+      
+      if (measurement.date) updateData.date = new Date(measurement.date);
+      if (measurement.height) updateData.height = parseFloat(measurement.height);
+      if (measurement.weight) updateData.weight = parseFloat(measurement.weight);
+      if (measurement.bmi) updateData.bmi = parseFloat(measurement.bmi);
+      if (measurement.bodyFatPercentage) updateData.bodyFatPercentage = parseFloat(measurement.bodyFatPercentage);
+      if (measurement.waistCircumference) updateData.waistCircumference = parseFloat(measurement.waistCircumference);
+      if (measurement.hipCircumference) updateData.hipCircumference = parseFloat(measurement.hipCircumference);
+      if (measurement.chestCircumference) updateData.chestCircumference = parseFloat(measurement.chestCircumference);
+      if (measurement.armCircumference) updateData.armCircumference = parseFloat(measurement.armCircumference);
+      if (measurement.thighCircumference) updateData.thighCircumference = parseFloat(measurement.thighCircumference);
+      if (measurement.calfCircumference) updateData.calfCircumference = parseFloat(measurement.calfCircumference);
+      if (measurement.basalMetabolicRate) updateData.basalMetabolicRate = parseFloat(measurement.basalMetabolicRate);
+      if (measurement.totalDailyEnergyExpenditure) updateData.totalDailyEnergyExpenditure = parseFloat(measurement.totalDailyEnergyExpenditure);
+      if (measurement.activityLevel) updateData.activityLevel = measurement.activityLevel;
+      
+      updateData.updated_at = new Date();
+
+      const updatedMeasurement = await prisma.measurement.update({
+        where: { id },
+        data: updateData
+      });
+
+      return {
+        id: updatedMeasurement.id,
+        date: updatedMeasurement.date.toISOString(),
+        height: updatedMeasurement.height?.toString() || "0",
+        weight: updatedMeasurement.weight?.toString() || "0",
+        bmi: updatedMeasurement.bmi?.toString() || null,
+        bodyFatPercentage: updatedMeasurement.bodyFatPercentage?.toString() || null,
+        waistCircumference: updatedMeasurement.waistCircumference?.toString() || null,
+        hipCircumference: updatedMeasurement.hipCircumference?.toString() || null,
+        chestCircumference: updatedMeasurement.chestCircumference?.toString() || null,
+        armCircumference: updatedMeasurement.armCircumference?.toString() || null,
+        thighCircumference: updatedMeasurement.thighCircumference?.toString() || null,
+        calfCircumference: updatedMeasurement.calfCircumference?.toString() || null,
+        basalMetabolicRate: updatedMeasurement.basalMetabolicRate?.toString() || null,
+        totalDailyEnergyExpenditure: updatedMeasurement.totalDailyEnergyExpenditure?.toString() || null,
+        activityLevel: updatedMeasurement.activityLevel,
+        clientId: updatedMeasurement.client_id,
+        notes: null,
+        createdAt: updatedMeasurement.created_at,
+        updatedAt: updatedMeasurement.updated_at
+      };
+    } catch (error) {
+      console.error('Error updating measurement:', error);
+      throw error;
+    }
   }
 
   async deleteMeasurement(id: number): Promise<void> {
-    await prisma.measurement.delete({ where: { id } });
+    try {
+      await prisma.measurement.delete({
+        where: { id }
+      });
+    } catch (error) {
+      console.error('Error deleting measurement:', error);
+      throw error;
+    }
   }
 
-  async getClientMeasurements(clientId: number, limit?: number, offset?: number): Promise<Measurement[]> {
-    let query = prisma.measurement.findMany({
-      where: { clientId },
-      orderBy: { date: 'desc' }
-    });
-    query = paginate(query, limit, offset);
-    const rows = await query;
-    // Ölçümleri döndürürken hem camelCase hem snake_case alanları ekle
-    return rows.map(row => ({
-      ...row,
-      basalMetabolicRate: row.basalMetabolicRate ?? null,
-      totalDailyEnergyExpenditure: row.totalDailyEnergyExpenditure ?? null,
-    }));
+  async getClientMeasurements(clientId: number): Promise<Measurement[]> {
+    try {
+      const measurements = await prisma.measurement.findMany({
+        where: { client_id: clientId },
+        orderBy: { date: 'desc' }
+      });
+
+      return measurements.map(measurement => ({
+        id: measurement.id,
+        date: measurement.date.toISOString(),
+        height: measurement.height?.toString() || "0",
+        weight: measurement.weight?.toString() || "0",
+        bmi: measurement.bmi?.toString() || null,
+        bodyFatPercentage: measurement.bodyFatPercentage?.toString() || null,
+        waistCircumference: measurement.waistCircumference?.toString() || null,
+        hipCircumference: measurement.hipCircumference?.toString() || null,
+        chestCircumference: measurement.chestCircumference?.toString() || null,
+        armCircumference: measurement.armCircumference?.toString() || null,
+        thighCircumference: measurement.thighCircumference?.toString() || null,
+        calfCircumference: measurement.calfCircumference?.toString() || null,
+        basalMetabolicRate: measurement.basalMetabolicRate?.toString() || null,
+        totalDailyEnergyExpenditure: measurement.totalDailyEnergyExpenditure?.toString() || null,
+        activityLevel: measurement.activityLevel,
+        clientId: measurement.client_id,
+        notes: null,
+        createdAt: measurement.created_at,
+        updatedAt: measurement.updated_at
+      }));
+    } catch (error) {
+      console.error('Error getting client measurements:', error);
+      return [];
+    }
   }
 
   // Diet plan operations
@@ -696,12 +990,12 @@ export class DatabaseStorage implements IStorage {
 
   // Client session operations
   async getClientSession(sessionToken: string): Promise<ClientSession | undefined> {
-    const [session] = await prisma.clientSession.findMany({ where: { sessionToken } });
+    const [session] = await prisma.clientsSession.findMany({ where: { sessionToken } });
     return session;
   }
 
   async createClientSession(session: InsertClientSession): Promise<ClientSession> {
-    const [newSession] = await prisma.clientSession.create({
+    const [newSession] = await prisma.clientsSession.create({
       data: {
         ...session,
         createdAt: new Date(),
@@ -713,12 +1007,10 @@ export class DatabaseStorage implements IStorage {
 
   // Client Portal operations
   async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
-    const [client] = await prisma.client.findMany({ where: { access_code: accessCode } });
-    
+    const [client] = await prisma.clients.findMany({ where: { access_code: accessCode } });
     return client;
   }
 
-  // Generate a unique access code for client portal
   async generateClientAccessCode(clientId: number): Promise<string> {
     // Generate a 6-character alphanumeric code
     const generateCode = () => {
@@ -741,7 +1033,7 @@ export class DatabaseStorage implements IStorage {
     } while (!isUnique);
     
     // Add the code to the client record
-    await prisma.client.update({
+    await prisma.clients.update({
       where: { id: clientId },
       data: { access_code: code }
     });
@@ -749,10 +1041,9 @@ export class DatabaseStorage implements IStorage {
     return code;
   }
   
-  // Update client access code
   async updateClientAccessCode(clientId: number, accessCode: string): Promise<boolean> {
     try {
-      await prisma.client.update({
+      await prisma.clients.update({
         where: { id: clientId },
         data: { access_code: accessCode }
       });
@@ -766,7 +1057,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateClientSessionActivity(sessionToken: string): Promise<boolean> {
     try {
-      await prisma.clientSession.update({
+      await prisma.clientsSession.update({
         where: { sessionToken },
         data: { lastActivity: new Date() }
       });
@@ -780,7 +1071,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientSession(sessionToken: string): Promise<boolean> {
     try {
-      await prisma.clientSession.delete({ where: { sessionToken } });
+      await prisma.clientsSession.delete({ where: { sessionToken } });
       
       return true;
     } catch (error) {
@@ -790,7 +1081,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await prisma.clientSession.deleteMany({
+    await prisma.clientsSession.deleteMany({
       where: { expiresAt: { lt: new Date() } }
     });
   }
@@ -848,7 +1139,7 @@ export class DatabaseStorage implements IStorage {
 
   async getClientAppointments(clientId: number, limit?: number, offset?: number): Promise<Appointment[]> {
     let query = prisma.appointment.findMany({
-      where: { clientId },
+      where: { client_id: clientId },
       orderBy: { date: 'desc' }
     });
     query = paginate(query, limit, offset);
@@ -884,7 +1175,7 @@ export class DatabaseStorage implements IStorage {
       const validUserId = safeUUIDConversion(userId);
       const query = prisma.message.findMany({
         where: {
-          clientId,
+          client_id: clientId,
           userId: validUserId
         },
         orderBy: { createdAt: 'desc' }
@@ -920,7 +1211,7 @@ export class DatabaseStorage implements IStorage {
 
   async getClientMessages(clientId: number, limit?: number, offset?: number): Promise<Message[]> {
     let query = prisma.message.findMany({
-      where: { clientId },
+      where: { client_id: clientId },
       orderBy: { createdAt: 'desc' }
     });
     query = paginate(query, limit, offset);
@@ -961,7 +1252,7 @@ export class DatabaseStorage implements IStorage {
       const validUserId = safeUUIDConversion(userId);
       await prisma.message.updateMany({
         where: {
-          clientId,
+          client_id: clientId,
           userId: validUserId
         },
         data: { isRead: true }
@@ -977,7 +1268,7 @@ export class DatabaseStorage implements IStorage {
   async getUnreadMessages(clientId?: number, userId?: string, forClient?: boolean): Promise<number> {
     try {
       let conditions = [];
-      if (clientId) conditions.push({ clientId });
+      if (clientId) conditions.push({ client_id: clientId });
       if (userId) conditions.push({ userId: safeUUIDConversion(userId) });
       if (forClient !== undefined) conditions.push({ fromClient: !forClient });
       conditions.push({ isRead: false });
@@ -1006,7 +1297,7 @@ export class DatabaseStorage implements IStorage {
   // Bir danışan için son mesajı getir
   async getLastMessageByClient(clientId: number, userId: string): Promise<Message | undefined> {
     const [lastMessage] = await prisma.message.findMany({
-      where: { clientId },
+      where: { client_id: clientId },
       orderBy: { createdAt: 'desc' },
       take: 1
     });
@@ -1020,14 +1311,14 @@ export class DatabaseStorage implements IStorage {
       const validUserId = safeUUIDConversion(userId);
       return await prisma.message.findMany({
         select: {
-          clientId: true,
+          client_id: true,
           content: true,
           createdAt: true,
           isRead: true
         },
         where: { userId: validUserId },
         orderBy: { createdAt: 'desc' },
-        groupBy: { clientId, content, createdAt, isRead }
+        groupBy: { client_id, content, createdAt, isRead }
       });
     } catch (error) {
       console.error('Error getting last messages for all clients:', error);
@@ -1055,7 +1346,7 @@ export class DatabaseStorage implements IStorage {
       const validUserId = safeUUIDConversion(userId);
       await prisma.message.deleteMany({
         where: {
-          clientId,
+          client_id: clientId,
           userId: validUserId
         }
       });
@@ -1188,12 +1479,12 @@ export class DatabaseStorage implements IStorage {
   // Bir danışanın son ölçümünü getir
   async getLastMeasurement(clientId: number): Promise<Measurement | undefined> {
     try {
-    const [measurement] = await prisma.measurement.findMany({
-      where: { clientId },
-      orderBy: { date: 'desc' },
-      take: 1
-    });
-    return measurement;
+      const [measurement] = await prisma.measurement.findMany({
+        where: { client_id: clientId },
+        orderBy: { date: 'desc' },
+        take: 1
+      });
+      return measurement;
     } catch (error) {
       console.error("Error fetching last measurement:", error);
       return undefined;
@@ -1204,7 +1495,7 @@ export class DatabaseStorage implements IStorage {
   async getMeasurements(clientId: number): Promise<Measurement[]> {
     try {
       return await prisma.measurement.findMany({
-        where: { clientId },
+        where: { client_id: clientId },
         orderBy: { date: 'desc' }
       });
     } catch (error) {
@@ -1218,7 +1509,7 @@ export class DatabaseStorage implements IStorage {
     try {
       if (clientId) {
         return await prisma.appointment.findMany({
-          where: { clientId },
+          where: { client_id: clientId },
           orderBy: { date: 'desc' }
         });
       } else {
@@ -1239,16 +1530,16 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Appointment not found");
     }
     // Get client details for better notification content
-    const client = await this.getClient(appointment.clientId);
+    const client = await this.getClient(appointment.client_id);
     if (!client) {
       throw new Error("Client not found");
     }
     // Create a reminder notification
     const notification: InsertNotification = {
       userId: appointment.userId,
-      clientId: appointment.clientId,
+      client_id: appointment.client_id,
       title: "Randevu Hatırlatması",
-      content: `${client.first_name} ${client.last_name} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
+      content: `${client.firstName} ${client.lastName} ile ${new Date(appointment.date).toLocaleDateString('tr-TR')} tarihinde ${new Date(appointment.startTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})} saatinde randevunuz var.`,
       type: "appointment",
       relatedId: appointmentId,
       isRead: false,
@@ -1281,6 +1572,49 @@ export class DatabaseStorage implements IStorage {
   // Çoklu notlar: not sil
   async deleteClientNote(noteId: number): Promise<void> {
     await prisma.clientNote.delete({ where: { id: noteId } });
+  }
+
+  // Session operations
+  async createSession(userId: string, token: string, expires: Date): Promise<void> {
+    try {
+      await db.insert(sessions).values({
+        user_id: userId,
+        token: token,
+        expires: expires,
+        created_at: new Date()
+      });
+    } catch (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
+  }
+
+  async getSession(token: string): Promise<any> {
+    try {
+      const [session] = await db.select()
+        .from(sessions)
+        .where(eq(sessions.token, token))
+        .leftJoin(users, eq(sessions.user_id, users.id));
+      return session;
+    } catch (error) {
+      console.error('Error getting session:', error);
+      throw error;
+    }
+  }
+
+  async deleteSession(token: string): Promise<void> {
+    try {
+      await db.delete(sessions).where(eq(sessions.token, token));
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      throw error;
+    }
+  }
+
+  async deleteExpiredSessions(): Promise<void> {
+    await db.delete(sessions).where(
+      sql`${sessions.expires} < NOW()`
+    );
   }
 }
 

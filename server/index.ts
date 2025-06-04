@@ -6,6 +6,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeWebSocket } from "./websocket";
 import cors from 'cors';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import { storage } from './storage';
 
 // Load environment variables from .env file
 config({ path: resolve(process.cwd(), '.env') });
@@ -27,6 +29,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Cookie parser middleware
+app.use(cookieParser());
+
 // Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
@@ -34,9 +39,35 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    httpOnly: true,
+    sameSite: 'strict'
   }
 }));
+
+// Session middleware
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  const token = req.cookies.session_token;
+  if (token) {
+    try {
+      const session = await storage.getSession(token);
+      if (session && session.expires > new Date()) {
+        const user = await storage.getUser(session.user.id.toString());
+        if (user) {
+          req.session.user = {
+            id: user.id,
+            username: user.username || '',
+            email: user.email || '',
+            role: user.role || 'user'
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Session middleware error:', error);
+    }
+  }
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

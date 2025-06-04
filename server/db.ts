@@ -6,19 +6,23 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-console.log('Database connection string:', process.env.DATABASE_URL);
+// URL encode the password to handle special characters
+const encodePassword = (password: string) => encodeURIComponent(password);
+
+const connectionString = process.env.DATABASE_URL || 
+  `postgresql://${process.env.DB_USER || 'postgres'}:${encodePassword(process.env.DB_PASSWORD || 'postgres')}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'mybd'}`;
+
+console.log('Connecting to database with connection string:', connectionString.replace(/:[^:@]+@/, ':****@')); // Log connection string without password
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  },
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 10000, // How long to wait for a connection (increased to 10 seconds)
-  maxUses: 7500, // Close a connection after it has been used this many times
-  keepAlive: true, // Keep the connection alive
-  keepAliveInitialDelayMillis: 10000, // Initial delay before sending keepalive
+  connectionString,
+  ssl: false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  maxUses: 7500,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 // Handle pool errors
@@ -28,7 +32,7 @@ pool.on('error', (err) => {
 });
 
 // Test database connection with retry
-async function testConnection(retries = 5, delay = 5000) { // Increased delay to 5 seconds
+async function testConnection(retries = 5, delay = 5000) {
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();

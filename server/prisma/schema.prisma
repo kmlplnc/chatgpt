@@ -20,33 +20,41 @@ model User {
   subscriptionEndDate    DateTime?
   created_at             DateTime @default(now())
   updated_at             DateTime @updatedAt
-  clients                Client[]
+  clients                clients[]
   sessions               Session[]
 }
 
-model Client {
-  id                 Int           @id @default(autoincrement())
-  first_name         String
-  last_name          String
-  email              String        @unique
-  phone              String?
-  birth_date         DateTime?
-  gender             String
-  height             Float?
-  weight             Float?
-  allergies          String[]      @default([])
-  medical_conditions String[]      @default([])
-  medications        String[]      @default([])
-  diet_preferences   String[]      @default([])
-  created_at         DateTime      @default(now())
-  updated_at         DateTime      @updatedAt
-  user_id            Int
-  user               User          @relation(fields: [user_id], references: [id])
-  diet_plans         DietPlan[]
-  measurements       Measurement[]
-  appointments       Appointment[]
-  sessions           ClientSession[]
-  health_history     HealthHistory[]
+model clients {
+  id                    Int           @id @default(autoincrement())
+  first_name            String
+  last_name             String
+  email                 String        @unique
+  phone                 String?
+  birth_date            DateTime?
+  gender                String
+  height                Float?
+  weight                Float?
+  target_weight         Float?        // Hedef kilo
+  occupation            String?
+  notes                 String?
+  client_visible_notes  String?
+  status                String?       @default("active")
+  start_date            DateTime?
+  end_date              DateTime?
+  access_code           String?       @unique
+  allergies             String[]      @default([])
+  medical_conditions    String[]      @default([])
+  medications           String[]      @default([])
+  diet_preferences      String[]      @default([])
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @default(now()) @updatedAt
+  user_id               Int?          // Made nullable
+  user                  User?         @relation(fields: [user_id], references: [id])
+  diet_plans            DietPlan[]
+  measurements          Measurement[]
+  appointments          Appointment[]
+  sessions              clientsSession[]
+  health_history        HealthHistory[]
 }
 
 model Measurement {
@@ -94,7 +102,7 @@ model Measurement {
   iodine                      Float?
   created_at                  DateTime @default(now())
   updated_at                  DateTime @updatedAt
-  client                      Client   @relation(fields: [client_id], references: [id])
+  client                      clients   @relation(fields: [client_id], references: [id])
 }
 
 model DietPlan {
@@ -110,7 +118,7 @@ model DietPlan {
   plan_data          Json
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
-  client             Client   @relation(fields: [client_id], references: [id])
+  client             clients   @relation(fields: [client_id], references: [id])
 }
 
 model Appointment {
@@ -121,17 +129,17 @@ model Appointment {
   status      String    @default("scheduled")
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
-  client      Client    @relation(fields: [client_id], references: [id])
+  client      clients    @relation(fields: [client_id], references: [id])
 }
 
-model ClientSession {
+model clientsSession {
   id          Int       @id @default(autoincrement())
   client_id   Int
   date        DateTime  @default(now())
   notes       String?
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
-  client      Client    @relation(fields: [client_id], references: [id])
+  client      clients    @relation(fields: [client_id], references: [id])
 }
 
 model HealthHistory {
@@ -142,7 +150,7 @@ model HealthHistory {
   notes       String?
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
-  client      Client    @relation(fields: [client_id], references: [id])
+  client      clients    @relation(fields: [client_id], references: [id])
 }
 
 model Session {

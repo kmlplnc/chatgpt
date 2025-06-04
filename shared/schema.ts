@@ -9,14 +9,23 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
-  fullName: text("full_name"),
+  full_name: text("full_name"),
   role: text("role").default("user"),
   // Subscription fields
-  subscriptionStatus: text("subscription_status").default("free").notNull(), // "free", "trial", "active", "expired", "canceled"
-  subscriptionPlan: text("subscription_plan"), // "basic", "pro", "premium", null for free
-  subscriptionStartDate: timestamp("subscription_start_date", { withTimezone: true }),
-  subscriptionEndDate: timestamp("subscription_end_date", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  subscription_status: text("subscription_status").default("free").notNull(), // "free", "trial", "active", "expired", "canceled"
+  subscription_plan: text("subscription_plan"), // "basic", "pro", "premium", null for free
+  subscription_start_date: timestamp("subscription_start_date", { withTimezone: true }),
+  subscription_end_date: timestamp("subscription_end_date", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// Session schema
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
+  user_id: uuid("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  expires: timestamp("expires", { withTimezone: true }).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // Clients (danışanlar) schema
@@ -99,12 +108,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
-  fullName: true,
+  full_name: true,
   role: true,
-  subscriptionStatus: true,
-  subscriptionPlan: true,
-  subscriptionStartDate: true,
-  subscriptionEndDate: true,
+  subscription_status: true,
+  subscription_plan: true,
+  subscription_start_date: true,
+  subscription_end_date: true,
 });
 
 // Diet Plans schema
@@ -235,11 +244,11 @@ export const insertClientSchema = createInsertSchema(clients, {
   gender: z.enum(["male", "female"]),
   status: z.enum(["active", "inactive"]),
   diet_preferences: z.string().optional(),
+  user_id: z.number(),
 }).omit({
   id: true,
   created_at: true,
   updated_at: true,
-  user_id: true,
 });
 
 // Update Client schema
@@ -280,10 +289,10 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 export type UpdateSubscriptionInput = {
-  subscriptionStatus: string;
-  subscriptionPlan?: string | null;
-  subscriptionStartDate?: Date | null;
-  subscriptionEndDate?: Date | null;
+  subscription_status: string;
+  subscription_plan?: string | null;
+  subscription_start_date?: Date | null;
+  subscription_end_date?: Date | null;
 };
 
 export type Client = typeof clients.$inferSelect;
