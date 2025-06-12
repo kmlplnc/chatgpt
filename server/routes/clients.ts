@@ -1,10 +1,14 @@
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertClientSchema, insertMeasurementSchema, updateClientSchema, clients } from "@shared/schema";
-import db from "../db";
+import { insertClientSchema, insertMeasurementSchema, updateClientSchema, clients, measurements } from "@shared/schema";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { pool } from "../db";
 import { eq } from "drizzle-orm";
 import type { Client } from "@shared/schema";
+
+// Create Drizzle database instance
+const db = drizzle(pool);
 
 const clientsRouter = Router();
 
@@ -70,24 +74,16 @@ clientsRouter.get("/admin/users", requireAuth, async (req: Request, res: Respons
 // Get a specific client by ID
 clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const numericId = parseInt(id, 10);
-    
-    if (isNaN(numericId)) {
+    const clientId = parseInt(req.params.id);
+    if (isNaN(clientId)) {
       return res.status(400).json({ error: "Invalid client ID" });
     }
-    
-    const [client] = await db
-      .select()
-      .from(clients)
-      .where(eq(clients.id, numericId))
-      .limit(1);
-      
-    if (!client) {
+
+    const result = await db.select().from(clients).where(eq(clients.id, clientId));
+    if (!result.length) {
       return res.status(404).json({ error: "Client not found" });
     }
-    
-    res.json(client);
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching client:", error);
     res.status(500).json({ error: "Failed to fetch client" });
@@ -97,20 +93,26 @@ clientsRouter.get("/:id", requireAuth, async (req: Request, res: Response) => {
 // Create a new client
 clientsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    console.log("DEBUG: req.body", req.body);
-    // Alan isimlerini normalize et
-    const clientData = {
-      ...req.body,
-      first_name: req.body.first_name || req.body.firstName,
-      last_name: req.body.last_name || req.body.lastName,
+    console.log("Gelen client verisi:", req.body);
+    
+    const newClient = {
+      first_name: req.body.first_name,
+      last_name: req.body.last_name,
+      email: req.body.email || null,
+      phone: req.body.phone || null,
+      occupation: req.body.occupation || null,
+      status: req.body.status || 'active',
+      gender: req.body.gender,
+      height: req.body.height,
+      birth_date: req.body.birth_date || null,
+      address: req.body.address || null,
+      notes: req.body.notes || null,
+      created_at: new Date(),
+      updated_at: new Date()
     };
-    console.log("Gelen client verisi:", clientData);
 
-    const [client] = await db
-      .insert(clients)
-      .values(clientData)
-      .returning();
-    res.status(201).json(client);
+    const result = await db.insert(clients).values(newClient).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating client:", error);
     res.status(500).json({ error: "Failed to create client" });
@@ -120,164 +122,76 @@ clientsRouter.post("/", requireAuth, async (req: Request, res: Response) => {
 // Update a client
 clientsRouter.put("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    console.log("Gelen istek:", req.body);
-    console.log("[BACKEND] Gelen veri:", req.body);
-    const validatedData = insertClientSchema.parse(req.body);
-    // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
-    // Danışanı kullanıcı ID'si ile ilişkilendir
-    const clientData = {
-      ...validatedData,
-      userId: userId
-    };
-    console.log("[BACKEND] storage.createClient'e giden veri:", clientData);
-    const client = await storage.createClient(clientData);
-    return res.status(201).json(client);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: error.errors 
-      });
-    }
-    
-    console.error("Error creating client:", error);
-    return res.status(500).json({ message: "Failed to create client" });
-  }
-});
-
-// Update a client
-clientsRouter.patch("/:id", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid client ID" });
-    }
-    
-    // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
-
-    const client = await storage.getClient(id);
-    if (!client) {
-      return res.status(404).json({ message: "Client not found" });
-    }
-    
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
-    
-    // Sadece admin kullanıcıları tüm danışanları güncelleyebilir
-    // Normal kullanıcılar sadece kendi danışanlarını güncelleyebilir
-    if (!admin && client.user_id !== userId) {
-      return res.status(403).json({ message: "Bu danışanı güncelleme yetkiniz yok" });
+    const clientId = parseInt(req.params.id);
+    if (isNaN(clientId)) {
+      return res.status(400).json({ error: "Invalid client ID" });
     }
 
-    // Log incoming data
-    console.log("Route - Gelen ham veri:", req.body);
-    console.log("Route - Gelen boy değeri tipi:", typeof req.body.height);
-    console.log("Route - Gelen boy değeri:", req.body.height);
-
-    // Convert height to string with correct precision if provided
-    const requestData = {
+    const updatedClient = {
       ...req.body,
-      height: req.body.height ? String(Number(req.body.height).toFixed(2)) : undefined
+      updated_at: new Date()
     };
 
-    // Log converted data
-    console.log("Route - Dönüştürülmüş veri:", requestData);
-    console.log("Route - Dönüştürülmüş boy değeri tipi:", typeof requestData.height);
-    console.log("Route - Dönüştürülmüş boy değeri:", requestData.height);
+    const result = await db.update(clients)
+      .set(updatedClient)
+      .where(eq(clients.id, clientId))
+      .returning();
 
-    // Validate data with updateClientSchema
-    const validatedData = updateClientSchema.parse(requestData);
-    
-    // Log validated data
-    console.log("Route - Doğrulanmış veri:", validatedData);
-    if (validatedData.height !== undefined) {
-      console.log("Route - Doğrulanmış boy değeri tipi:", typeof validatedData.height);
-      console.log("Route - Doğrulanmış boy değeri:", validatedData.height);
+    if (!result.length) {
+      return res.status(404).json({ error: "Client not found" });
     }
-    
-    // Update client with validated data
-    const updatedClient = await storage.updateClient(id, validatedData);
 
-    // Log updated client
-    console.log("Route - Güncellenmiş danışan:", updatedClient);
-    console.log("Route - Güncellenmiş boy değeri:", updatedClient.height);
-
-    return res.json(updatedClient);
+    res.json(result[0]);
   } catch (error) {
-    console.error("Route - Güncelleme hatası:", error);
-    return res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : String(error) });
+    console.error("Error updating client:", error);
+    res.status(500).json({ error: "Failed to update client" });
   }
 });
 
 // Delete a client
 clientsRouter.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid client ID" });
-    }
-    
-    // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
-    
-    // Danışanı kontrol et
-    const client = await storage.getClient(id);
-    if (!client) {
-      return res.status(404).json({ message: "Client not found" });
-    }
-    
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
-    
-    // Sadece admin kullanıcıları tüm danışanları silebilir
-    // Normal kullanıcılar sadece kendi danışanlarını silebilir
-    if (!admin && client.user_id !== userId) {
-      return res.status(403).json({ message: "Bu danışanı silme yetkiniz yok" });
+    const clientId = parseInt(req.params.id);
+    if (isNaN(clientId)) {
+      return res.status(400).json({ error: "Invalid client ID" });
     }
 
-    const success = await storage.deleteClient(id);
-    if (!success) {
-      return res.status(404).json({ message: "Client not found" });
+    const result = await db.delete(clients)
+      .where(eq(clients.id, clientId))
+      .returning();
+
+    if (!result.length) {
+      return res.status(404).json({ error: "Client not found" });
     }
 
-    return res.status(204).send();
+    res.json({ message: "Client deleted successfully" });
   } catch (error) {
     console.error("Error deleting client:", error);
-    return res.status(500).json({ message: "Failed to delete client" });
+    res.status(500).json({ error: "Failed to delete client" });
   }
 });
 
 // Get client measurements
 clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const clientId = parseInt(req.params.id);
+    if (isNaN(clientId)) {
       return res.status(400).json({ message: "Invalid client ID" });
     }
     
-    // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
-    
-    // Danışanı kontrol et
-    const client = await storage.getClient(id);
-    if (!client) {
+    // Get client using Drizzle
+    const clientResult = await db.select().from(clients).where(eq(clients.id, clientId));
+    if (!clientResult.length) {
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
+    // Get measurements using Drizzle
+    const measurementsResult = await db.select()
+      .from(measurements)
+      .where(eq(measurements.clientId, clientId))
+      .orderBy(measurements.createdAt);
     
-    // Sadece admin kullanıcıları tüm danışanların ölçümlerini görebilir
-    // Normal kullanıcılar sadece kendi danışanlarının ölçümlerini görebilir
-    if (!admin && client.user_id !== userId) {
-      return res.status(403).json({ message: "Bu danışanın ölçümlerine erişim izniniz yok" });
-    }
-
-    const measurements = await storage.getClientMeasurements(id);
-    return res.json(measurements);
+    return res.json(measurementsResult);
   } catch (error) {
     console.error("Error fetching client measurements:", error);
     return res.status(500).json({ message: "Failed to fetch client measurements" });
@@ -286,36 +200,53 @@ clientsRouter.get("/:id/measurements", requireAuth, async (req: Request, res: Re
 
 // Add a new measurement
 clientsRouter.post("/:id/measurements", requireAuth, async (req: Request, res: Response) => {
-  console.log('==== REQ.BODY DEBUG ====', req.body);
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const clientId = parseInt(req.params.id);
+    if (isNaN(clientId)) {
       return res.status(400).json({ message: "Invalid client ID" });
     }
-    // Kullanıcının ID'sini al
-    const userId = req.session.user!.id;
-    // Danışanı kontrol et
-    const client = await storage.getClient(id);
-    if (!client) {
+
+    // Get client using Drizzle
+    const clientResult = await db.select().from(clients).where(eq(clients.id, clientId));
+    if (!clientResult.length) {
       return res.status(404).json({ message: "Client not found" });
     }
-    // Admin kullanıcı kontrolü
-    const admin = isAdmin(req);
-    if (!admin && client.user_id !== userId) {
-      return res.status(403).json({ message: "Bu danışana ölçüm ekleme yetkiniz yok" });
-    }
+
     // Validate and prepare measurement data
     const validatedData = insertMeasurementSchema.parse({
       ...req.body,
-      clientId: id,
+      clientId: clientId,
       basalMetabolicRate: req.body.basal_metabolic_rate ? Number(req.body.basal_metabolic_rate) : null,
       totalDailyEnergyExpenditure: req.body.total_daily_energy_expenditure ? Number(req.body.total_daily_energy_expenditure) : null
     });
-    console.log('validatedData:', validatedData);
-    // Create measurement
-    const measurement = await storage.createMeasurement(validatedData);
-    console.log('measurement:', measurement);
-    return res.status(201).json(measurement);
+
+    // Create measurement using Drizzle
+    const newMeasurement = {
+      client_id: clientId,
+      date: new Date(),
+      height: validatedData.height.toString(),
+      weight: validatedData.weight.toString(),
+      bmi: validatedData.bmi.toString(),
+      body_fat_percentage: validatedData.bodyFatPercentage?.toString() ?? null,
+      waist_circumference: validatedData.waistCircumference?.toString() ?? null,
+      hip_circumference: validatedData.hipCircumference?.toString() ?? null,
+      chest_circumference: validatedData.chestCircumference?.toString() ?? null,
+      arm_circumference: validatedData.armCircumference?.toString() ?? null,
+      thigh_circumference: validatedData.thighCircumference?.toString() ?? null,
+      calf_circumference: validatedData.calfCircumference?.toString() ?? null,
+      basal_metabolic_rate: validatedData.basalMetabolicRate?.toString() ?? null,
+      total_daily_energy_expenditure: validatedData.totalDailyEnergyExpenditure?.toString() ?? null,
+      activity_level: validatedData.activityLevel ?? null,
+      notes: validatedData.notes ?? null,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const result = await db.insert(measurements)
+      .values(newMeasurement)
+      .returning();
+
+    return res.status(201).json(result[0]);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ 
@@ -338,37 +269,21 @@ clientsRouter.delete("/:id/measurements/:measurementId", requireAuth, async (req
       return res.status(400).json({ message: "Invalid client ID or measurement ID" });
     }
     
-    // Get user ID from session
-    const userId = req.session.user!.id;
-    
-    // Check if client exists
-    const client = await storage.getClient(clientId);
-    if (!client) {
+    // Get client using Drizzle
+    const clientResult = await db.select().from(clients).where(eq(clients.id, clientId));
+    if (!clientResult.length) {
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Check if measurement exists
-    const measurement = await storage.getMeasurement(measurementId);
-    if (!measurement) {
+    // Delete measurement using Drizzle
+    const result = await db.delete(measurements)
+      .where(eq(measurements.id, measurementId))
+      .returning();
+
+    if (!result.length) {
       return res.status(404).json({ message: "Measurement not found" });
     }
-    
-    // Check if measurement belongs to the client
-    if (measurement.clientId !== clientId) {
-      return res.status(400).json({ message: "Measurement does not belong to this client" });
-    }
-    
-    // Admin user check
-    const admin = isAdmin(req);
-    
-    // Only admin users can delete measurements for all clients
-    // Normal users can only delete measurements for their own clients
-    if (!admin && client.user_id !== userId) {
-      return res.status(403).json({ message: "You don't have permission to delete this measurement" });
-    }
 
-    // Delete the measurement
-    await storage.deleteMeasurement(measurementId);
     return res.status(200).json({ message: "Measurement deleted successfully" });
   } catch (error) {
     console.error("Error deleting measurement:", error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
@@ -632,12 +632,89 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
     enabled: !!id,
   });
 
-  const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
+  const { data: appointmentsData, isLoading: isLoadingAppointments } = useQuery({
     queryKey: [`/api/appointments`, id],
     queryFn: () => getAppointments(id as string),
     retry: 1,
     enabled: !!id,
   });
+
+  // Notes güvenli erişim
+  const safeNotes = Array.isArray(client?.client_visible_notes) ? client.client_visible_notes : [];
+  console.log('safeNotes:', safeNotes);
+
+  console.log('ClientDetail return');
+
+  const { appointments, disabledTimes } = useMemo(() => {
+    const appointments = Array.isArray(appointmentsData) ? appointmentsData : [];
+    console.log('Appointments:', appointments);
+
+    const disabledTimes = appointments
+      .filter(a => {
+        const apptDate = a.date?.split('T')[0];
+        const selectedDate = appointmentForm.getValues('date');
+        return apptDate === selectedDate;
+      })
+      .map(a => a.time)
+      .filter((v): v is string => !!v);
+
+    console.log("disabledTimes:", disabledTimes);
+    return { appointments, disabledTimes };
+  }, [appointmentsData, appointmentForm]);
+
+  // Add type definition for appointment actions
+  type AppointmentAction = 'create' | 'update' | 'delete';
+
+  // Add type definition for appointment mutation variables
+  interface AppointmentMutationVariables {
+    action: AppointmentAction;
+    appointmentId?: number;
+    duration?: number;
+    [key: string]: any;
+  }
+
+  const onSubmit = (data: MeasurementFormData) => {
+    const bmi = calculateBmiFromString(data.weight, data.height);
+    const bmr = calculateBmrFromString(data.weight, data.height, calculateAge(client?.birth_date), client?.gender || 'male');
+    const tdee = calculateTdeeFromBmr(bmr, 'sedentary'); // Varsayılan olarak hareketsiz kabul ediyoruz
+
+    const measurementData = {
+      date: data.date,
+      weight: data.weight,
+      height: data.height,
+      waistCircumference: data.waistCircumference,
+      hipCircumference: data.hipCircumference,
+      chestCircumference: data.chestCircumference,
+      armCircumference: data.armCircumference,
+      thighCircumference: data.thighCircumference,
+      calfCircumference: data.calfCircumference,
+      neckCircumference: data.neckCircumference,
+      bodyFatPercentage: data.bodyFatPercentage,
+      notes: data.notes,
+      bmi,
+      basalMetabolicRate: bmr,
+      totalDailyEnergyExpenditure: tdee,
+    };
+
+    createMeasurement(id, measurementData)
+      .then(() => {
+        toast({
+          title: "Başarılı",
+          description: "Ölçüm başarıyla kaydedildi.",
+        });
+        setIsMeasurementDialogOpen(false);
+        // Refresh measurements list
+        getMeasurements(id).then(setMeasurements);
+      })
+      .catch((error) => {
+        console.error("Error saving measurement:", error);
+        toast({
+          title: "Hata",
+          description: "Ölçüm kaydedilirken bir hata oluştu",
+          variant: "destructive",
+        });
+      });
+  };
 
   // All useMutation hooks
   const createMeasurementMutation = useMutation({
@@ -1195,78 +1272,6 @@ function ClientDetail({ id, navigate }: { id: string; navigate: any }) {
     subtitle: "text-green-900",
     date: "text-green-700",
     location: "text-green-600"
-  };
-
-  // Notes güvenli erişim
-  const safeNotes = Array.isArray(client?.client_visible_notes) ? client.client_visible_notes : [];
-  console.log('safeNotes:', safeNotes);
-
-  console.log('ClientDetail return');
-
-  const disabledTimes = appointments
-    ? appointments
-        .filter(a => {
-          const apptDate = a.date?.split('T')[0];
-          const selectedDate = appointmentForm.getValues('date');
-          return apptDate === selectedDate;
-        })
-        .map(a => a.time)
-        .filter((v): v is string => !!v)
-    : [];
-  console.log("disabledTimes:", disabledTimes);
-
-  // Add type definition for appointment actions
-  type AppointmentAction = 'create' | 'update' | 'delete';
-
-  // Add type definition for appointment mutation variables
-  interface AppointmentMutationVariables {
-    action: AppointmentAction;
-    appointmentId?: number;
-    duration?: number;
-    [key: string]: any;
-  }
-
-  const onSubmit = (data: MeasurementFormData) => {
-    const bmi = calculateBmiFromString(data.weight, data.height);
-    const bmr = calculateBmrFromString(data.weight, data.height, calculateAge(client?.birth_date), client?.gender || 'male');
-    const tdee = calculateTdeeFromBmr(bmr, 'sedentary'); // Varsayılan olarak hareketsiz kabul ediyoruz
-
-    const measurementData = {
-      date: data.date,
-      weight: data.weight,
-      height: data.height,
-      waistCircumference: data.waistCircumference,
-      hipCircumference: data.hipCircumference,
-      chestCircumference: data.chestCircumference,
-      armCircumference: data.armCircumference,
-      thighCircumference: data.thighCircumference,
-      calfCircumference: data.calfCircumference,
-      neckCircumference: data.neckCircumference,
-      bodyFatPercentage: data.bodyFatPercentage,
-      notes: data.notes,
-      bmi,
-      basalMetabolicRate: bmr,
-      totalDailyEnergyExpenditure: tdee,
-    };
-
-    createMeasurement(id, measurementData)
-      .then(() => {
-        toast({
-          title: "Başarılı",
-          description: "Ölçüm başarıyla kaydedildi.",
-        });
-        setIsMeasurementDialogOpen(false);
-        // Refresh measurements list
-        getMeasurements(id).then(setMeasurements);
-      })
-      .catch((error) => {
-        console.error("Error saving measurement:", error);
-        toast({
-          title: "Hata",
-          description: "Ölçüm kaydedilirken bir hata oluştu",
-          variant: "destructive",
-        });
-      });
   };
 
   const handleAddOrEditAppointment = async (data: any) => {

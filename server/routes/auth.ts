@@ -5,9 +5,11 @@ import { eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import db from "../db";
 import { fromZodError } from "zod-validation-error";
-import { hashPassword } from "../utils/password-utils";
+import { hashPassword, comparePasswords } from "../utils/password-utils";
 import bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
+import { createSession, getSession, deleteSession } from "../session";
+import { z } from 'zod';
 
 export const authRouter = Router();
 
@@ -23,17 +25,23 @@ declare module 'express-session' {
   }
 }
 
+const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required')
+});
+
+const registerSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Invalid email address'),
+  name: z.string().optional()
+});
+
 // Giriş yönlendirmesi
 authRouter.post("/login", async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const { username, password } = loginSchema.parse(req.body);
     console.log("Login attempt for username:", username);
-    
-    // Validate input
-    if (!username || !password) {
-      console.log("Missing username or password");
-      return res.status(400).json({ message: "Username and password are required" });
-    }
     
     // Get user
     const user = await storage.getUserByUsername(username);
@@ -45,7 +53,7 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     console.log("User found, verifying password");
     
     // Verify password using bcrypt
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await comparePasswords(password, user.password);
     if (!isValidPassword) {
       console.log("Invalid password for user:", username);
       return res.status(401).json({ message: "Invalid username or password" });
@@ -53,12 +61,11 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     
     console.log("Password verified, setting session");
     
-    // Generate session token
-    const token = randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    
-    // Create session in database
-    await storage.createSession(user.id, token, expires);
+    // Create session using centralized function
+    const session = await createSession(user.id);
+    if (!session) {
+      throw new Error("Failed to create session");
+    }
     
     // Set express-session user
     req.session.user = {
@@ -69,11 +76,11 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     };
     
     // Set session cookie
-    res.cookie('session_token', token, {
+    res.cookie('session_token', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      expires: expires
+      expires: session.expires
     });
     
     // Remove password from response
@@ -81,6 +88,12 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     console.log("Login successful for user:", username);
     res.json(safeUser);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        errors: fromZodError(error) 
+      });
+    }
     console.error("Login error:", error);
     res.status(500).json({ message: "An error occurred during login" });
   }
@@ -89,18 +102,31 @@ authRouter.post("/login", async (req: Request, res: Response) => {
 // Kayıt yönlendirmesi
 authRouter.post("/register", async (req: Request, res: Response) => {
   try {
+    const { username, password, email, name } = registerSchema.parse(req.body);
     console.log("Registration request received:", req.body);
     
+    // Check if username already exists
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
+    
+    // Check if email already exists
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+    
     // Hash password
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const hashedPassword = await hashPassword(password);
     console.log("Password hashed successfully");
     
     // Process user data
     const userData = {
-      username: req.body.username,
+      username,
       password: hashedPassword,
-      email: req.body.email,
-      name: req.body.full_name || req.body.username,
+      email,
+      name: name || username,
       role: "user",
       subscriptionStatus: "free"
     };
@@ -115,12 +141,6 @@ authRouter.post("/register", async (req: Request, res: Response) => {
         message: "Invalid input",
         errors: fromZodError(validationResult.error)
       });
-    }
-    
-    // Check if username already exists
-    const existingUser = await storage.getUserByUsername(userData.username);
-    if (existingUser) {
-      return res.status(400).json({ message: "Username already exists" });
     }
     
     // Create user
@@ -145,6 +165,12 @@ authRouter.post("/register", async (req: Request, res: Response) => {
       });
     }
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        errors: fromZodError(error) 
+      });
+    }
     console.error("Registration error:", error);
     if (error instanceof Error) {
       console.error("Error details:", {
@@ -191,11 +217,11 @@ authRouter.post("/logout", async (req: Request, res: Response) => {
   }
 });
 
-// Kullanıcı bilgisi alma
+// Get current user
 authRouter.get("/me", async (req: Request, res: Response) => {
   try {
     if (!req.session.user) {
-      return res.status(401).json({ message: "Oturum açılmamış" });
+      return res.status(401).json({ message: "Not authenticated" });
     }
 
     const user = await storage.getUser(req.session.user.id);
@@ -203,12 +229,12 @@ authRouter.get("/me", async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Kullanıcı bulunamadı" });
     }
 
-    // Kullanıcı bilgilerini dön (şifre olmadan)
-    const { password: _, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
+    // Remove password from response
+    const { password: _, ...safeUser } = user;
+    res.json(safeUser);
   } catch (error) {
-    console.error("Me endpoint hatası:", error);
-    res.status(500).json({ message: "Sunucu hatası" });
+    console.error("Error getting user:", error);
+    res.status(500).json({ message: "An error occurred while getting user information" });
   }
 });
 

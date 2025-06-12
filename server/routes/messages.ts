@@ -3,10 +3,11 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { insertMessageSchema } from "@shared/schema";
 import { NotificationType } from "./notifications";
-import db from "../db";
 import { messages } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { Message } from "@shared/schema";
+import { isValidUUID } from '../utils/uuid-validator';
+import { broadcastNotification } from '../websocket';
 
 const messagesRouter = Router();
 
@@ -528,6 +529,140 @@ messagesRouter.delete("/:id", async (req, res) => {
   } catch (error) {
     console.error("Error deleting message:", error);
     res.status(500).json({ error: "Failed to delete message" });
+  }
+});
+
+// Get all messages between two users
+messagesRouter.get('/:userId', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!isValidUUID(req.params.userId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    const userMessages = await db.query.messages.findMany({
+      where: and(
+        eq(messages.senderId, req.session.user.id),
+        eq(messages.receiverId, req.params.userId)
+      ),
+      orderBy: (messages, { asc }) => [asc(messages.createdAt)]
+    });
+
+    res.json(userMessages);
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ message: 'Failed to fetch messages' });
+  }
+});
+
+// Send a message
+messagesRouter.post('/', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const { receiverId, content } = req.body;
+
+    if (!receiverId || !content) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    if (!isValidUUID(receiverId)) {
+      return res.status(400).json({ message: 'Invalid receiver ID' });
+    }
+
+    const [message] = await db.insert(messages)
+      .values({
+        senderId: req.session.user.id,
+        receiverId,
+        content,
+        read: false
+      })
+      .returning();
+
+    // Send notification to receiver
+    broadcastNotification(receiverId, {
+      title: 'New Message',
+      message: `You have received a new message from ${req.session.user.username}.`,
+      type: 'new_message'
+    });
+
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ message: 'Failed to send message' });
+  }
+});
+
+// Mark message as read
+messagesRouter.patch('/:id/read', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!isValidUUID(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid message ID' });
+    }
+
+    const message = await db.query.messages.findFirst({
+      where: eq(messages.id, req.params.id)
+    });
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    if (message.receiverId !== req.session.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const [updatedMessage] = await db.update(messages)
+      .set({ read: true })
+      .where(eq(messages.id, req.params.id))
+      .returning();
+
+    res.json(updatedMessage);
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    res.status(500).json({ message: 'Failed to update message' });
+  }
+});
+
+// Delete message
+messagesRouter.delete('/:id', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!isValidUUID(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid message ID' });
+    }
+
+    const message = await db.query.messages.findFirst({
+      where: eq(messages.id, req.params.id)
+    });
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    if (message.senderId !== req.session.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    await db.delete(messages)
+      .where(eq(messages.id, req.params.id));
+
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ message: 'Failed to delete message' });
   }
 });
 

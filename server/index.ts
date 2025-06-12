@@ -1,75 +1,89 @@
+import express from 'express';
+import cors from 'cors';
 import { config } from 'dotenv';
-import { resolve } from 'path';
-import express, { type Request, Response, NextFunction } from "express";
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeWebSocket } from "./websocket";
-import cors from 'cors';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import { storage } from './storage';
+import { getSession } from './session';
+import connectPgSimple from 'connect-pg-simple';
+import { pool } from './db';
 
-// Load environment variables from .env file
-config({ path: resolve(process.cwd(), '.env') });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from the root directory
+config();
 
 // Log environment variables for debugging
 console.log('Environment variables loaded:', {
   NODE_ENV: process.env.NODE_ENV,
-  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? 'Set' : 'Not Set',
-  DATABASE_URL: process.env.DATABASE_URL ? 'Set' : 'Not Set'
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: process.env.DB_PORT,
+  DB_USER: process.env.DB_USER,
+  DB_NAME: process.env.DB_NAME,
+  DB_PASSWORD: process.env.DB_PASSWORD ? '(password is set)' : '(password is not set)'
 });
 
 const app = express();
+const port = process.env.PORT || 3001;
 
-// CORS configuration
+// Enable CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Vite's default port
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.FRONTEND_URL 
+    : 'http://localhost:3000',
+  credentials: true
 }));
+
+// Parse JSON bodies
+app.use(express.json());
 
 // Cookie parser middleware
 app.use(cookieParser());
 
+// Create PostgreSQL session store
+const pgSession = connectPgSimple(session);
+const store = new pgSession({
+  pool: pool,
+  tableName: 'session',
+  createTableIfMissing: true
+});
+
 // Session configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  store: store,
+  secret: process.env.SESSION_SECRET || 'dietkem-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     httpOnly: true,
-    sameSite: 'strict'
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
 // Session middleware
-app.use(async (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies.session_token;
-  if (token) {
-    try {
-      const session = await storage.getSession(token);
-      if (session && session.expires > new Date()) {
-        const user = await storage.getUser(session.user.id.toString());
-        if (user) {
-          req.session.user = {
-            id: user.id,
-            username: user.username || '',
-            email: user.email || '',
-            role: user.role || 'user'
-          };
-        }
+app.use(async (req, res, next) => {
+  try {
+    const token = req.cookies.session;
+    if (token) {
+      const session = await getSession(token);
+      if (session && !session.isExpired) {
+        req.session.user = session.user;
       }
-    } catch (error) {
-      console.error('Session middleware error:', error);
     }
+    next();
+  } catch (error) {
+    console.error('Session middleware error:', error);
+    next();
   }
-  next();
 });
 
-app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
@@ -116,9 +130,10 @@ app.post('/api/test-log', (req, res) => {
   const server = await registerRoutes(app);
 
   // Initialize WebSocket server
-  initializeWebSocket(server);
+  const wss = initializeWebSocket(server);
+  global.wss = wss;
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
@@ -129,8 +144,8 @@ app.post('/api/test-log', (req, res) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  if (process.env.NODE_ENV !== 'production') {
+    await setupVite(app);
   } else {
     serveStatic(app);
   }

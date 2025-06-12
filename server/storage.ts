@@ -35,12 +35,11 @@ import {
   clientNotes,
   sessions
 } from "@shared/schema";
-import { PrismaClient } from '@prisma/client';
 import { and, desc, eq, sql, count, inArray, like } from "drizzle-orm";
 import { json } from "drizzle-orm/pg-core";
 import { db } from "@shared/db";
-
-const prisma = new PrismaClient();
+import { pool } from './db';
+import { createSession as createUserSession, getSession as getUserSession, deleteSession as deleteUserSession, deleteExpiredSessions as deleteExpiredUserSessions } from './session';
 
 // Helper function for pagination
 function paginate<T>(query: any, limit?: number, offset?: number): any {
@@ -287,7 +286,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | null> {
     try {
-      const [user] = await db.select().from(users).where(eq(users.username, username));
+      const result = await pool.query(
+        'SELECT * FROM users WHERE username = $1 LIMIT 1',
+        [username]
+      );
+      const user = result.rows[0];
       if (!user) return null;
       return {
         id: user.id,
@@ -450,31 +453,35 @@ export class DatabaseStorage implements IStorage {
   // Client operations
   async getClient(id: number): Promise<Client | undefined> {
     try {
-      const client = await prisma.clients.findUnique({ where: { id } });
-      if (!client) return undefined;
+      const client = await pool.query(
+        'SELECT * FROM clients WHERE id = $1 LIMIT 1',
+        [id]
+      );
+      const result = client.rows[0];
+      if (!result) return undefined;
       return {
-        id: client.id,
-        firstName: client.first_name,
-        lastName: client.last_name,
-        email: client.email,
-        phone: client.phone,
-        birthDate: client.birth_date,
-        gender: client.gender,
-        height: client.height?.toString() || null,
-        weight: client.weight?.toString() || null,
-        occupation: client.occupation,
-        medicalConditions: client.medical_conditions,
-        allergies: client.allergies,
-        medications: client.medications,
-        notes: client.notes,
-        clientVisibleNotes: client.client_visible_notes,
-        status: client.status,
-        startDate: client.start_date,
-        endDate: client.end_date,
-        accessCode: client.access_code,
-        userId: client.user_id.toString(),
-        createdAt: client.created_at,
-        updatedAt: client.updated_at
+        id: result.id,
+        firstName: result.first_name,
+        lastName: result.last_name,
+        email: result.email,
+        phone: result.phone,
+        birthDate: result.birth_date,
+        gender: result.gender,
+        height: result.height?.toString() || null,
+        weight: result.weight?.toString() || null,
+        occupation: result.occupation,
+        medicalConditions: result.medical_conditions,
+        allergies: result.allergies,
+        medications: result.medications,
+        notes: result.notes,
+        clientVisibleNotes: result.client_visible_notes,
+        status: result.status,
+        startDate: result.start_date,
+        endDate: result.end_date,
+        accessCode: result.access_code,
+        userId: result.user_id.toString(),
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
       };
     } catch (error) {
       console.error('Error getting client:', error);
@@ -514,31 +521,33 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date()
       };
 
-      const newClient = await prisma.clients.create({ data: dbClient });
-      return {
-        id: newClient.id,
-        firstName: newClient.first_name,
-        lastName: newClient.last_name,
-        email: newClient.email,
-        phone: newClient.phone,
-        birthDate: newClient.birth_date,
-        gender: newClient.gender,
-        height: newClient.height?.toString() || null,
-        weight: newClient.weight?.toString() || null,
-        occupation: newClient.occupation,
-        medicalConditions: newClient.medical_conditions,
-        allergies: newClient.allergies,
-        medications: newClient.medications,
-        notes: newClient.notes,
-        clientVisibleNotes: newClient.client_visible_notes,
-        status: newClient.status,
-        startDate: newClient.start_date,
-        endDate: newClient.end_date,
-        accessCode: newClient.access_code,
-        userId: newClient.user_id.toString(),
-        createdAt: newClient.created_at,
-        updatedAt: newClient.updated_at
-      };
+      const newClient = await pool.query(
+        'INSERT INTO clients (first_name, last_name, email, phone, birth_date, gender, height, weight, occupation, medical_conditions, allergies, medications, notes, client_visible_notes, status, start_date, end_date, access_code, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING *',
+        [
+          dbClient.first_name,
+          dbClient.last_name,
+          dbClient.email,
+          dbClient.phone,
+          dbClient.birth_date,
+          dbClient.gender,
+          dbClient.height,
+          dbClient.weight,
+          dbClient.occupation,
+          dbClient.medical_conditions,
+          dbClient.allergies,
+          dbClient.medications,
+          dbClient.notes,
+          dbClient.client_visible_notes,
+          dbClient.status,
+          dbClient.start_date,
+          dbClient.end_date,
+          dbClient.access_code,
+          dbClient.user_id,
+          dbClient.created_at,
+          dbClient.updated_at
+        ]
+      );
+      return newClient.rows[0];
     } catch (error) {
       console.error('Error creating client:', error);
       throw error;
@@ -552,14 +561,10 @@ export class DatabaseStorage implements IStorage {
     // Handle height separately if it exists
     if (updatedData.height !== undefined && updatedData.height !== null) {
       // Use raw SQL to ensure proper numeric type handling
-      await prisma.clients.update({
-        where: { id },
-        data: {
-          height: {
-            set: updatedData.height
-          }
-        }
-      });
+      const result = await pool.query(
+        'UPDATE clients SET height = $1 WHERE id = $2 RETURNING *',
+        [updatedData.height, id]
+      );
       // Remove height from the update object since we handled it separately
       const { height, ...restData } = updatedData;
       updatedData = restData;
@@ -568,14 +573,10 @@ export class DatabaseStorage implements IStorage {
     // Handle client_visible_notes separately if it exists
     if (updatedData.client_visible_notes !== undefined) {
       // Ensure client_visible_notes is stored as a JSON array
-      await prisma.clients.update({
-        where: { id },
-        data: {
-          client_visible_notes: {
-            set: updatedData.client_visible_notes
-          }
-        }
-      });
+      const result = await pool.query(
+        'UPDATE clients SET client_visible_notes = $1 WHERE id = $2 RETURNING *',
+        [updatedData.client_visible_notes, id]
+      );
       // Remove client_visible_notes from the update object since we handled it separately
       const { client_visible_notes, ...restData } = updatedData;
       updatedData = restData;
@@ -583,50 +584,50 @@ export class DatabaseStorage implements IStorage {
 
     // Handle diet_preferences separately if it exists
     if (updatedData.diet_preferences !== undefined) {
-      await prisma.clients.update({
-        where: { id },
-        data: {
-          diet_preferences: {
-            set: updatedData.diet_preferences
-          }
-        }
-      });
+      const result = await pool.query(
+        'UPDATE clients SET diet_preferences = $1 WHERE id = $2 RETURNING *',
+        [updatedData.diet_preferences, id]
+      );
       const { diet_preferences, ...restData } = updatedData;
       updatedData = restData;
     }
 
     // Update remaining fields and get the updated client
-    const [updatedClient] = await prisma.clients.update({
-      where: { id },
-      data: {
-        ...updatedData,
-        updated_at: new Date()
-      }
-    }).returning();
-
-    return updatedClient;
+    const result = await pool.query(
+      'UPDATE clients SET first_name = $1, last_name = $2, email = $3, phone = $4, birth_date = $5, gender = $6, height = $7, weight = $8, occupation = $9, medical_conditions = $10, allergies = $11, medications = $12, notes = $13, client_visible_notes = $14, status = $15, start_date = $16, end_date = $17, access_code = $18, updated_at = $19 WHERE id = $20 RETURNING *',
+      [
+        updatedData.first_name,
+        updatedData.last_name,
+        updatedData.email,
+        updatedData.phone,
+        updatedData.birth_date,
+        updatedData.gender,
+        updatedData.height,
+        updatedData.weight,
+        updatedData.occupation,
+        updatedData.medical_conditions,
+        updatedData.allergies,
+        updatedData.medications,
+        updatedData.notes,
+        updatedData.client_visible_notes,
+        updatedData.status,
+        updatedData.start_date,
+        updatedData.end_date,
+        updatedData.access_code,
+        new Date(),
+        id
+      ]
+    );
+    return result.rows[0];
   }
 
   async deleteClient(id: number): Promise<boolean> {
     try {
-      const client = await prisma.clients.findUnique({ where: { id } });
-      if (!client) {
-        return false;
-      }
-
-      await prisma.$transaction(async (prisma) => {
-        // Delete all related records
-        await prisma.measurement.deleteMany({ where: { client_id: id } });
-        await prisma.appointment.deleteMany({ where: { client_id: id } });
-        await prisma.clientsSession.deleteMany({ where: { client_id: id } });
-        await prisma.healthHistory.deleteMany({ where: { client_id: id } });
-        await prisma.dietPlan.deleteMany({ where: { client_id: id } });
-        
-        // Finally delete the client
-        await prisma.clients.delete({ where: { id } });
-      });
-
-      return true;
+      const result = await pool.query(
+        'DELETE FROM clients WHERE id = $1 RETURNING *',
+        [id]
+      );
+      return !!result.rows.length;
     } catch (error) {
       console.error("Error deleting client:", error);
       throw new Error("Danışan silinirken bir hata oluştu. Lütfen tekrar deneyin.");
@@ -637,10 +638,10 @@ export class DatabaseStorage implements IStorage {
     if (!userId) {
       throw new Error('Invalid userId');
     }
-    let query = prisma.clients.findMany({
-      where: { user_id: userId },
-      orderBy: { created_at: 'desc' }
-    });
+    let query = pool.query(
+      'SELECT * FROM clients WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
     query = paginate(query, limit, offset);
     return query;
   }
@@ -650,9 +651,9 @@ export class DatabaseStorage implements IStorage {
       if (userId) {
         return this.getAllClients(userId, limit, offset);
       } else {
-        let query = prisma.clients.findMany({
-          orderBy: { created_at: 'desc' }
-        });
+        let query = pool.query(
+          'SELECT * FROM clients ORDER BY created_at DESC'
+        );
         query = paginate(query, limit, offset);
         return query;
       }
@@ -665,28 +666,32 @@ export class DatabaseStorage implements IStorage {
   // Measurement operations
   async getMeasurement(id: number): Promise<Measurement | undefined> {
     try {
-      const measurement = await prisma.measurement.findUnique({ where: { id } });
-      if (!measurement) return undefined;
+      const measurement = await pool.query(
+        'SELECT * FROM measurements WHERE id = $1 LIMIT 1',
+        [id]
+      );
+      if (!measurement.rows.length) return undefined;
+      const result = measurement.rows[0];
       return {
-        id: measurement.id,
-        date: measurement.date.toISOString(),
-        height: measurement.height?.toString() || "0",
-        weight: measurement.weight?.toString() || "0",
-        bmi: measurement.bmi?.toString() || null,
-        bodyFatPercentage: measurement.bodyFatPercentage?.toString() || null,
-        waistCircumference: measurement.waistCircumference?.toString() || null,
-        hipCircumference: measurement.hipCircumference?.toString() || null,
-        chestCircumference: measurement.chestCircumference?.toString() || null,
-        armCircumference: measurement.armCircumference?.toString() || null,
-        thighCircumference: measurement.thighCircumference?.toString() || null,
-        calfCircumference: measurement.calfCircumference?.toString() || null,
-        basalMetabolicRate: measurement.basalMetabolicRate?.toString() || null,
-        totalDailyEnergyExpenditure: measurement.totalDailyEnergyExpenditure?.toString() || null,
-        activityLevel: measurement.activityLevel,
-        clientId: measurement.client_id,
+        id: result.id,
+        date: result.date.toISOString(),
+        height: result.height?.toString() || "0",
+        weight: result.weight?.toString() || "0",
+        bmi: result.bmi?.toString() || null,
+        bodyFatPercentage: result.bodyFatPercentage?.toString() || null,
+        waistCircumference: result.waistCircumference?.toString() || null,
+        hipCircumference: result.hipCircumference?.toString() || null,
+        chestCircumference: result.chestCircumference?.toString() || null,
+        armCircumference: result.armCircumference?.toString() || null,
+        thighCircumference: result.thighCircumference?.toString() || null,
+        calfCircumference: result.calfCircumference?.toString() || null,
+        basalMetabolicRate: result.basalMetabolicRate?.toString() || null,
+        totalDailyEnergyExpenditure: result.totalDailyEnergyExpenditure?.toString() || null,
+        activityLevel: result.activityLevel,
+        clientId: result.client_id,
         notes: null,
-        createdAt: measurement.created_at,
-        updatedAt: measurement.updated_at
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
       };
     } catch (error) {
       console.error('Error getting measurement:', error);
@@ -725,28 +730,29 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date()
       };
 
-      const newMeasurement = await prisma.measurement.create({ data: insertObj });
-      return {
-        id: newMeasurement.id,
-        date: newMeasurement.date.toISOString(),
-        height: newMeasurement.height?.toString() || "0",
-        weight: newMeasurement.weight?.toString() || "0",
-        bmi: newMeasurement.bmi?.toString() || null,
-        bodyFatPercentage: newMeasurement.bodyFatPercentage?.toString() || null,
-        waistCircumference: newMeasurement.waistCircumference?.toString() || null,
-        hipCircumference: newMeasurement.hipCircumference?.toString() || null,
-        chestCircumference: newMeasurement.chestCircumference?.toString() || null,
-        armCircumference: newMeasurement.armCircumference?.toString() || null,
-        thighCircumference: newMeasurement.thighCircumference?.toString() || null,
-        calfCircumference: newMeasurement.calfCircumference?.toString() || null,
-        basalMetabolicRate: newMeasurement.basalMetabolicRate?.toString() || null,
-        totalDailyEnergyExpenditure: newMeasurement.totalDailyEnergyExpenditure?.toString() || null,
-        activityLevel: newMeasurement.activityLevel,
-        clientId: newMeasurement.client_id,
-        notes: null,
-        createdAt: newMeasurement.created_at,
-        updatedAt: newMeasurement.updated_at
-      };
+      const result = await pool.query(
+        'INSERT INTO measurements (client_id, date, height, weight, bmi, bodyFatPercentage, waistCircumference, hipCircumference, chestCircumference, armCircumference, thighCircumference, calfCircumference, basalMetabolicRate, totalDailyEnergyExpenditure, activityLevel, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *',
+        [
+          insertObj.client_id,
+          insertObj.date,
+          insertObj.height,
+          insertObj.weight,
+          insertObj.bmi,
+          insertObj.bodyFatPercentage,
+          insertObj.waistCircumference,
+          insertObj.hipCircumference,
+          insertObj.chestCircumference,
+          insertObj.armCircumference,
+          insertObj.thighCircumference,
+          insertObj.calfCircumference,
+          insertObj.basalMetabolicRate,
+          insertObj.totalDailyEnergyExpenditure,
+          insertObj.activityLevel,
+          insertObj.created_at,
+          insertObj.updated_at
+        ]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error('Error creating measurement:', error);
       throw error;
@@ -774,32 +780,28 @@ export class DatabaseStorage implements IStorage {
       
       updateData.updated_at = new Date();
 
-      const updatedMeasurement = await prisma.measurement.update({
-        where: { id },
-        data: updateData
-      });
-
-      return {
-        id: updatedMeasurement.id,
-        date: updatedMeasurement.date.toISOString(),
-        height: updatedMeasurement.height?.toString() || "0",
-        weight: updatedMeasurement.weight?.toString() || "0",
-        bmi: updatedMeasurement.bmi?.toString() || null,
-        bodyFatPercentage: updatedMeasurement.bodyFatPercentage?.toString() || null,
-        waistCircumference: updatedMeasurement.waistCircumference?.toString() || null,
-        hipCircumference: updatedMeasurement.hipCircumference?.toString() || null,
-        chestCircumference: updatedMeasurement.chestCircumference?.toString() || null,
-        armCircumference: updatedMeasurement.armCircumference?.toString() || null,
-        thighCircumference: updatedMeasurement.thighCircumference?.toString() || null,
-        calfCircumference: updatedMeasurement.calfCircumference?.toString() || null,
-        basalMetabolicRate: updatedMeasurement.basalMetabolicRate?.toString() || null,
-        totalDailyEnergyExpenditure: updatedMeasurement.totalDailyEnergyExpenditure?.toString() || null,
-        activityLevel: updatedMeasurement.activityLevel,
-        clientId: updatedMeasurement.client_id,
-        notes: null,
-        createdAt: updatedMeasurement.created_at,
-        updatedAt: updatedMeasurement.updated_at
-      };
+      const result = await pool.query(
+        'UPDATE measurements SET date = $1, height = $2, weight = $3, bmi = $4, bodyFatPercentage = $5, waistCircumference = $6, hipCircumference = $7, chestCircumference = $8, armCircumference = $9, thighCircumference = $10, calfCircumference = $11, basalMetabolicRate = $12, totalDailyEnergyExpenditure = $13, activityLevel = $14, updated_at = $15 WHERE id = $16 RETURNING *',
+        [
+          updateData.date,
+          updateData.height,
+          updateData.weight,
+          updateData.bmi,
+          updateData.bodyFatPercentage,
+          updateData.waistCircumference,
+          updateData.hipCircumference,
+          updateData.chestCircumference,
+          updateData.armCircumference,
+          updateData.thighCircumference,
+          updateData.calfCircumference,
+          updateData.basalMetabolicRate,
+          updateData.totalDailyEnergyExpenditure,
+          updateData.activityLevel,
+          updateData.updated_at,
+          id
+        ]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error('Error updating measurement:', error);
       throw error;
@@ -808,9 +810,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMeasurement(id: number): Promise<void> {
     try {
-      await prisma.measurement.delete({
-        where: { id }
-      });
+      await pool.query(
+        'DELETE FROM measurements WHERE id = $1',
+        [id]
+      );
     } catch (error) {
       console.error('Error deleting measurement:', error);
       throw error;
@@ -819,12 +822,12 @@ export class DatabaseStorage implements IStorage {
 
   async getClientMeasurements(clientId: number): Promise<Measurement[]> {
     try {
-      const measurements = await prisma.measurement.findMany({
-        where: { client_id: clientId },
-        orderBy: { date: 'desc' }
-      });
+      const measurements = await pool.query(
+        'SELECT * FROM measurements WHERE client_id = $1 ORDER BY date DESC',
+        [clientId]
+      );
 
-      return measurements.map(measurement => ({
+      return measurements.rows.map(measurement => ({
         id: measurement.id,
         date: measurement.date.toISOString(),
         height: measurement.height?.toString() || "0",
@@ -853,115 +856,123 @@ export class DatabaseStorage implements IStorage {
 
   // Diet plan operations
   async getDietPlan(id: number): Promise<DietPlan | undefined> {
-    const [dietPlan] = await prisma.dietPlan.findMany({ where: { id } });
-    return dietPlan;
+    const dietPlan = await pool.query(
+      'SELECT * FROM dietPlans WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    return dietPlan.rows[0];
   }
 
   async createDietPlan(dietPlan: InsertDietPlan): Promise<DietPlan> {
-    const [newDietPlan] = await prisma.dietPlan.create({
-      data: {
-        ...dietPlan,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    }).returning();
-    return newDietPlan;
+    const result = await pool.query(
+      'INSERT INTO dietPlans (client_id, name, description, createdAt, updatedAt) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [
+        dietPlan.client_id,
+        dietPlan.name,
+        dietPlan.description,
+        dietPlan.createdAt,
+        dietPlan.updatedAt
+      ]
+    );
+    return result.rows[0];
   }
 
   async updateDietPlan(id: number, dietPlan: Partial<DietPlan>): Promise<DietPlan> {
-    const [updatedDietPlan] = await prisma.dietPlan.update({
-      where: { id },
-      data: {
-        ...dietPlan,
-        updatedAt: new Date()
-      }
-    }).returning();
-    return updatedDietPlan;
+    const result = await pool.query(
+      'UPDATE dietPlans SET client_id = $1, name = $2, description = $3, updatedAt = $4 WHERE id = $5 RETURNING *',
+      [
+        dietPlan.client_id,
+        dietPlan.name,
+        dietPlan.description,
+        dietPlan.updatedAt,
+        id
+      ]
+    );
+    return result.rows[0];
   }
 
   async deleteDietPlan(id: number): Promise<void> {
-    await prisma.dietPlan.delete({ where: { id } });
+    await pool.query(
+      'DELETE FROM dietPlans WHERE id = $1',
+      [id]
+    );
   }
 
   async getUserDietPlans(userId: string, limit?: number, offset?: number): Promise<DietPlan[]> {
     console.log("userId param:", userId, typeof userId);
-    let query = prisma.dietPlan.findMany();
+    let query = pool.query(
+      'SELECT * FROM dietPlans WHERE client_id = $1 ORDER BY createdAt DESC',
+      [userId]
+    );
     const result = await query;
     console.log("TÜM PLANLAR:", result);
-    return result;
+    return result.rows;
   }
 
   // Food operations
   async getFood(fdcId: string): Promise<Food | undefined> {
-    const [food] = await prisma.food.findMany({ where: { fdcId } });
-    return food;
+    const food = await pool.query(
+      'SELECT * FROM foods WHERE fdcId = $1 LIMIT 1',
+      [fdcId]
+    );
+    return food.rows[0];
   }
 
   async createFood(food: InsertFood): Promise<Food> {
-    const [newFood] = await prisma.food.create({
-      data: {
-        ...food,
-        createdAt: new Date()
-      }
-    }).returning();
-    return newFood;
+    const result = await pool.query(
+      'INSERT INTO foods (fdcId, description, createdAt) VALUES ($1, $2, $3) RETURNING *',
+      [food.fdcId, food.description, food.createdAt]
+    );
+    return result.rows[0];
   }
 
   async updateFood(fdcId: string, food: Partial<Food>): Promise<Food> {
-    const [updatedFood] = await prisma.food.update({
-      where: { fdcId },
-      data: food
-    }).returning();
-    return updatedFood;
+    const result = await pool.query(
+      'UPDATE foods SET description = $1, updatedAt = $2 WHERE fdcId = $3 RETURNING *',
+      [food.description, new Date(), fdcId]
+    );
+    return result.rows[0];
   }
 
   async deleteFood(fdcId: string): Promise<void> {
-    await prisma.food.delete({ where: { fdcId } });
+    await pool.query(
+      'DELETE FROM foods WHERE fdcId = $1',
+      [fdcId]
+    );
   }
 
   async searchFoods(query: string, limit?: number, offset?: number): Promise<Food[]> {
-    let sqlQuery = prisma.food.findMany({
-      where: {
-        description: {
-          contains: query,
-          mode: 'insensitive'
-        }
-      },
-      orderBy: { description: 'asc' }
-    });
+    let sqlQuery = pool.query(
+      'SELECT * FROM foods WHERE description ILIKE $1 ORDER BY description ASC',
+      [query]
+    );
     sqlQuery = paginate(sqlQuery, limit, offset);
     return sqlQuery;
   }
 
   // Saved food operations
   async getSavedFood(userId: string): Promise<SavedFood[]> {
-    let query = prisma.savedFood.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
-    });
+    let query = pool.query(
+      'SELECT * FROM savedFoods WHERE userId = $1 ORDER BY createdAt DESC',
+      [userId]
+    );
     return query;
   }
 
   async createSavedFood(savedFood: InsertSavedFood): Promise<SavedFood> {
-    const [newSavedFood] = await prisma.savedFood.create({
-      data: {
-        ...savedFood,
-        createdAt: new Date()
-      }
-    }).returning();
-    return newSavedFood;
+    const result = await pool.query(
+      'INSERT INTO savedFoods (userId, fdcId, createdAt) VALUES ($1, $2, $3) RETURNING *',
+      [savedFood.userId, savedFood.fdcId, savedFood.createdAt]
+    );
+    return result.rows[0];
   }
 
   async deleteSavedFood(userId: string, fdcId: string): Promise<boolean> {
     try {
-      await prisma.savedFood.delete({
-        where: {
-          userId_fdcId: {
-            userId,
-            fdcId
-          }
-        }
-      });
+      await pool.query(
+        'DELETE FROM savedFoods WHERE userId = $1 AND fdcId = $2 RETURNING *',
+        [userId, fdcId]
+      );
       return true;
     } catch (error) {
       console.error("Delete saved food error:", error);
@@ -970,45 +981,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async isFoodSaved(userId: string, fdcId: string): Promise<boolean> {
-    const [savedFood] = await prisma.savedFood.findMany({
-      where: {
-        userId,
-        fdcId
-      }
-    });
-    return !!savedFood;
+    const result = await pool.query(
+      'SELECT * FROM savedFoods WHERE userId = $1 AND fdcId = $2 LIMIT 1',
+      [userId, fdcId]
+    );
+    return !!result.rows.length;
   }
 
   async getUserSavedFoods(userId: string, limit?: number, offset?: number): Promise<SavedFood[]> {
-    let query = prisma.savedFood.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
-    });
+    let query = pool.query(
+      'SELECT * FROM savedFoods WHERE userId = $1 ORDER BY createdAt DESC',
+      [userId]
+    );
     query = paginate(query, limit, offset);
     return query;
   }
 
   // Client session operations
   async getClientSession(sessionToken: string): Promise<ClientSession | undefined> {
-    const [session] = await prisma.clientsSession.findMany({ where: { sessionToken } });
-    return session;
+    const result = await pool.query(
+      'SELECT * FROM clientsSession WHERE sessionToken = $1 LIMIT 1',
+      [sessionToken]
+    );
+    return result.rows[0];
   }
 
   async createClientSession(session: InsertClientSession): Promise<ClientSession> {
-    const [newSession] = await prisma.clientsSession.create({
-      data: {
-        ...session,
-        createdAt: new Date(),
-        lastActivity: new Date()
-      }
-    }).returning();
-    return newSession;
+    const result = await pool.query(
+      'INSERT INTO clientsSession (sessionToken, createdAt, lastActivity) VALUES ($1, $2, $3) RETURNING *',
+      [session.sessionToken, session.createdAt, session.lastActivity]
+    );
+    return result.rows[0];
   }
 
   // Client Portal operations
   async getClientByAccessCode(accessCode: string): Promise<Client | undefined> {
-    const [client] = await prisma.clients.findMany({ where: { access_code: accessCode } });
-    return client;
+    const result = await pool.query(
+      'SELECT * FROM clients WHERE access_code = $1 LIMIT 1',
+      [accessCode]
+    );
+    return result.rows[0];
   }
 
   async generateClientAccessCode(clientId: number): Promise<string> {
@@ -1033,20 +1045,20 @@ export class DatabaseStorage implements IStorage {
     } while (!isUnique);
     
     // Add the code to the client record
-    await prisma.clients.update({
-      where: { id: clientId },
-      data: { access_code: code }
-    });
+    await pool.query(
+      'UPDATE clients SET access_code = $1 WHERE id = $2',
+      [code, clientId]
+    );
     
     return code;
   }
   
   async updateClientAccessCode(clientId: number, accessCode: string): Promise<boolean> {
     try {
-      await prisma.clients.update({
-        where: { id: clientId },
-        data: { access_code: accessCode }
-      });
+      await pool.query(
+        'UPDATE clients SET access_code = $1 WHERE id = $2',
+        [accessCode, clientId]
+      );
       
       return true;
     } catch (error) {
@@ -1057,10 +1069,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateClientSessionActivity(sessionToken: string): Promise<boolean> {
     try {
-      await prisma.clientsSession.update({
-        where: { sessionToken },
-        data: { lastActivity: new Date() }
-      });
+      await pool.query(
+        'UPDATE clientsSession SET lastActivity = $1 WHERE sessionToken = $2',
+        [new Date(), sessionToken]
+      );
       
       return true;
     } catch (error) {
@@ -1071,7 +1083,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientSession(sessionToken: string): Promise<boolean> {
     try {
-      await prisma.clientsSession.delete({ where: { sessionToken } });
+      await pool.query(
+        'DELETE FROM clientsSession WHERE sessionToken = $1',
+        [sessionToken]
+      );
       
       return true;
     } catch (error) {
@@ -1081,16 +1096,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await prisma.clientsSession.deleteMany({
-      where: { expiresAt: { lt: new Date() } }
-    });
+    await pool.query(
+      'DELETE FROM clientsSession WHERE expiresAt < NOW()'
+    );
   }
 
   // Appointment operations
   async getAppointment(id: number): Promise<Appointment | undefined> {
     try {
-      const [appointment] = await prisma.appointment.findMany({ where: { id } });
-      return appointment;
+      const result = await pool.query(
+        'SELECT * FROM appointments WHERE id = $1 LIMIT 1',
+        [id]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error('Error getting appointment:', error);
       throw error;
@@ -1100,15 +1118,19 @@ export class DatabaseStorage implements IStorage {
   async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
     try {
       const validUserId = safeUUIDConversion(appointment.userId);
-      const [newAppointment] = await prisma.appointment.create({
-        data: {
-          ...appointment,
-          userId: validUserId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      }).returning();
-      return newAppointment;
+      const result = await pool.query(
+        'INSERT INTO appointments (client_id, userId, date, startTime, endTime, createdAt, updatedAt) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [
+          appointment.client_id,
+          validUserId,
+          new Date(appointment.date),
+          new Date(appointment.startTime),
+          new Date(appointment.endTime),
+          new Date(),
+          new Date()
+        ]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error('Error creating appointment:', error);
       throw error;
@@ -1118,15 +1140,19 @@ export class DatabaseStorage implements IStorage {
   async updateAppointment(id: number, appointment: Partial<Appointment>): Promise<Appointment> {
     try {
       const validUserId = appointment.userId ? safeUUIDConversion(appointment.userId) : undefined;
-      const [updatedAppointment] = await prisma.appointment.update({
-        where: { id },
-        data: {
-          ...appointment,
-          userId: validUserId,
-          updatedAt: new Date()
-        }
-      }).returning();
-      return updatedAppointment;
+      const result = await pool.query(
+        'UPDATE appointments SET client_id = $1, userId = $2, date = $3, startTime = $4, endTime = $5, updatedAt = $6 WHERE id = $7 RETURNING *',
+        [
+          appointment.client_id,
+          validUserId,
+          new Date(appointment.date),
+          new Date(appointment.startTime),
+          new Date(appointment.endTime),
+          new Date(),
+          id
+        ]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error('Error updating appointment:', error);
       throw error;
@@ -1134,14 +1160,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAppointment(id: number): Promise<void> {
-    await prisma.appointment.delete({ where: { id } });
+    await pool.query(
+      'DELETE FROM appointments WHERE id = $1',
+      [id]
+    );
   }
 
   async getClientAppointments(clientId: number, limit?: number, offset?: number): Promise<Appointment[]> {
-    let query = prisma.appointment.findMany({
-      where: { client_id: clientId },
-      orderBy: { date: 'desc' }
-    });
+    let query = pool.query(
+      'SELECT * FROM appointments WHERE client_id = $1 ORDER BY date DESC',
+      [clientId]
+    );
     query = paginate(query, limit, offset);
     return query;
   }
@@ -1149,11 +1178,12 @@ export class DatabaseStorage implements IStorage {
   async getUserAppointments(userId: string, limit?: number, offset?: number): Promise<Appointment[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = prisma.appointment.findMany({
-        where: { userId: validUserId },
-        orderBy: { date: 'desc' }
-      });
-      return await paginate(query, limit, offset);
+      let query = pool.query(
+        'SELECT * FROM appointments WHERE userId = $1 ORDER BY date DESC',
+        [validUserId]
+      );
+      query = paginate(query, limit, offset);
+      return query;
     } catch (error) {
       console.error('Error getting user appointments:', error);
       throw error;
@@ -1162,8 +1192,11 @@ export class DatabaseStorage implements IStorage {
 
   // Message operations
   async getMessage(id: number): Promise<Message | undefined> {
-    const [message] = await prisma.message.findMany({ where: { id } });
-    return message;
+    const result = await pool.query(
+      'SELECT * FROM messages WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    return result.rows[0];
   }
 
   async getMessageById(id: number): Promise<Message | undefined> {
@@ -1173,13 +1206,10 @@ export class DatabaseStorage implements IStorage {
   async getMessages(clientId: number, userId: string): Promise<Message[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = prisma.message.findMany({
-        where: {
-          client_id: clientId,
-          userId: validUserId
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      let query = pool.query(
+        'SELECT * FROM messages WHERE client_id = $1 AND userId = $2 ORDER BY createdAt DESC',
+        [clientId, validUserId]
+      );
       return query;
     } catch (error) {
       console.error('Error getting messages:', error);
@@ -1188,32 +1218,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const [newMessage] = await prisma.message.create({
-      data: {
-        ...message,
-        createdAt: new Date()
-      }
-    }).returning();
-    return newMessage;
+    const result = await pool.query(
+      'INSERT INTO messages (client_id, userId, content, createdAt) VALUES ($1, $2, $3, $4) RETURNING *',
+      [message.client_id, message.userId, message.content, new Date()]
+    );
+    return result.rows[0];
   }
 
   async updateMessage(id: number, message: Partial<Message>): Promise<Message> {
-    const [updatedMessage] = await prisma.message.update({
-      where: { id },
-      data: message
-    }).returning();
-    return updatedMessage;
+    const result = await pool.query(
+      'UPDATE messages SET client_id = $1, userId = $2, content = $3, updatedAt = $4 WHERE id = $5 RETURNING *',
+      [message.client_id, message.userId, message.content, new Date(), id]
+    );
+    return result.rows[0];
   }
 
   async deleteMessage(id: number): Promise<void> {
-    await prisma.message.delete({ where: { id } });
+    await pool.query(
+      'DELETE FROM messages WHERE id = $1',
+      [id]
+    );
   }
 
   async getClientMessages(clientId: number, limit?: number, offset?: number): Promise<Message[]> {
-    let query = prisma.message.findMany({
-      where: { client_id: clientId },
-      orderBy: { createdAt: 'desc' }
-    });
+    let query = pool.query(
+      'SELECT * FROM messages WHERE client_id = $1 ORDER BY createdAt DESC',
+      [clientId]
+    );
     query = paginate(query, limit, offset);
     return query;
   }
@@ -1221,11 +1252,12 @@ export class DatabaseStorage implements IStorage {
   async getUserMessages(userId: string, limit?: number, offset?: number): Promise<Message[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = prisma.message.findMany({
-        where: { userId: validUserId },
-        orderBy: { createdAt: 'desc' }
-      });
-      return await paginate(query, limit, offset);
+      let query = pool.query(
+        'SELECT * FROM messages WHERE userId = $1 ORDER BY createdAt DESC',
+        [validUserId]
+      );
+      query = paginate(query, limit, offset);
+      return query;
     } catch (error) {
       console.error('Error getting user messages:', error);
       throw error;
@@ -1235,10 +1267,10 @@ export class DatabaseStorage implements IStorage {
   // Mesajı okundu olarak işaretle
   async markMessageAsRead(messageId: number): Promise<boolean> {
     try {
-      await prisma.message.update({
-        where: { id: messageId },
-        data: { isRead: true }
-      });
+      await pool.query(
+        'UPDATE messages SET isRead = $1 WHERE id = $2',
+        [true, messageId]
+      );
       return true;
     } catch (error) {
       console.error("Message marking error:", error);
@@ -1250,13 +1282,10 @@ export class DatabaseStorage implements IStorage {
   async markAllClientMessagesAsRead(clientId: number, userId: string): Promise<boolean> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await prisma.message.updateMany({
-        where: {
-          client_id: clientId,
-          userId: validUserId
-        },
-        data: { isRead: true }
-      });
+      await pool.query(
+        'UPDATE messages SET isRead = $1 WHERE client_id = $2 AND userId = $3',
+        [true, clientId, validUserId]
+      );
       return true;
     } catch (error) {
       console.error('Error marking messages as read:', error);
@@ -1272,8 +1301,11 @@ export class DatabaseStorage implements IStorage {
       if (userId) conditions.push({ userId: safeUUIDConversion(userId) });
       if (forClient !== undefined) conditions.push({ fromClient: !forClient });
       conditions.push({ isRead: false });
-      const [result] = await prisma.message.count({ where: { AND: conditions } });
-      return Number(result);
+      const result = await pool.query(
+        'SELECT COUNT(*) FROM messages WHERE ' + conditions.map(condition => Object.keys(condition).map(key => `${key} = ${condition[key]}`).join(' AND ')).join(' OR '),
+        conditions.map(condition => Object.values(condition))
+      );
+      return Number(result.rows[0].count);
     } catch (error) {
       console.error("Error getting unread messages:", error);
       return 0;
@@ -1296,30 +1328,27 @@ export class DatabaseStorage implements IStorage {
 
   // Bir danışan için son mesajı getir
   async getLastMessageByClient(clientId: number, userId: string): Promise<Message | undefined> {
-    const [lastMessage] = await prisma.message.findMany({
-      where: { client_id: clientId },
-      orderBy: { createdAt: 'desc' },
-      take: 1
-    });
-    
-    return lastMessage;
+    const result = await pool.query(
+      'SELECT * FROM messages WHERE client_id = $1 ORDER BY createdAt DESC LIMIT 1',
+      [clientId]
+    );
+    return result.rows[0];
   }
 
   // Tüm danışanlar için son mesajları getir
   async getLastMessagesForAllClients(userId: string): Promise<any[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      return await prisma.message.findMany({
-        select: {
-          client_id: true,
-          content: true,
-          createdAt: true,
-          isRead: true
-        },
-        where: { userId: validUserId },
-        orderBy: { createdAt: 'desc' },
-        groupBy: { client_id, content, createdAt, isRead }
-      });
+      const result = await pool.query(
+        'SELECT client_id, content, createdAt, isRead FROM messages WHERE userId = $1 ORDER BY createdAt DESC',
+        [validUserId]
+      );
+      return result.rows.map(message => ({
+        client_id: message.client_id,
+        content: message.content,
+        createdAt: message.createdAt.toISOString(),
+        isRead: message.isRead
+      }));
     } catch (error) {
       console.error('Error getting last messages for all clients:', error);
       throw error;
@@ -1329,10 +1358,10 @@ export class DatabaseStorage implements IStorage {
   // Birden fazla mesajı okundu olarak işaretle
   async markMultipleMessagesAsRead(messageIds: number[]): Promise<boolean> {
     try {
-      await prisma.message.updateMany({
-        where: { id: { in: messageIds } },
-        data: { isRead: true }
-      });
+      await pool.query(
+        'UPDATE messages SET isRead = $1 WHERE id = ANY($2)',
+        [true, messageIds]
+      );
       return true;
     } catch (error) {
       console.error("Multiple messages marking error:", error);
@@ -1344,12 +1373,10 @@ export class DatabaseStorage implements IStorage {
   async deleteAllMessages(clientId: number, userId: string): Promise<boolean> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await prisma.message.deleteMany({
-        where: {
-          client_id: clientId,
-          userId: validUserId
-        }
-      });
+      await pool.query(
+        'DELETE FROM messages WHERE client_id = $1 AND userId = $2',
+        [clientId, validUserId]
+      );
       return true;
     } catch (error) {
       console.error('Error deleting messages:', error);
@@ -1359,42 +1386,65 @@ export class DatabaseStorage implements IStorage {
 
   // Notification operations
   async getNotification(id: number): Promise<Notification | undefined> {
-    const [notification] = await prisma.notification.findMany({ where: { id } });
-    return notification;
+    const result = await pool.query(
+      'SELECT * FROM notifications WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    return result.rows[0];
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [newNotification] = await prisma.notification.create({
-      data: {
-        ...notification,
-        createdAt: new Date()
-      }
-    }).returning();
-    return newNotification;
+    const result = await pool.query(
+      'INSERT INTO notifications (userId, client_id, title, content, type, relatedId, isRead, scheduledFor, createdAt) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [
+        notification.userId,
+        notification.client_id,
+        notification.title,
+        notification.content,
+        notification.type,
+        notification.relatedId,
+        notification.isRead,
+        notification.scheduledFor,
+        new Date()
+      ]
+    );
+    return result.rows[0];
   }
 
   async updateNotification(id: number, notification: Partial<Notification>): Promise<Notification> {
-    const [updatedNotification] = await prisma.notification.update({
-      where: { id },
-      data: notification
-    }).returning();
-    return updatedNotification;
+    const result = await pool.query(
+      'UPDATE notifications SET userId = $1, client_id = $2, title = $3, content = $4, type = $5, relatedId = $6, isRead = $7, scheduledFor = $8, updatedAt = $9 WHERE id = $10 RETURNING *',
+      [
+        notification.userId,
+        notification.client_id,
+        notification.title,
+        notification.content,
+        notification.type,
+        notification.relatedId,
+        notification.isRead,
+        notification.scheduledFor,
+        new Date(),
+        id
+      ]
+    );
+    return result.rows[0];
   }
 
   async deleteNotification(id: number): Promise<void> {
-    await prisma.notification.delete({ where: { id } });
+    await pool.query(
+      'DELETE FROM notifications WHERE id = $1',
+      [id]
+    );
   }
 
   async getUserNotifications(userId: string, limit?: number, offset?: number): Promise<Notification[]> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const query = prisma.notification.findMany({
-        where: { userId: validUserId },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset
-      });
-      return query;
+      const result = await pool.query(
+        'SELECT * FROM notifications WHERE userId = $1 ORDER BY createdAt DESC LIMIT $2 OFFSET $3',
+        [validUserId, limit, offset]
+      );
+      return result.rows;
     } catch (error) {
       console.error('Error getting user notifications:', error);
       throw error;
@@ -1402,8 +1452,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNotificationById(id: number): Promise<Notification | undefined> {
-    const [notification] = await prisma.notification.findMany({ where: { id } });
-    return notification;
+    const result = await pool.query(
+      'SELECT * FROM notifications WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    return result.rows[0];
   }
 
   async getNotificationsByUserId(userId: string, options?: NotificationOptions): Promise<Notification[]> {
@@ -1415,14 +1468,12 @@ export class DatabaseStorage implements IStorage {
         { isRead: options?.isRead }
       ];
 
-      const query = prisma.notification.findMany({
-        where: { AND: conditions },
-        orderBy: { createdAt: 'desc' },
-        take: options?.limit,
-        skip: options?.offset
-      });
+      const result = await pool.query(
+        'SELECT * FROM notifications WHERE userId = $1 AND type = $2 AND isRead = $3 ORDER BY createdAt DESC LIMIT $4 OFFSET $5',
+        [validUserId, options?.type, options?.isRead, options?.limit, options?.offset]
+      );
 
-      return query;
+      return result.rows;
     } catch (error) {
       console.error('Error getting notifications by user ID:', error);
       throw error;
@@ -1432,13 +1483,11 @@ export class DatabaseStorage implements IStorage {
   async getUnreadNotificationCount(userId: string): Promise<number> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      const result = await prisma.notification.count({
-        where: {
-          userId: validUserId,
-          isRead: false
-        }
-      });
-      return Number(result);
+      const result = await pool.query(
+        'SELECT COUNT(*) FROM notifications WHERE userId = $1 AND isRead = $2',
+        [validUserId, false]
+      );
+      return Number(result.rows[0].count);
     } catch (error) {
       console.error('Error getting unread notification count:', error);
       throw error;
@@ -1446,20 +1495,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markNotificationAsRead(id: number): Promise<Notification> {
-    const [updatedNotification] = await prisma.notification.update({
-      where: { id },
-      data: { isRead: true }
-    }).returning();
-    return updatedNotification;
+    const result = await pool.query(
+      'UPDATE notifications SET isRead = $1 WHERE id = $2 RETURNING *',
+      [true, id]
+    );
+    return result.rows[0];
   }
 
   async markAllNotificationsAsRead(userId: string): Promise<void> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await prisma.notification.updateMany({
-        where: { userId: validUserId },
-        data: { isRead: true }
-      });
+      await pool.query(
+        'UPDATE notifications SET isRead = $1 WHERE userId = $2',
+        [true, validUserId]
+      );
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       throw error;
@@ -1469,7 +1518,10 @@ export class DatabaseStorage implements IStorage {
   async deleteAllNotifications(userId: string): Promise<void> {
     try {
       const validUserId = safeUUIDConversion(userId);
-      await prisma.notification.deleteMany({ where: { userId: validUserId } });
+      await pool.query(
+        'DELETE FROM notifications WHERE userId = $1',
+        [validUserId]
+      );
     } catch (error) {
       console.error('Error deleting all notifications:', error);
       throw error;
@@ -1479,12 +1531,11 @@ export class DatabaseStorage implements IStorage {
   // Bir danışanın son ölçümünü getir
   async getLastMeasurement(clientId: number): Promise<Measurement | undefined> {
     try {
-      const [measurement] = await prisma.measurement.findMany({
-        where: { client_id: clientId },
-        orderBy: { date: 'desc' },
-        take: 1
-      });
-      return measurement;
+      const result = await pool.query(
+        'SELECT * FROM measurements WHERE client_id = $1 ORDER BY date DESC LIMIT 1',
+        [clientId]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error("Error fetching last measurement:", error);
       return undefined;
@@ -1494,10 +1545,31 @@ export class DatabaseStorage implements IStorage {
   // Bir danışanın tüm ölçümlerini getir
   async getMeasurements(clientId: number): Promise<Measurement[]> {
     try {
-      return await prisma.measurement.findMany({
-        where: { client_id: clientId },
-        orderBy: { date: 'desc' }
-      });
+      const result = await pool.query(
+        'SELECT * FROM measurements WHERE client_id = $1 ORDER BY date DESC',
+        [clientId]
+      );
+      return result.rows.map(measurement => ({
+        id: measurement.id,
+        date: measurement.date.toISOString(),
+        height: measurement.height?.toString() || "0",
+        weight: measurement.weight?.toString() || "0",
+        bmi: measurement.bmi?.toString() || null,
+        bodyFatPercentage: measurement.bodyFatPercentage?.toString() || null,
+        waistCircumference: measurement.waistCircumference?.toString() || null,
+        hipCircumference: measurement.hipCircumference?.toString() || null,
+        chestCircumference: measurement.chestCircumference?.toString() || null,
+        armCircumference: measurement.armCircumference?.toString() || null,
+        thighCircumference: measurement.thighCircumference?.toString() || null,
+        calfCircumference: measurement.calfCircumference?.toString() || null,
+        basalMetabolicRate: measurement.basalMetabolicRate?.toString() || null,
+        totalDailyEnergyExpenditure: measurement.totalDailyEnergyExpenditure?.toString() || null,
+        activityLevel: measurement.activityLevel,
+        clientId: measurement.client_id,
+        notes: null,
+        createdAt: measurement.created_at,
+        updatedAt: measurement.updated_at
+      }));
     } catch (error) {
       console.error("Error fetching measurements:", error);
       return [];
@@ -1508,14 +1580,9 @@ export class DatabaseStorage implements IStorage {
   async getAppointments(clientId?: number): Promise<Appointment[]> {
     try {
       if (clientId) {
-        return await prisma.appointment.findMany({
-          where: { client_id: clientId },
-          orderBy: { date: 'desc' }
-        });
+        return await this.getClientAppointments(clientId);
       } else {
-        return await prisma.appointment.findMany({
-          orderBy: { date: 'desc' }
-        });
+        return await this.getUserAppointments(safeUUIDConversion(clientId), undefined, undefined);
       }
     } catch (error) {
       console.error("Error fetching appointments:", error);
@@ -1550,39 +1617,37 @@ export class DatabaseStorage implements IStorage {
 
   // Çoklu notlar: bir danışanın tüm notlarını getir
   async getClientNotes(clientId: number): Promise<any[]> {
-    return await prisma.clientNote.findMany({
-      where: { client_id: clientId },
-      orderBy: { created_at: 'desc' }
-    });
+    const result = await pool.query(
+      'SELECT * FROM clientNotes WHERE client_id = $1 ORDER BY created_at DESC',
+      [clientId]
+    );
+    return result.rows;
   }
 
   // Çoklu notlar: yeni not ekle
   async addClientNote(clientId: number, userId: string, content: string): Promise<any> {
-    const [note] = await prisma.clientNote.create({
-      data: {
-        client_id: clientId,
-        user_id: userId,
-        content,
-        created_at: new Date()
-      }
-    }).returning();
-    return note;
+    const result = await pool.query(
+      'INSERT INTO clientNotes (client_id, user_id, content, created_at) VALUES ($1, $2, $3, $4) RETURNING *',
+      [clientId, userId, content, new Date()]
+    );
+    return result.rows[0];
   }
 
   // Çoklu notlar: not sil
   async deleteClientNote(noteId: number): Promise<void> {
-    await prisma.clientNote.delete({ where: { id: noteId } });
+    await pool.query(
+      'DELETE FROM clientNotes WHERE id = $1',
+      [noteId]
+    );
   }
 
   // Session operations
   async createSession(userId: string, token: string, expires: Date): Promise<void> {
     try {
-      await db.insert(sessions).values({
-        user_id: userId,
-        token: token,
-        expires: expires,
-        created_at: new Date()
-      });
+      await pool.query(
+        'INSERT INTO sessions (user_id, token, expires, created_at) VALUES ($1, $2, $3, $4)',
+        [userId, token, expires, new Date()]
+      );
     } catch (error) {
       console.error('Error creating session:', error);
       throw error;
@@ -1591,11 +1656,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSession(token: string): Promise<any> {
     try {
-      const [session] = await db.select()
-        .from(sessions)
-        .where(eq(sessions.token, token))
-        .leftJoin(users, eq(sessions.user_id, users.id));
-      return session;
+      const result = await pool.query(
+        'SELECT s.*, u.* FROM sessions s LEFT JOIN users u ON s.user_id = u.id WHERE s.token = $1 LIMIT 1',
+        [token]
+      );
+      return result.rows[0];
     } catch (error) {
       console.error('Error getting session:', error);
       throw error;
@@ -1604,7 +1669,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSession(token: string): Promise<void> {
     try {
-      await db.delete(sessions).where(eq(sessions.token, token));
+      await pool.query(
+        'DELETE FROM sessions WHERE token = $1',
+        [token]
+      );
     } catch (error) {
       console.error('Error deleting session:', error);
       throw error;
@@ -1612,8 +1680,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteExpiredSessions(): Promise<void> {
-    await db.delete(sessions).where(
-      sql`${sessions.expires} < NOW()`
+    await pool.query(
+      'DELETE FROM sessions WHERE expires < NOW()'
     );
   }
 }
@@ -1629,11 +1697,21 @@ export async function createNotification(data: Omit<Notification, "id" | "create
       throw new Error('User ID is required');
     }
     const validUserId = safeUUIDConversion(data.userId);
-    const [notification] = await prisma.notification.create({
-      data: { ...data, userId: validUserId },
-      returning: true
-    });
-    return notification;
+    const result = await pool.query(
+      'INSERT INTO notifications (userId, client_id, title, content, type, relatedId, isRead, scheduledFor, createdAt) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [
+        validUserId,
+        data.client_id,
+        data.title,
+        data.content,
+        data.type,
+        data.relatedId,
+        data.isRead,
+        data.scheduledFor,
+        new Date()
+      ]
+    );
+    return result.rows[0];
   } catch (error) {
     console.error('Error creating notification:', error);
     throw error;

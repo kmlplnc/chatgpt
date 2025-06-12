@@ -3,8 +3,14 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { fromZodError } from "zod-validation-error";
 import { isValidUUID } from "../utils/uuid-validator";
+import { Router } from 'express';
+import { db } from '../db';
+import { notifications } from '../schema';
+import { eq } from 'drizzle-orm';
+import { broadcastNotification } from '../websocket';
 
 const router = express.Router();
+const notificationsRouter = Router();
 
 // Notification types
 export enum NotificationType {
@@ -166,6 +172,121 @@ router.get("/user/:userId", requireAuth, async (req: Request, res: Response) => 
   } catch (error) {
     console.error("Error fetching notifications:", error);
     res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
+
+// Get all notifications for a user
+notificationsRouter.get('/', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const userNotifications = await db.query.notifications.findMany({
+      where: eq(notifications.userId, req.session.user.id),
+      orderBy: (notifications, { desc }) => [desc(notifications.createdAt)]
+    });
+
+    res.json(userNotifications);
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ message: 'Failed to fetch notifications' });
+  }
+});
+
+// Mark a notification as read
+notificationsRouter.patch('/:id/read', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const [updatedNotification] = await db.update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, req.params.id))
+      .returning();
+
+    if (!updatedNotification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    res.json(updatedNotification);
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ message: 'Failed to update notification' });
+  }
+});
+
+// Mark all notifications as read
+notificationsRouter.patch('/read-all', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    await db.update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.userId, req.session.user.id));
+
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({ message: 'Failed to update notifications' });
+  }
+});
+
+// Delete a notification
+notificationsRouter.delete('/:id', async (req, res) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const [deletedNotification] = await db.delete(notifications)
+      .where(eq(notifications.id, req.params.id))
+      .returning();
+
+    if (!deletedNotification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    res.json({ message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({ message: 'Failed to delete notification' });
+  }
+});
+
+// Create a notification (admin only)
+notificationsRouter.post('/', async (req, res) => {
+  try {
+    if (!req.session?.user?.id || req.session.user.role !== 'admin') {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const { userId, title, message, type } = req.body;
+
+    if (!userId || !title || !message || !type) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const [notification] = await db.insert(notifications)
+      .values({
+        userId,
+        title,
+        message,
+        type,
+        read: false
+      })
+      .returning();
+
+    // Broadcast notification to connected clients
+    broadcastNotification(userId, notification);
+
+    res.status(201).json(notification);
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    res.status(500).json({ message: 'Failed to create notification' });
   }
 });
 
