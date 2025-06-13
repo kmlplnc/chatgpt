@@ -41,7 +41,11 @@ cd dietkem
 npm install
 ```
 
-3. Create a `.env` file in the root directory with the following variables:
+3. Copy `.env.example` to `.env` and update the variables as needed:
+```bash
+cp .env.example .env
+```
+The `.env` file should contain the following variables:
 ```env
 # Database Configuration
 DB_HOST=localhost
