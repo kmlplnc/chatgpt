@@ -4,8 +4,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Debug logs
-console.log("Password:", process.env.DB_PASSWORD);
-console.log("Type:", typeof process.env.DB_PASSWORD);
+// console.log("Password:", process.env.DB_PASSWORD);
+// console.log("Type:", typeof process.env.DB_PASSWORD);
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
