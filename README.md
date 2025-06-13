@@ -100,6 +100,16 @@ npm run build
 npm start
 ```
 
+## Docker
+
+Build the Docker image and start the services using `docker-compose`:
+
+```bash
+docker-compose up --build
+```
+
+The application will be available at `http://localhost:5000`.
+
 ## API Documentation
 
 ### Authentication
