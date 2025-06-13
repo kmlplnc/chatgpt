@@ -50,7 +50,22 @@ export const logError = (error: unknown, context?: string) => {
   // Burada hata loglarını bir servise gönderebilir veya dosyaya yazabilirsiniz
   console.error('Error Log:', errorLog);
   
-  // TODO: Hata loglarını bir servise gönder (örn: Sentry, LogRocket vb.)
+  if (process.env.ENABLE_SENTRY === 'true') {
+    import('@sentry/node')
+      .then((Sentry) => {
+        if (!Sentry.getCurrentHub().getClient()) {
+          Sentry.init({ dsn: process.env.SENTRY_DSN });
+        }
+        if (error instanceof Error) {
+          Sentry.captureException(error);
+        } else {
+          Sentry.captureMessage(JSON.stringify(error));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to send error to Sentry:', err);
+      });
+  }
 };
 
 export const createErrorHandler = (context: string) => {
