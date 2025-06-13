@@ -28,7 +28,6 @@ import { hashPassword } from "./utils/password-utils";
 import userRouter from './routes/user';
 import express from 'express';
 import * as dotenv from 'dotenv';
-import { generateDietPlan } from './src/routes/diet-plans';
 import geminiRouter from './routes/gemini';
 
 dotenv.config();
@@ -470,7 +469,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // });
 
   // Gemini AI ile diyet planı oluşturma (auth olmadan!)
-  app.post('/api/generate/diet-plan', generateDietPlan);
 
   // Admin routes
   app.get("/api/admin/users", requireAuth, async (req, res) => {
