@@ -9,11 +9,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["./shared/*"]
     }
   },
   "include": ["server/**/*", "shared/**/*"],
-  "exclude": ["node_modules", "dist", "client"]
+  "exclude": ["node_modules", "dist", "client", "shared/hooks"]
 } 
